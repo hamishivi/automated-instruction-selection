@@ -75,8 +75,8 @@ if args.computed_distances is None or not os.path.exists(args.computed_distances
         for dataset_name in tqdm(datasets_of_interest):
             instances = text_data[dataset_name]
             for instance in tqdm(instances):
-                inputs = tokenizer.encode(instance["input"], return_tensors="pt").cuda()
-                targets = tokenizer.encode(instance["target"], return_tensors="pt").cuda()
+                inputs = tokenizer.encode(instance["input"], truncation=True, return_tensors="pt").cuda()
+                targets = tokenizer.encode(instance["target"], truncation=True, return_tensors="pt").cuda()
                 model_outputs = model(input_ids=inputs, labels=targets, return_dict=True)
                 loss = model_outputs['loss']
                 loss.backward(inputs=[p for n, p in parameters_of_interest])
