@@ -5,3 +5,8 @@ transformers==4.18
 scikit-learn==1.0.2
 numba==0.56.4
 fastdist==1.1.4
+torch==1.13.1
+datasets
+rouge_score
+evaluate
+nltk
