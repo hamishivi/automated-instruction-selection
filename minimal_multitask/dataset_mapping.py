@@ -3,7 +3,9 @@ Mapping_P3_prompt_names_to:
 __underlying_dataset
 __task_(!=_underlying_dataset,_since_some_prompts_change_the_nature_of_the_task,_e.g._generate_the_question_based_on_the_answer_instead_of_vice_versa.)
 """
-PROMPT_MAPPING = {
+from typing import Dict, Tuple, List
+
+PROMPT_MAPPING: Dict[str, Tuple[str, str]] = {
     "adversarial_qa_dbert_answer_the_following_q": ("adversarial_qa_answer", "adversarial_qa"),
     "adversarial_qa_dbert_based_on": ("adversarial_qa_answer", "adversarial_qa"),
     "adversarial_qa_dbert_generate_question": (
@@ -360,13 +362,13 @@ PROMPT_MAPPING = {
 
 # these dictionaries may be useful, so we define them here
 
-TASK_TO_PROMPTS = {}
+TASK_TO_PROMPTS: Dict[str, List[str]] = {}
 for k, v in PROMPT_MAPPING.items():
     if v[0] not in TASK_TO_PROMPTS:
         TASK_TO_PROMPTS[v[0]] = []
     TASK_TO_PROMPTS[v[0]].append(k)
 
-DATASET_TO_PROMPTS = {}
+DATASET_TO_PROMPTS: Dict[str, List[str]] = {}
 for k, v in PROMPT_MAPPING.items():
     if v[1] not in DATASET_TO_PROMPTS:
         DATASET_TO_PROMPTS[v[1]] = []

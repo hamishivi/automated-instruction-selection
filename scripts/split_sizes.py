@@ -2229,13 +2229,15 @@ DATA_SPLITS_SIZES = {
 }
 
 if __name__ == "__main__":
-    dataset_list = [l.strip() for l in open("data/datasets.txt", "r")]
+    from typing import Dict
+
+    dataset_list = [line.strip() for line in open("data/datasets.txt", "r")]
     train_sizes = [DATA_SPLITS_SIZES[d]["train"] for d in dataset_list]
     # create sums
-    prefixes = [l.strip() for l in open("data/dataset_prefixes.txt", "r")]
+    prefixes = [line.strip() for line in open("data/dataset_prefixes.txt", "r")]
     from collections import defaultdict
 
-    prefix_sizes = defaultdict(int)
+    prefix_sizes: Dict[str, int] = defaultdict(int)
     for ds, size in zip(dataset_list, train_sizes):
         for prefix in prefixes:
             if prefix.lower() in ds.lower():

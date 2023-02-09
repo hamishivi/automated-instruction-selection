@@ -1,13 +1,11 @@
-from typing import Any, Dict, List, Optional, Tuple, Union, Callable
+from typing import Dict, List, Optional
 import time
 import math
 
-import torch
-from torch import nn
 from torch.utils.data import Dataset, DataLoader
 
-from transformers import Seq2SeqTrainer, is_datasets_available, EvalPrediction
-from transformers.trainer_utils import speed_metrics, PredictionOutput
+from transformers import Seq2SeqTrainer, is_datasets_available, TrainerControl
+from transformers.trainer_utils import speed_metrics
 import datasets
 
 
@@ -16,7 +14,7 @@ class MultiEvalSeq2SeqTrainer(Seq2SeqTrainer):
         self,
         *,
         eval_datasets: Optional[List[Dataset]] = None,
-        eval_dataset_names: Optional[List[str]] = None,
+        eval_dataset_names: List[str] = None,
         **kwargs
     ):
         super().__init__(**kwargs)
@@ -31,8 +29,9 @@ class MultiEvalSeq2SeqTrainer(Seq2SeqTrainer):
 
         Args:
             eval_dataset (`torch.utils.data.Dataset`, *optional*):
-                If provided, will override `self.eval_dataset`. If it is an `datasets.Dataset`, columns not accepted by
-                the `model.forward()` method are automatically removed. It must implement `__len__`.
+                If provided, will override `self.eval_dataset`. If it is an `datasets.Dataset`,
+                columns not accepted by the `model.forward()` method are automatically removed.
+                It must implement `__len__`.
         """
         if eval_datasets is None and self.eval_dataset is None:
             raise ValueError("Trainer: evaluation requires an eval_dataset.")
@@ -75,35 +74,44 @@ class MultiEvalSeq2SeqTrainer(Seq2SeqTrainer):
         """
         Run evaluation and returns metrics.
 
-        The calling script will be responsible for providing a method to compute metrics, as they are task-dependent
+        The calling script will be responsible for providing
+        a method to compute metrics, as they are task-dependent
         (pass it to the init `compute_metrics` argument).
 
         You can also subclass and override this method to inject custom behavior.
 
         Args:
             eval_datasets (`Dataset`, *optional*):
-                Pass a dataset if you wish to override `self.eval_dataset`. If it is an `datasets.Dataset`, columns not
-                accepted by the `model.forward()` method are automatically removed. It must implement the `__len__`
-                method.
+                Pass a dataset if you wish to override `self.eval_dataset`.
+                If it is an `datasets.Dataset`, columns not
+                accepted by the `model.forward()` method are automatically removed.
+                It must implement the `__len__` method.
             ignore_keys (`List[str]`, *optional*):
-                A list of keys in the output of your model (if it is a dictionary) that should be ignored when
-                gathering predictions.
+                A list of keys in the output of your model (if it is a dictionary)
+                that should be ignored when gathering predictions.
             metric_key_prefix (`str`, *optional*, defaults to `"eval"`):
-                An optional prefix to be used as the metrics key prefix. For example the metrics "bleu" will be named
-                "eval_bleu" if the prefix is `"eval"` (default)
+                An optional prefix to be used as the metrics key prefix.
+                For example the metrics "bleu" will be named "eval_bleu" if
+                the prefix is `"eval"` (default)
             max_length (`int`, *optional*):
-                The maximum target length to use when predicting with the generate method.
+                The maximum target length to use when predicting with the
+                generate method.
             num_beams (`int`, *optional*):
-                Number of beams for beam search that will be used when predicting with the generate method. 1 means no
-                beam search.
+                Number of beams for beam search that will be used when predicting
+                with the generate method. 1 means no beam search.
 
         Returns:
-            A dictionary containing the evaluation loss and the potential metrics computed from the predictions. The
-            dictionary also contains the epoch number which comes from the training state.
+            A dictionary containing the evaluation loss and the potential metrics
+            computed from the predictions. The dictionary also contains the epoch
+            number which comes from the training state.
         """
         self._max_length = max_length if max_length is not None else self.args.generation_max_length
         self._num_beams = num_beams if num_beams is not None else self.args.generation_num_beams
         self._memory_tracker.start()
+
+        assert (
+            self.eval_dataset_names is not None
+        ), "Must have eval dataset names to do proper eval."
 
         eval_dataloaders = self.get_eval_dataloaders(eval_datasets)
         start_time = time.time()
@@ -140,7 +148,7 @@ class MultiEvalSeq2SeqTrainer(Seq2SeqTrainer):
 
         self.log(output_metrics)
 
-        self.control = self.callback_handler.on_evaluate(
+        self.control: TrainerControl = self.callback_handler.on_evaluate(
             self.args, self.state, self.control, output.metrics
         )
 

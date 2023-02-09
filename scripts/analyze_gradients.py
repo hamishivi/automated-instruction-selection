@@ -1,3 +1,4 @@
+from typing import Dict, Any
 import gzip
 import argparse
 import os
@@ -46,16 +47,18 @@ args = parser.parse_args()
 
 
 datasets_of_interest = [x.strip() for x in open(args.datasets)]
+
 if args.computed_distances is None or not os.path.exists(args.computed_distances):
     if args.computed_gradients is None or not os.path.exists(args.computed_gradients):
         print("Reading P3 data")
         p3_data_filename = args.p3_data
         p3_dataset_indices_filename = args.p3_indices
-        text_data = {x: [] for x in datasets_of_interest}
+        text_data: Dict[str, Any] = {x: [] for x in datasets_of_interest}
         p3_data_ptr = gzip.open(p3_data_filename, "rt")
         p3_indices_ptr = gzip.open(p3_dataset_indices_filename, "rt")
         for data_line, dataset_indices_line in tqdm(zip(p3_data_ptr, p3_indices_ptr)):
-            # P3 dataset names also have prompt template IDs concatenated to them. We want the logic to work even if the ``dataset_of_interest``
+            # P3 dataset names also have prompt template IDs concatenated to them.
+            # We want the logic to work even if the ``dataset_of_interest``
             # list does not have those prompt template IDs.
             dataset_name_with_prompt = dataset_indices_line.split("\t")[0]
             dataset_name = None
@@ -92,6 +95,9 @@ if args.computed_distances is None or not os.path.exists(args.computed_distances
 
         all_dataset_gradients = []
         for dataset_name in tqdm(datasets_of_interest):
+            # to stop mypy yelling.
+            if dataset_name is None:
+                continue
             instances = text_data[dataset_name]
             for instance in tqdm(instances):
                 inputs = tokenizer.encode(

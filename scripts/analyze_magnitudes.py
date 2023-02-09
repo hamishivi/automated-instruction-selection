@@ -1,16 +1,12 @@
 """
 Doing the magnitude calculations similar to the 'text-to-text learner task conflict' paper
 """
-import gzip
+from typing import Dict, Any
 import argparse
 import os
-import pickle
 import json
 from tqdm import tqdm
-import numpy
 import torch
-from sklearn.decomposition import PCA
-from fastdist import fastdist
 from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 import numpy as np
 
@@ -61,7 +57,7 @@ if args.computed_distances is None or not os.path.exists(args.computed_distances
     print("Reading P3 data")
     p3_data_filename = args.p3_data
     p3_dataset_indices_filename = args.p3_indices
-    text_data = {x: [] for x in prompts_of_interest}
+    text_data: Dict[str, Any] = {x: [] for x in prompts_of_interest}
     p3_data_ptr = open(p3_data_filename, "rt")
     p3_indices_ptr = open(p3_dataset_indices_filename, "rt")
     for data_line, dataset_indices_line in tqdm(zip(p3_data_ptr, p3_indices_ptr)):
@@ -92,7 +88,7 @@ if args.computed_distances is None or not os.path.exists(args.computed_distances
     print(f"Computing gradients on {args.model}")
     # print(f"Computing gradients only on {args.encoder_block_name} and the final layer norm weight")
 
-    all_task_gradients = {}
+    all_task_gradients: Dict[str, Any] = {}
     for dataset_name in tqdm(prompts_of_interest):
         dataset_prefix = prompt_2_dataset[dataset_name]
         instances = text_data[dataset_name]

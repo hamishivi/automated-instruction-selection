@@ -1,4 +1,4 @@
-from typing import Optional, List
+from typing import Optional, List, Dict
 
 from dataclasses import dataclass, field
 from datasets import load_dataset, interleave_datasets, concatenate_datasets
@@ -13,7 +13,6 @@ import numpy as np
 import evaluate
 import nltk
 import json
-import argparse
 
 from multi_eval_seq2seq_trainer import MultiEvalSeq2SeqTrainer
 from dataset_mapping import TASK_TO_PROMPTS
@@ -107,6 +106,7 @@ for task in eval_tasks:
         eval_datasets.append(ds)
         eval_dataset_names.append(prompt)
 
+
 # we have to remap the dataset to what t5 expects
 # inputs -> input_ids
 # targets -> labels
@@ -166,7 +166,7 @@ print("Evaluating model!")
 metrics = trainer.evaluate(eval_datasets=eval_datasets)
 
 print("Postprocessing evaluation metrics!")
-counts = {}
+counts: Dict[str, int] = {}
 averaged_metrics = {}
 # final postprocessing: average across prompts from the same task, weighted by size.
 for task in eval_tasks:
@@ -177,7 +177,7 @@ for task in eval_tasks:
                 metric_name = metric.split(".")[-1]
                 value = metrics[metric]
                 averaged_metrics[f"{task}.{metric}"] = metrics.get(f"{task}.{metric}", 0) + value
-                counts = counts.get(f"{task}.{metric}", 0)
+                counts[f"{task}.{metric}"] = counts.get(f"{task}.{metric}", 0) + 1
 
 metrics.update(averaged_metrics)
 
