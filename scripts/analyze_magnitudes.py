@@ -1,15 +1,15 @@
 """
 Doing the magnitude calculations similar to the 'text-to-text learner task conflict' paper
 """
-from typing import Dict, Any
 import argparse
-import os
 import json
-from tqdm import tqdm
-import torch
-from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
-import numpy as np
+import os
+from typing import Any, Dict
 
+import numpy as np
+import torch
+from tqdm import tqdm
+from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
 
 parser = argparse.ArgumentParser()
 parser.add_argument(

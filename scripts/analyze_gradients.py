@@ -1,16 +1,16 @@
-from typing import Dict, Any
-import gzip
 import argparse
+import gzip
+import json
 import os
 import pickle
-import json
-from tqdm import tqdm
+from typing import Any, Dict
+
 import numpy
 import torch
-from sklearn.decomposition import PCA
 from fastdist import fastdist
-from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
-
+from sklearn.decomposition import PCA
+from tqdm import tqdm
+from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
 
 parser = argparse.ArgumentParser()
 parser.add_argument(

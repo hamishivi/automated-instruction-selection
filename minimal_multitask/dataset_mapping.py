@@ -3,7 +3,7 @@ Mapping_P3_prompt_names_to:
 __underlying_dataset
 __task_(!=_underlying_dataset,_since_some_prompts_change_the_nature_of_the_task,_e.g._generate_the_question_based_on_the_answer_instead_of_vice_versa.)
 """
-from typing import Dict, Tuple, List
+from typing import Dict, List, Tuple
 
 PROMPT_MAPPING: Dict[str, Tuple[str, str]] = {
     "adversarial_qa_dbert_answer_the_following_q": ("adversarial_qa_answer", "adversarial_qa"),

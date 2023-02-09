@@ -1,21 +1,20 @@
-from typing import Optional, List, Dict
-
+import json
 from dataclasses import dataclass, field
-from datasets import load_dataset, interleave_datasets, concatenate_datasets
-from transformers import (
-    AutoTokenizer,
-    AutoModelForSeq2SeqLM,
-    Seq2SeqTrainingArguments,
-    DataCollatorForSeq2Seq,
-    HfArgumentParser,
-)
-import numpy as np
+from typing import Dict, List, Optional
+
 import evaluate
 import nltk
-import json
-
-from multi_eval_seq2seq_trainer import MultiEvalSeq2SeqTrainer
+import numpy as np
 from dataset_mapping import TASK_TO_PROMPTS
+from datasets import concatenate_datasets, interleave_datasets, load_dataset
+from multi_eval_seq2seq_trainer import MultiEvalSeq2SeqTrainer
+from transformers import (
+    AutoModelForSeq2SeqLM,
+    AutoTokenizer,
+    DataCollatorForSeq2Seq,
+    HfArgumentParser,
+    Seq2SeqTrainingArguments,
+)
 
 
 @dataclass

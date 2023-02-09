@@ -1,12 +1,11 @@
-from typing import Dict, List, Optional
-import time
 import math
+import time
+from typing import Dict, List, Optional
 
-from torch.utils.data import Dataset, DataLoader
-
-from transformers import Seq2SeqTrainer, is_datasets_available, TrainerControl
-from transformers.trainer_utils import speed_metrics
 import datasets
+from torch.utils.data import DataLoader, Dataset
+from transformers import Seq2SeqTrainer, TrainerControl, is_datasets_available
+from transformers.trainer_utils import speed_metrics
 
 
 class MultiEvalSeq2SeqTrainer(Seq2SeqTrainer):
