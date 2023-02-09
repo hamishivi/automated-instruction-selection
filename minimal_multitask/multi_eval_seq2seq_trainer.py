@@ -117,7 +117,6 @@ class MultiEvalSeq2SeqTrainer(Seq2SeqTrainer):
 
         output_metrics = {}
         for dataset_name, eval_dataloader in zip(self.eval_dataset_names, eval_dataloaders):
-
             alt_metric_key_prefix = dataset_name + "." + metric_key_prefix
             eval_loop = (
                 self.prediction_loop
