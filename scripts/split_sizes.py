@@ -2228,16 +2228,17 @@ DATA_SPLITS_SIZES = {
     "yelp_review_full_this_place": {"test": 50000, "train": 650000},
 }
 
-if __name__ == '__main__':
-    dataset_list = [l.strip() for l in open('data/datasets.txt', 'r')]
-    train_sizes = [DATA_SPLITS_SIZES[d]['train'] for d in dataset_list]
+if __name__ == "__main__":
+    dataset_list = [l.strip() for l in open("data/datasets.txt", "r")]
+    train_sizes = [DATA_SPLITS_SIZES[d]["train"] for d in dataset_list]
     # create sums
-    prefixes = [l.strip() for l in open('data/dataset_prefixes.txt', 'r')]
+    prefixes = [l.strip() for l in open("data/dataset_prefixes.txt", "r")]
     from collections import defaultdict
+
     prefix_sizes = defaultdict(int)
     for ds, size in zip(dataset_list, train_sizes):
         for prefix in prefixes:
             if prefix.lower() in ds.lower():
                 prefix_sizes[prefix] += size
-        
+
     print(prefix_sizes)

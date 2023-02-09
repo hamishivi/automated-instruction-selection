@@ -1,22 +1,31 @@
-'''
+"""
 Mapping_P3_prompt_names_to:
 __underlying_dataset
 __task_(!=_underlying_dataset,_since_some_prompts_change_the_nature_of_the_task,_e.g._generate_the_question_based_on_the_answer_instead_of_vice_versa.)
-'''
+"""
 PROMPT_MAPPING = {
     "adversarial_qa_dbert_answer_the_following_q": ("adversarial_qa_answer", "adversarial_qa"),
     "adversarial_qa_dbert_based_on": ("adversarial_qa_answer", "adversarial_qa"),
-    "adversarial_qa_dbert_generate_question": ("adversarial_qa_generate_question", "adversarial_qa"),
+    "adversarial_qa_dbert_generate_question": (
+        "adversarial_qa_generate_question",
+        "adversarial_qa",
+    ),
     "adversarial_qa_dbert_question_context_answer": ("adversarial_qa_answer", "adversarial_qa"),
     "adversarial_qa_dbert_tell_what_it_is": ("adversarial_qa_answer", "adversarial_qa"),
     "adversarial_qa_dbidaf_answer_the_following_q": ("adversarial_qa_answer", "adversarial_qa"),
     "adversarial_qa_dbidaf_based_on": ("adversarial_qa_answer", "adversarial_qa"),
-    "adversarial_qa_dbidaf_generate_question": ("adversarial_qa_generate_question", "adversarial_qa"),
+    "adversarial_qa_dbidaf_generate_question": (
+        "adversarial_qa_generate_question",
+        "adversarial_qa",
+    ),
     "adversarial_qa_dbidaf_question_context_answer": ("adversarial_qa_answer", "adversarial_qa"),
     "adversarial_qa_dbidaf_tell_what_it_is": ("adversarial_qa_answer", "adversarial_qa"),
     "adversarial_qa_droberta_answer_the_following_q": ("adversarial_qa_answer", "adversarial_qa"),
     "adversarial_qa_droberta_based_on": ("adversarial_qa_answer", "adversarial_qa"),
-    "adversarial_qa_droberta_generate_question": ("adversarial_qa_generate_question", "adversarial_qa"),
+    "adversarial_qa_droberta_generate_question": (
+        "adversarial_qa_generate_question",
+        "adversarial_qa",
+    ),
     "adversarial_qa_droberta_question_context_answer": ("adversarial_qa_answer", "adversarial_qa"),
     "adversarial_qa_droberta_tell_what_it_is": ("adversarial_qa_answer", "adversarial_qa"),
     "ag_news_classify": ("ag_news", "ag_news"),
@@ -39,7 +48,10 @@ PROMPT_MAPPING = {
     "app_reviews_convert_to_rating": ("app_reviews_review", "app_reviews"),
     "app_reviews_convert_to_star_rating": ("app_reviews_review", "app_reviews"),
     "app_reviews_generate_review": ("app_reviews_generate", "app_reviews"),
-    "cnn_dailymail_3.0.0_2_or_3_sentences": ("cnn_dailymail_3.0.0_summarise", "cnn_dailymail_3.0.0"),
+    "cnn_dailymail_3.0.0_2_or_3_sentences": (
+        "cnn_dailymail_3.0.0_summarise",
+        "cnn_dailymail_3.0.0",
+    ),
     "cnn_dailymail_3.0.0_generate_story": ("cnn_dailymail_3.0.0_generate", "cnn_dailymail_3.0.0"),
     "cnn_dailymail_3.0.0_news_card_view": ("cnn_dailymail_3.0.0_summarise", "cnn_dailymail_3.0.0"),
     "cnn_dailymail_3.0.0_news_stock": ("cnn_dailymail_3.0.0_summarise", "cnn_dailymail_3.0.0"),
@@ -47,7 +59,10 @@ PROMPT_MAPPING = {
     "cnn_dailymail_3.0.0_spice_up_story": ("cnn_dailymail_3.0.0_generate", "cnn_dailymail_3.0.0"),
     "cnn_dailymail_3.0.0_sum_in_brief": ("cnn_dailymail_3.0.0_summarise", "cnn_dailymail_3.0.0"),
     "cnn_dailymail_3.0.0_tldr_summary": ("cnn_dailymail_3.0.0_summarise", "cnn_dailymail_3.0.0"),
-    "cnn_dailymail_3.0.0_write_an_outline": ("cnn_dailymail_3.0.0_summarise", "cnn_dailymail_3.0.0"),
+    "cnn_dailymail_3.0.0_write_an_outline": (
+        "cnn_dailymail_3.0.0_summarise",
+        "cnn_dailymail_3.0.0",
+    ),
     "common_gen_Example_prompt": ("common_gen_target", "common_gen"),
     "common_gen_Given_concepts_type_2": ("common_gen_target", "common_gen"),
     "common_gen_Given_concepts_type_1": ("common_gen_target", "common_gen"),
@@ -82,14 +97,23 @@ PROMPT_MAPPING = {
     "cosmos_qa_no_prompt_text": ("cosmos_qa_answer", "cosmos_qa"),
     "cosmos_qa_only_question_answer": ("cosmos_qa_answer", "cosmos_qa"),
     "dbpedia_14_given_a_choice_of_categories_": ("dbpedia_14_answer", "dbpedia_14"),
-    "dbpedia_14_given_a_list_of_category_what_does_the_title_belong_to": ("dbpedia_14_answer", "dbpedia_14"),
-    "dbpedia_14_given_list_what_category_does_the_paragraph_belong_to": ("dbpedia_14_answer", "dbpedia_14"),
+    "dbpedia_14_given_a_list_of_category_what_does_the_title_belong_to": (
+        "dbpedia_14_answer",
+        "dbpedia_14",
+    ),
+    "dbpedia_14_given_list_what_category_does_the_paragraph_belong_to": (
+        "dbpedia_14_answer",
+        "dbpedia_14",
+    ),
     "dbpedia_14_pick_one_category_for_the_following_text": ("dbpedia_14_answer", "dbpedia_14"),
     "dream_answer_to_dialogue": ("dream_dialogue", "dream"),
     "dream_baseline": ("dream_question_answer", "dream"),
     "dream_generate_first_utterance": ("dream_first_utterance", "dream"),
     "dream_generate_last_utterance": ("dream_last_utterance", "dream"),
-    "dream_read_the_following_conversation_and_answer_the_question": ("dream_question_answer", "dream"),
+    "dream_read_the_following_conversation_and_answer_the_question": (
+        "dream_question_answer",
+        "dream",
+    ),
     "duorc_ParaphraseRC_answer_question": ("duorc_paraphraserc_answer", "duorc"),
     "duorc_ParaphraseRC_build_story_around_qa": ("duorc_paraphraserc_plot", "duorc"),
     "duorc_ParaphraseRC_decide_worth_it": ("duorc_paraphraserc_answer", "duorc"),
@@ -153,17 +177,29 @@ PROMPT_MAPPING = {
     "multi_news_synthesize": ("multi_news_summary", "multi_news"),
     "multi_news_what_are_the_key_points": ("multi_news_summary", "multi_news"),
     "paws_labeled_final_Concatenation": ("paws_labeled_final_answer", "paws_labeled_final"),
-    "paws_labeled_final_Concatenation_no_label": ("paws_labeled_final_answer", "paws_labeled_final"),
+    "paws_labeled_final_Concatenation_no_label": (
+        "paws_labeled_final_answer",
+        "paws_labeled_final",
+    ),
     "paws_labeled_final_Meaning": ("paws_labeled_final_answer", "paws_labeled_final"),
     "paws_labeled_final_Meaning_no_label": ("paws_labeled_final_answer", "paws_labeled_final"),
     "paws_labeled_final_PAWS_ANLI_GPT3": ("paws_labeled_final_answer", "paws_labeled_final"),
-    "paws_labeled_final_PAWS_ANLI_GPT3_no_label": ("paws_labeled_final_answer", "paws_labeled_final"),
+    "paws_labeled_final_PAWS_ANLI_GPT3_no_label": (
+        "paws_labeled_final_answer",
+        "paws_labeled_final",
+    ),
     "paws_labeled_final_Rewrite": ("paws_labeled_final_answer", "paws_labeled_final"),
     "paws_labeled_final_Rewrite_no_label": ("paws_labeled_final_answer", "paws_labeled_final"),
     "paws_labeled_final_context_question": ("paws_labeled_final_answer", "paws_labeled_final"),
-    "paws_labeled_final_context_question_no_label": ("paws_labeled_final_answer", "paws_labeled_final"),
+    "paws_labeled_final_context_question_no_label": (
+        "paws_labeled_final_answer",
+        "paws_labeled_final",
+    ),
     "paws_labeled_final_paraphrase_task": ("paws_labeled_final_generate", "paws_labeled_final"),
-    "paws_labeled_final_task_description_no_label": ("paws_labeled_final_answer", "paws_labeled_final"),
+    "paws_labeled_final_task_description_no_label": (
+        "paws_labeled_final_answer",
+        "paws_labeled_final",
+    ),
     "qasc_is_correct_1": ("qasc_is_correct", "qasc"),
     "qasc_is_correct_2": ("qasc_is_correct", "qasc"),
     "qasc_qa_with_combined_facts_1": ("qasc_answer", "qasc"),
@@ -226,7 +262,10 @@ PROMPT_MAPPING = {
     "rotten_tomatoes_Reviewer_Enjoyment": ("rotten_tomatoes_answer", "rotten_tomatoes"),
     "rotten_tomatoes_Reviewer_Enjoyment_Yes_No": ("rotten_tomatoes_answer", "rotten_tomatoes"),
     "rotten_tomatoes_Reviewer_Expressed_Sentiment": ("rotten_tomatoes_answer", "rotten_tomatoes"),
-    "rotten_tomatoes_Reviewer_Opinion_bad_good_choices": ("rotten_tomatoes_answer", "rotten_tomatoes"),
+    "rotten_tomatoes_Reviewer_Opinion_bad_good_choices": (
+        "rotten_tomatoes_answer",
+        "rotten_tomatoes",
+    ),
     "rotten_tomatoes_Reviewer_Sentiment_Feeling": ("rotten_tomatoes_answer", "rotten_tomatoes"),
     "rotten_tomatoes_Sentiment_with_choices_": ("rotten_tomatoes_answer", "rotten_tomatoes"),
     "rotten_tomatoes_Text_Expressed_Sentiment": ("rotten_tomatoes_answer", "rotten_tomatoes"),
@@ -332,4 +371,3 @@ for k, v in PROMPT_MAPPING.items():
     if v[1] not in DATASET_TO_PROMPTS:
         DATASET_TO_PROMPTS[v[1]] = []
     DATASET_TO_PROMPTS[v[1]].append(k)
-

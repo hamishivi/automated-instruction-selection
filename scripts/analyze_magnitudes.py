@@ -1,6 +1,6 @@
-'''
+"""
 Doing the magnitude calculations similar to the 'text-to-text learner task conflict' paper
-'''
+"""
 import gzip
 import argparse
 import os
@@ -16,16 +16,35 @@ import numpy as np
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--prompts", type=str, help="Text file with a list of P3 prompt names (one per line) we want to analyze")
-parser.add_argument("--datasets", type=str, help="Text file with a list of P3 dataset prefixes to group the prompts by")
+parser.add_argument(
+    "--prompts",
+    type=str,
+    help="Text file with a list of P3 prompt names (one per line) we want to analyze",
+)
+parser.add_argument(
+    "--datasets",
+    type=str,
+    help="Text file with a list of P3 dataset prefixes to group the prompts by",
+)
 parser.add_argument("--p3_data", type=str, help="Gzipped P3 jsonl data file")
-parser.add_argument("--p3_indices", type=str, help="Gzipped file with dataset names corresponding to the P3 data file")
+parser.add_argument(
+    "--p3_indices",
+    type=str,
+    help="Gzipped file with dataset names corresponding to the P3 data file",
+)
 parser.add_argument("--max_instances_per_dataset", type=int, default=1000)
 parser.add_argument("--model", type=str, default="google/t5-xl-lm-adapt")
-parser.add_argument("--encoder_block_name", type=str, default="encoder.block.23.layer.1", help="Default corresponds to FF in the final Transformer layer")
+parser.add_argument(
+    "--encoder_block_name",
+    type=str,
+    default="encoder.block.23.layer.1",
+    help="Default corresponds to FF in the final Transformer layer",
+)
 parser.add_argument("--run_pca", action="store_true")
 parser.add_argument("--num_pca_components", type=int, default=100)
-parser.add_argument("--computed_distances", type=str, help="Pickle file to store computed pairwise distances")
+parser.add_argument(
+    "--computed_distances", type=str, help="Pickle file to store computed pairwise distances"
+)
 parser.add_argument("--mag_output", type=str, help="Pickle file to store computed norms")
 args = parser.parse_args()
 
@@ -61,19 +80,17 @@ if args.computed_distances is None or not os.path.exists(args.computed_distances
     p3_data_ptr.close()
     p3_indices_ptr.close()
 
-
     tokenizer = AutoTokenizer.from_pretrained(args.model)
     model = AutoModelForSeq2SeqLM.from_pretrained(args.model)
     model.cuda()
     parameters_of_interest = []
     for name, parameter in model.named_parameters():
         if name.startswith("encoder.final_layer_norm"):
-            #if 'layer_norm' in name.lower() or 'layernorm' in name.lower():
+            # if 'layer_norm' in name.lower() or 'layernorm' in name.lower():
             parameters_of_interest.append((name, parameter))
 
-
     print(f"Computing gradients on {args.model}")
-    #print(f"Computing gradients only on {args.encoder_block_name} and the final layer norm weight")
+    # print(f"Computing gradients only on {args.encoder_block_name} and the final layer norm weight")
 
     all_task_gradients = {}
     for dataset_name in tqdm(prompts_of_interest):
@@ -81,13 +98,20 @@ if args.computed_distances is None or not os.path.exists(args.computed_distances
         instances = text_data[dataset_name]
         all_task_gradients[dataset_prefix] = None
         for instance in tqdm(instances):
-            inputs = tokenizer.encode(instance["input"], return_tensors="pt", truncation=True).cuda()
+            inputs = tokenizer.encode(
+                instance["input"], return_tensors="pt", truncation=True
+            ).cuda()
             targets = tokenizer.encode(instance["target"], return_tensors="pt").cuda()
             model_outputs = model(input_ids=inputs, labels=targets, return_dict=True)
-            loss = model_outputs['loss']
+            loss = model_outputs["loss"]
             loss.backward(inputs=[p for n, p in parameters_of_interest])
 
-            gradients = torch.cat([p.grad.flatten() for _, p in parameters_of_interest]).detach().cpu().numpy()
+            gradients = (
+                torch.cat([p.grad.flatten() for _, p in parameters_of_interest])
+                .detach()
+                .cpu()
+                .numpy()
+            )
             if all_task_gradients[dataset_prefix] is None:
                 all_task_gradients[dataset_prefix] = gradients
             else:
@@ -95,7 +119,7 @@ if args.computed_distances is None or not os.path.exists(args.computed_distances
             model.zero_grad()
         # average out the task gradient
         all_task_gradients[dataset_prefix] /= args.max_instances_per_dataset
-        #all_task_gradients[dataset_name] = np.stack(all_task_gradients[dataset_name], axis=0).mean(axis=0)
+        # all_task_gradients[dataset_name] = np.stack(all_task_gradients[dataset_name], axis=0).mean(axis=0)
 
 # compute the overall average
 all_task_gradient = np.stack(all_task_gradients.values(), axis=0).mean(axis=0)
@@ -108,4 +132,3 @@ with open(args.mag_output, "w") as outfile:
         norms.append(np.linalg.norm(all_task_gradients[dataset_prefix]))
         print(f"{dataset_prefix}\t{norms[-1]}", file=outfile)
     print("Overall variance (magnitude conflict):", np.var(norms), file=outfile)
-

@@ -16,7 +16,7 @@ for task, prompts in TASK_TO_PROMPTS.items():
 
 train_split_sizes = []
 for task, splits in task_split_sizes.items():
-    train_split_sizes.append(splits['train'])
+    train_split_sizes.append(splits["train"])
 
-print(f'Min validation split size: {sorted(train_split_sizes)}')
-print (json.dumps(task_split_sizes, indent=2))
+print(f"Min validation split size: {sorted(train_split_sizes)}")
+print(json.dumps(task_split_sizes, indent=2))

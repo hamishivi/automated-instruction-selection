@@ -10,6 +10,7 @@ from transformers import Seq2SeqTrainer, is_datasets_available, EvalPrediction
 from transformers.trainer_utils import speed_metrics, PredictionOutput
 import datasets
 
+
 class MultiEvalSeq2SeqTrainer(Seq2SeqTrainer):
     def __init__(
         self,
@@ -22,7 +23,9 @@ class MultiEvalSeq2SeqTrainer(Seq2SeqTrainer):
         self.eval_datasets = eval_datasets
         self.eval_dataset_names = eval_dataset_names
 
-    def get_eval_dataloaders(self, eval_datasets: Optional[List[Dataset]] = None) -> List[DataLoader]:
+    def get_eval_dataloaders(
+        self, eval_datasets: Optional[List[Dataset]] = None
+    ) -> List[DataLoader]:
         """
         Returns a list of evaluation [`~torch.utils.data.DataLoader`].
 
@@ -39,22 +42,27 @@ class MultiEvalSeq2SeqTrainer(Seq2SeqTrainer):
             eval_datasets = [eval_datasets]
 
         if is_datasets_available() and isinstance(eval_datasets[0], datasets.Dataset):
-            eval_datasets = [self._remove_unused_columns(dataset, description="evaluation") for dataset in eval_datasets]
+            eval_datasets = [
+                self._remove_unused_columns(dataset, description="evaluation")
+                for dataset in eval_datasets
+            ]
         else:
             raise ValueError("Trainer: evaluation requires a list of eval_datasets")
 
         eval_samplers = [self._get_eval_sampler(eval_dataset) for eval_dataset in eval_datasets]
 
-        return [DataLoader(
-            eval_dataset,
-            sampler=eval_sampler,
-            batch_size=self.args.eval_batch_size,
-            collate_fn=self.data_collator,
-            drop_last=self.args.dataloader_drop_last,
-            num_workers=self.args.dataloader_num_workers,
-            pin_memory=self.args.dataloader_pin_memory,
-        ) for eval_sampler, eval_dataset in zip(eval_samplers, eval_datasets)]
-
+        return [
+            DataLoader(
+                eval_dataset,
+                sampler=eval_sampler,
+                batch_size=self.args.eval_batch_size,
+                collate_fn=self.data_collator,
+                drop_last=self.args.dataloader_drop_last,
+                num_workers=self.args.dataloader_num_workers,
+                pin_memory=self.args.dataloader_pin_memory,
+            )
+            for eval_sampler, eval_dataset in zip(eval_samplers, eval_datasets)
+        ]
 
     def evaluate(
         self,
@@ -103,8 +111,12 @@ class MultiEvalSeq2SeqTrainer(Seq2SeqTrainer):
         output_metrics = {}
         for dataset_name, eval_dataloader in zip(self.eval_dataset_names, eval_dataloaders):
 
-            alt_metric_key_prefix = dataset_name + '.' + metric_key_prefix
-            eval_loop = self.prediction_loop if self.args.use_legacy_prediction_loop else self.evaluation_loop
+            alt_metric_key_prefix = dataset_name + "." + metric_key_prefix
+            eval_loop = (
+                self.prediction_loop
+                if self.args.use_legacy_prediction_loop
+                else self.evaluation_loop
+            )
             output = eval_loop(
                 eval_dataloader,
                 description="Evaluation",
@@ -128,7 +140,9 @@ class MultiEvalSeq2SeqTrainer(Seq2SeqTrainer):
 
         self.log(output_metrics)
 
-        self.control = self.callback_handler.on_evaluate(self.args, self.state, self.control, output.metrics)
+        self.control = self.callback_handler.on_evaluate(
+            self.args, self.state, self.control, output.metrics
+        )
 
         self._memory_tracker.stop_and_update_metrics(output.metrics)
 

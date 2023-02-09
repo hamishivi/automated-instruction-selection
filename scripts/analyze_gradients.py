@@ -12,17 +12,36 @@ from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--datasets", type=str, help="Text file with a list of P3 dataset names (one per line) we want to analyze")
+parser.add_argument(
+    "--datasets",
+    type=str,
+    help="Text file with a list of P3 dataset names (one per line) we want to analyze",
+)
 parser.add_argument("--p3_data", type=str, help="Gzipped P3 jsonl data file")
-parser.add_argument("--p3_indices", type=str, help="Gzipped file with dataset names corresponding to the P3 data file")
+parser.add_argument(
+    "--p3_indices",
+    type=str,
+    help="Gzipped file with dataset names corresponding to the P3 data file",
+)
 parser.add_argument("--max_instances_per_dataset", type=int, default=1000)
 parser.add_argument("--model", type=str, default="google/t5-xl-lm-adapt")
-parser.add_argument("--encoder_block_name", type=str, default="encoder.block.23.layer.1", help="Default corresponds to FF in the final Transformer layer")
+parser.add_argument(
+    "--encoder_block_name",
+    type=str,
+    default="encoder.block.23.layer.1",
+    help="Default corresponds to FF in the final Transformer layer",
+)
 parser.add_argument("--run_pca", action="store_true")
 parser.add_argument("--num_pca_components", type=int, default=100)
-parser.add_argument("--computed_gradients", type=str, help="Pickle file to store computed gradients")
-parser.add_argument("--computed_distances", type=str, help="Pickle file to store computed pairwise distances")
-parser.add_argument("--output", type=str, help="TSV file where intra and inter dataset distances will be written")
+parser.add_argument(
+    "--computed_gradients", type=str, help="Pickle file to store computed gradients"
+)
+parser.add_argument(
+    "--computed_distances", type=str, help="Pickle file to store computed pairwise distances"
+)
+parser.add_argument(
+    "--output", type=str, help="TSV file where intra and inter dataset distances will be written"
+)
 args = parser.parse_args()
 
 
@@ -58,15 +77,15 @@ if args.computed_distances is None or not os.path.exists(args.computed_distances
         p3_data_ptr.close()
         p3_indices_ptr.close()
 
-
         tokenizer = AutoTokenizer.from_pretrained(args.model)
         model = AutoModelForSeq2SeqLM.from_pretrained(args.model)
         model.cuda()
         parameters_of_interest = []
         for name, parameter in model.named_parameters():
-            if name.startswith(args.encoder_block_name) or name.startswith("encoder.final_layer_norm"):
+            if name.startswith(args.encoder_block_name) or name.startswith(
+                "encoder.final_layer_norm"
+            ):
                 parameters_of_interest.append((name, parameter))
-
 
         print(f"Computing gradients on {args.model}")
         print(f"Computing gradients only on {[x[0] for x in parameters_of_interest]}")
@@ -75,20 +94,29 @@ if args.computed_distances is None or not os.path.exists(args.computed_distances
         for dataset_name in tqdm(datasets_of_interest):
             instances = text_data[dataset_name]
             for instance in tqdm(instances):
-                inputs = tokenizer.encode(instance["input"], truncation=True, return_tensors="pt").cuda()
-                targets = tokenizer.encode(instance["target"], truncation=True, return_tensors="pt").cuda()
+                inputs = tokenizer.encode(
+                    instance["input"], truncation=True, return_tensors="pt"
+                ).cuda()
+                targets = tokenizer.encode(
+                    instance["target"], truncation=True, return_tensors="pt"
+                ).cuda()
                 model_outputs = model(input_ids=inputs, labels=targets, return_dict=True)
-                loss = model_outputs['loss']
+                loss = model_outputs["loss"]
                 loss.backward(inputs=[p for n, p in parameters_of_interest])
 
-                gradients = torch.cat([p.grad.flatten() for _, p in parameters_of_interest]).detach().cpu().numpy()
+                gradients = (
+                    torch.cat([p.grad.flatten() for _, p in parameters_of_interest])
+                    .detach()
+                    .cpu()
+                    .numpy()
+                )
                 all_dataset_gradients.append(gradients)
                 model.zero_grad()
-            
+
         all_gradients = numpy.stack(all_dataset_gradients)
         print(f"Done computing gradients. The size of the matrix is {all_gradients.shape}")
 
-        if args.run_pca: 
+        if args.run_pca:
             print("Running PCA")
             pca = PCA(n_components=args.num_pca_components, random_state=0)
             all_gradients = pca.fit_transform(all_gradients)
@@ -114,19 +142,16 @@ else:
 
 
 dataset_index_ranges = {
-        name: (
-            i * args.max_instances_per_dataset,
-            (i + 1) * args.max_instances_per_dataset
-            )
-        for i, name in enumerate(datasets_of_interest)
-        }
+    name: (i * args.max_instances_per_dataset, (i + 1) * args.max_instances_per_dataset)
+    for i, name in enumerate(datasets_of_interest)
+}
 
 with open(args.output, "w") as outfile:
     print("Intra dataset averages", file=outfile)
     for dataset_name in datasets_of_interest:
         i, j = dataset_index_ranges[dataset_name]
         print(f"{dataset_name}\t{distances[i:j, i:j].mean()}", file=outfile)
-        
+
     print("\nInter dataset averages", file=outfile)
     print("\t".join([""] + datasets_of_interest), file=outfile)
     for dataset_name1 in datasets_of_interest:

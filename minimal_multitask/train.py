@@ -2,7 +2,13 @@ from typing import Optional, List
 
 from dataclasses import dataclass, field
 from datasets import load_dataset, interleave_datasets, concatenate_datasets
-from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, Seq2SeqTrainingArguments, DataCollatorForSeq2Seq, HfArgumentParser
+from transformers import (
+    AutoTokenizer,
+    AutoModelForSeq2SeqLM,
+    Seq2SeqTrainingArguments,
+    DataCollatorForSeq2Seq,
+    HfArgumentParser,
+)
 import numpy as np
 import evaluate
 import nltk
@@ -12,40 +18,44 @@ import argparse
 from multi_eval_seq2seq_trainer import MultiEvalSeq2SeqTrainer
 from dataset_mapping import TASK_TO_PROMPTS
 
+
 @dataclass
 class DataArguments:
     """
     Arguments about training, not covered by the seq2seq arguments
     """
+
     train_tasks: List[str] = field(
         default_factory=list,
-        metadata={"help": f"List of the tasks to train on. Tasks must be from {TASK_TO_PROMPTS.keys()}."}
+        metadata={
+            "help": f"List of the tasks to train on. Tasks must be from {TASK_TO_PROMPTS.keys()}."
+        },
     )
-    eval_tasks : List[str] = field(
+    eval_tasks: List[str] = field(
         default_factory=list,
-        metadata={"help": f"List of the tasks to evaluate on. Tasks must be from {TASK_TO_PROMPTS.keys()}."}
+        metadata={
+            "help": f"List of the tasks to evaluate on. Tasks must be from {TASK_TO_PROMPTS.keys()}."
+        },
     )
     max_samples_per_train_dataset: int = field(
         default=10000,  # 10k as our 'reasonable default'. This covers the majority of task splits.
-        metadata={"help": "Max instances to take from any train prompt."}
+        metadata={"help": "Max instances to take from any train prompt."},
     )
     max_samples_per_eval_dataset: Optional[int] = field(
-        default=-1,
-        metadata={"help": "Max instances to take from any eval prompt."}
+        default=-1, metadata={"help": "Max instances to take from any eval prompt."}
     )
     model_name: str = field(
         default="google/t5-xl-lm-adapt",
-        metadata={"help": "Name of model. Must be a AutoModelForSeq2SeqLM-compatible model."}
+        metadata={"help": "Name of model. Must be a AutoModelForSeq2SeqLM-compatible model."},
     )
     tokenizer_name: Optional[str] = field(
         default=None,
-        metadata={"help": "Name of tokenizer to use. If not given, assume same name as model."}
+        metadata={"help": "Name of tokenizer to use. If not given, assume same name as model."},
     )
     metrics_output: str = field(
         default="metrics.json",
-        metadata={"help": "Name of file to output metrics too. Default: metrics.json"}
+        metadata={"help": "Name of file to output metrics too. Default: metrics.json"},
     )
-
 
 
 parser = HfArgumentParser((Seq2SeqTrainingArguments, DataArguments))
@@ -58,7 +68,9 @@ eval_tasks = data_args.eval_tasks
 train_datasets = []
 for task in train_tasks:
     if task not in TASK_TO_PROMPTS:
-        raise ValueError(f"train task {task} not valid. Tasks must be from {TASK_TO_PROMPTS.keys()}")
+        raise ValueError(
+            f"train task {task} not valid. Tasks must be from {TASK_TO_PROMPTS.keys()}"
+        )
     subprompts = TASK_TO_PROMPTS[task]
     subdatasets = []
     for prompt in subprompts:
@@ -68,7 +80,9 @@ for task in train_tasks:
     train_datasets.append(concatenate_datasets(subdatasets).shuffle(seed=training_args.seed))
     # cap at task level so we have roughly similar amounts of training data.
     if data_args.max_samples_per_train_dataset > 0:
-        train_datasets[-1] = train_datasets[-1].select(range(data_args.max_samples_per_train_dataset))
+        train_datasets[-1] = train_datasets[-1].select(
+            range(data_args.max_samples_per_train_dataset)
+        )
 
 eval_datasets = []
 eval_dataset_names = []
@@ -79,14 +93,14 @@ for task in eval_tasks:
     for prompt in subprompts:
         ds = load_dataset("bigscience/P3", prompt)
         # annoyingly, not all datasets have validation sets.
-        if 'validation' in ds.keys():
-            ds = ds['validation']
-        elif 'test' in ds.keys():
-            ds = ds['test']
-            print(f'{prompt} is using the test set for eval.')
+        if "validation" in ds.keys():
+            ds = ds["validation"]
+        elif "test" in ds.keys():
+            ds = ds["test"]
+            print(f"{prompt} is using the test set for eval.")
         else:
-            ds = ds['train']
-            print(f'{prompt} is using the train set for eval.')
+            ds = ds["train"]
+            print(f"{prompt} is using the train set for eval.")
         ds = ds.shuffle(seed=training_args.seed)
         if data_args.max_samples_per_eval_dataset > 0:
             ds = ds.select(range(data_args.max_samples_per_eval_dataset))
@@ -101,15 +115,19 @@ def transform_ds(ds):
     ds = ds.rename_column("targets", "labels")
     return ds
 
+
 train_datasets = [transform_ds(ds) for ds in train_datasets]
 eval_datasets = [transform_ds(ds) for ds in eval_datasets]
 
-tokenizer_name = data_args.tokenizer_name if data_args.tokenizer_name is not None else data_args.model_name
+tokenizer_name = (
+    data_args.tokenizer_name if data_args.tokenizer_name is not None else data_args.model_name
+)
 tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)
 model = AutoModelForSeq2SeqLM.from_pretrained(data_args.model_name)
 
 nltk.download("punkt", quiet=True)
 metric = evaluate.load("rouge")
+
 
 def compute_metrics(eval_preds):
     preds, labels = eval_preds
@@ -125,6 +143,7 @@ def compute_metrics(eval_preds):
     result = metric.compute(predictions=decoded_preds, references=decoded_labels, use_stemmer=True)
     return result
 
+
 trainer = MultiEvalSeq2SeqTrainer(
     model=model,
     tokenizer=tokenizer,
@@ -137,11 +156,11 @@ trainer = MultiEvalSeq2SeqTrainer(
     eval_datasets=eval_datasets,
     eval_dataset=eval_datasets,
     eval_dataset_names=eval_dataset_names,
-    compute_metrics=compute_metrics
+    compute_metrics=compute_metrics,
 )
 
 print("Training model!")
-#output = trainer.train()
+# output = trainer.train()
 
 print("Evaluating model!")
 metrics = trainer.evaluate(eval_datasets=eval_datasets)
@@ -155,10 +174,10 @@ for task in eval_tasks:
     for prompt in subprompts:
         for metric in metrics:
             if prompt.lower() in metric.lower():
-                metric_name = metric.split('.')[-1]
+                metric_name = metric.split(".")[-1]
                 value = metrics[metric]
-                averaged_metrics[f'{task}.{metric}'] = metrics.get(f'{task}.{metric}', 0) + value
-                counts = counts.get(f'{task}.{metric}', 0)
+                averaged_metrics[f"{task}.{metric}"] = metrics.get(f"{task}.{metric}", 0) + value
+                counts = counts.get(f"{task}.{metric}", 0)
 
 metrics.update(averaged_metrics)
 
@@ -167,5 +186,5 @@ for metric in metrics:
     metrics[metric] = metrics[metric] / counts.get(metric, 1)
 
 # save to metrics.json for beaker :)
-with open(data_args.metrics_output, 'w') as w:
+with open(data_args.metrics_output, "w") as w:
     json.dump(metrics, w)
