@@ -166,7 +166,7 @@ metrics = trainer.evaluate(eval_datasets=eval_datasets)
 
 print("Postprocessing evaluation metrics!")
 counts: Dict[str, int] = {}
-averaged_metrics = {}
+averaged_metrics: Dict[str, float] = {}
 # final postprocessing: average across prompts from the same task, weighted by size.
 for task in eval_tasks:
     subprompts = TASK_TO_PROMPTS[task]
@@ -178,7 +178,9 @@ for task in eval_tasks:
             if prompt.lower() == ".".join(metric.lower().split(".")[:-1]):
                 metric_name = metric.split(".")[-1]
                 value = metrics[metric]
-                averaged_metrics[f"{task}.{metric_name}"] = averaged_metrics.get(f"{task}.{metric_name}", 0) + value
+                averaged_metrics[f"{task}.{metric_name}"] = (
+                    averaged_metrics.get(f"{task}.{metric_name}", 0) + value
+                )
                 counts[f"{task}.{metric_name}"] = counts.get(f"{task}.{metric_name}", 0) + 1
 
 metrics.update(averaged_metrics)
