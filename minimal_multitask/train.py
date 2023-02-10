@@ -170,16 +170,16 @@ averaged_metrics = {}
 # final postprocessing: average across prompts from the same task, weighted by size.
 for task in eval_tasks:
     subprompts = TASK_TO_PROMPTS[task]
-    for prompt in subprompts:
-        for metric in metrics:
+    for metric in metrics:
+        for prompt in subprompts:
             # some prompts can be substrings of others, but we know the metric
             # uses format <prompt>.<metric>. Metric names don't contain '.' but
             # prompts can, hence splitting and rejoining.
             if prompt.lower() == ".".join(metric.lower().split(".")[:-1]):
                 metric_name = metric.split(".")[-1]
                 value = metrics[metric]
-                averaged_metrics[f"{task}.{metric}"] = metrics.get(f"{task}.{metric}", 0) + value
-                counts[f"{task}.{metric}"] = counts.get(f"{task}.{metric}", 0) + 1
+                averaged_metrics[f"{task}.{metric_name}"] = averaged_metrics.get(f"{task}.{metric_name}", 0) + value
+                counts[f"{task}.{metric_name}"] = counts.get(f"{task}.{metric_name}", 0) + 1
 
 metrics.update(averaged_metrics)
 
