@@ -3,6 +3,7 @@ import argparse
 import os
 import pickle
 import json
+import re
 from tqdm import tqdm
 import numpy
 import torch
@@ -17,7 +18,13 @@ parser.add_argument("--p3_data", type=str, help="Gzipped P3 jsonl data file")
 parser.add_argument("--p3_indices", type=str, help="Gzipped file with dataset names corresponding to the P3 data file")
 parser.add_argument("--max_instances_per_dataset", type=int, default=1000)
 parser.add_argument("--model", type=str, default="google/t5-xl-lm-adapt")
-parser.add_argument("--encoder_block_name", type=str, default="encoder.block.23.layer.1", help="Default corresponds to FF in the final Transformer layer")
+parser.add_argument(
+    "--parameter_name_regex",
+    type=str,
+    nargs="+",
+    default=["encoder\.block\.23\.layer\.1.*", "encoder\.final_layer_norm"],
+    help="Multiple regexes to specify a set of parameters of interest"
+)
 parser.add_argument("--run_pca", action="store_true")
 parser.add_argument("--num_pca_components", type=int, default=100)
 parser.add_argument("--computed_gradients", type=str, help="Pickle file to store computed gradients")
@@ -63,13 +70,16 @@ if args.computed_distances is None or not os.path.exists(args.computed_distances
         model = AutoModelForSeq2SeqLM.from_pretrained(args.model)
         model.cuda()
         parameters_of_interest = []
+        num_parameters = 0
         for name, parameter in model.named_parameters():
-            if name.startswith(args.encoder_block_name) or name.startswith("encoder.final_layer_norm"):
+            if any([re.match(pattern, name) is not None for pattern in args.parameter_name_regex]):
                 parameters_of_interest.append((name, parameter))
+                num_parameters += parameter.numel()
 
 
         print(f"Computing gradients on {args.model}")
         print(f"Computing gradients only on {[x[0] for x in parameters_of_interest]}")
+        print(f"\tThat's a total of {num_parameters} parameters")
 
         all_dataset_gradients = []
         for dataset_name in tqdm(datasets_of_interest):
@@ -79,7 +89,7 @@ if args.computed_distances is None or not os.path.exists(args.computed_distances
                 targets = tokenizer.encode(instance["target"], truncation=True, return_tensors="pt").cuda()
                 model_outputs = model(input_ids=inputs, labels=targets, return_dict=True)
                 loss = model_outputs['loss']
-                loss.backward(inputs=[p for n, p in parameters_of_interest])
+                loss.backward(inputs=[p for _, p in parameters_of_interest])
 
                 gradients = torch.cat([p.grad.flatten() for _, p in parameters_of_interest]).detach().cpu().numpy()
                 all_dataset_gradients.append(gradients)
