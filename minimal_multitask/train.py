@@ -159,7 +159,7 @@ trainer = MultiEvalSeq2SeqTrainer(
 )
 
 print("Training model!")
-# output = trainer.train()
+output = trainer.train()
 
 print("Evaluating model!")
 metrics = trainer.evaluate(eval_datasets=eval_datasets)
