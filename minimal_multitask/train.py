@@ -175,7 +175,7 @@ for task in eval_tasks:
             # some prompts can be substrings of others, but we know the metric
             # uses format <prompt>.<metric>. Metric names don't contain '.' but
             # prompts can, hence splitting and rejoining.
-            if prompt.lower() == ".".join(metric.lower().split('.')[:-1]):
+            if prompt.lower() == ".".join(metric.lower().split(".")[:-1]):
                 metric_name = metric.split(".")[-1]
                 value = metrics[metric]
                 averaged_metrics[f"{task}.{metric}"] = metrics.get(f"{task}.{metric}", 0) + value
