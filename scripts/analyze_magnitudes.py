@@ -4,6 +4,7 @@ Doing the magnitude calculations similar to the 'text-to-text learner task confl
 import argparse
 import json
 import os
+import gzip
 from typing import Any, Dict
 
 import numpy as np
@@ -58,8 +59,8 @@ if args.computed_distances is None or not os.path.exists(args.computed_distances
     p3_data_filename = args.p3_data
     p3_dataset_indices_filename = args.p3_indices
     text_data: Dict[str, Any] = {x: [] for x in prompts_of_interest}
-    p3_data_ptr = open(p3_data_filename, "rt")
-    p3_indices_ptr = open(p3_dataset_indices_filename, "rt")
+    p3_data_ptr = gzip.open(p3_data_filename, "rt")
+    p3_indices_ptr = gzip.open(p3_dataset_indices_filename, "rt")
     for data_line, dataset_indices_line in tqdm(zip(p3_data_ptr, p3_indices_ptr)):
         dataset_name = dataset_indices_line.split("\t")[0]
         if dataset_name not in text_data:
@@ -125,6 +126,7 @@ with open(args.mag_output, "w") as outfile:
     print("Per-task norms:", file=outfile)
     norms = []
     for dataset_prefix in datasets:
-        norms.append(np.linalg.norm(all_task_gradients[dataset_prefix]))
-        print(f"{dataset_prefix}\t{norms[-1]}", file=outfile)
-    print("Overall variance (magnitude conflict):", np.var(norms), file=outfile)
+        if dataset_prefix in all_task_gradients:
+            norms.append(np.linalg.norm(all_task_gradients[dataset_prefix]))
+            print(f"{dataset_prefix}\t{norms[-1]}", file=outfile)
+    #print("Overall variance (magnitude conflict):", np.var(norms), file=outfile)
