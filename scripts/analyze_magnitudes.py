@@ -2,9 +2,9 @@
 Doing the magnitude calculations similar to the 'text-to-text learner task conflict' paper
 """
 import argparse
+import gzip
 import json
 import os
-import gzip
 from typing import Any, Dict
 
 import numpy as np
@@ -129,4 +129,4 @@ with open(args.mag_output, "w") as outfile:
         if dataset_prefix in all_task_gradients:
             norms.append(np.linalg.norm(all_task_gradients[dataset_prefix]))
             print(f"{dataset_prefix}\t{norms[-1]}", file=outfile)
-    #print("Overall variance (magnitude conflict):", np.var(norms), file=outfile)
+    # print("Overall variance (magnitude conflict):", np.var(norms), file=outfile)

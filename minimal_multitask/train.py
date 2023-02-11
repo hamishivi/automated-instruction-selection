@@ -54,6 +54,14 @@ class DataArguments:
         default="metrics.json",
         metadata={"help": "Name of file to output metrics too. Default: metrics.json"},
     )
+    max_source_length: int = field(
+        default=768,
+        metadata={"help": "Maximum length of inputs."},
+    )
+    max_target_length: int = field(
+        default=256,
+        metadata={"help": "Maximum length of outputs and generated text."},
+    )
 
 
 parser = HfArgumentParser((Seq2SeqTrainingArguments, DataArguments))
@@ -106,12 +114,16 @@ for task in eval_tasks:
         eval_dataset_names.append(prompt)
 
 
-# we have to remap the dataset to what t5 expects
-# inputs -> input_ids
-# targets -> labels
+# retokenizing since it wont take long and we might want to use other models
 def transform_ds(ds):
-    ds = ds.rename_column("inputs", "input_ids")
-    ds = ds.rename_column("targets", "labels")
+    tok_output = tokenizer(
+        ds["inputs_pretokenized"], max_length=data_args.max_length, truncation=True
+    )
+    ds["input_ids"] = tok_output.input_ids
+    tok_output = tokenizer(
+        ds["targets_pretokenized"], max_length=data_args.max_target_length, truncation=True
+    )
+    ds["labels"] = tok_output.input_ids
     return ds
 
 
@@ -162,7 +174,7 @@ print("Training model!")
 output = trainer.train()
 
 print("Evaluating model!")
-metrics = trainer.evaluate(eval_datasets=eval_datasets)
+metrics = trainer.evaluate(eval_datasets=eval_datasets, max_length=data_args.max_target_length)
 
 print("Postprocessing evaluation metrics!")
 counts: Dict[str, int] = {}
