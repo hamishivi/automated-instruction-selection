@@ -123,7 +123,7 @@ model = AutoModelForSeq2SeqLM.from_pretrained(data_args.model_name)
 # retokenizing since it wont take long and we might want to use other models
 def transform_ds(ds):
     tok_output = tokenizer(
-        ds["inputs_pretokenized"], max_length=data_args.max_length, truncation=True
+        ds["inputs_pretokenized"], max_length=data_args.max_source_length, truncation=True
     )
     ds["input_ids"] = tok_output.input_ids
     tok_output = tokenizer(
