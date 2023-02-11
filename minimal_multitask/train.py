@@ -85,7 +85,10 @@ for task in train_tasks:
     # concatenate = size-proportional mixing.
     train_datasets.append(concatenate_datasets(subdatasets).shuffle(seed=training_args.seed))
     # cap at task level so we have roughly similar amounts of training data.
-    if data_args.max_samples_per_train_dataset > 0:
+    if (
+        data_args.max_samples_per_train_dataset > 0
+        and len(train_datasets[-1]) > data_args.max_samples_per_train_dataset
+    ):
         train_datasets[-1] = train_datasets[-1].select(
             range(data_args.max_samples_per_train_dataset)
         )
@@ -108,7 +111,10 @@ for task in eval_tasks:
             ds = ds["train"]
             print(f"{prompt} is using the train set for eval.")
         ds = ds.shuffle(seed=training_args.seed)
-        if data_args.max_samples_per_eval_dataset > 0:
+        if (
+            data_args.max_samples_per_eval_dataset > 0
+            and len(ds) > data_args.max_samples_per_train_dataset
+        ):
             ds = ds.select(range(data_args.max_samples_per_eval_dataset))
         eval_datasets.append(ds)
         eval_dataset_names.append(prompt)
@@ -121,16 +127,18 @@ model = AutoModelForSeq2SeqLM.from_pretrained(data_args.model_name)
 
 
 # cut down lengths
-# T0 was trained without eos, so we don't add it in here.
+# No eos on input matches how t0 was trained.
 def preprocess_function(example):
     output = {"input_ids": example["inputs"]}
     if len(example["inputs"]) > data_args.max_source_length:
-        output = example["inputs"][: data_args.max_source_length - 1]  # + [tokenizer.eos_token_id]
+        output["input_ids"] = example["inputs"][
+            : data_args.max_source_length - 1
+        ]  # + [tokenizer.eos_token_id]
     output["labels"] = example["targets"]
     if len(example["targets"]) > data_args.max_target_length:
-        output["labels"] = example["targets"][
-            : data_args.max_target_length - 1
-        ]  # + [tokenizer.eos_token_id]
+        output["labels"] = example["targets"][: data_args.max_target_length - 1] + [
+            tokenizer.eos_token_id
+        ]
     return output
 
 
