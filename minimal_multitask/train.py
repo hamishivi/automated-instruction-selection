@@ -113,6 +113,12 @@ for task in eval_tasks:
         eval_datasets.append(ds)
         eval_dataset_names.append(prompt)
 
+tokenizer_name = (
+    data_args.tokenizer_name if data_args.tokenizer_name is not None else data_args.model_name
+)
+tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)
+model = AutoModelForSeq2SeqLM.from_pretrained(data_args.model_name)
+
 
 # retokenizing since it wont take long and we might want to use other models
 def transform_ds(ds):
@@ -130,11 +136,6 @@ def transform_ds(ds):
 train_datasets = [transform_ds(ds) for ds in train_datasets]
 eval_datasets = [transform_ds(ds) for ds in eval_datasets]
 
-tokenizer_name = (
-    data_args.tokenizer_name if data_args.tokenizer_name is not None else data_args.model_name
-)
-tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)
-model = AutoModelForSeq2SeqLM.from_pretrained(data_args.model_name)
 
 nltk.download("punkt", quiet=True)
 metric = evaluate.load("rouge")
