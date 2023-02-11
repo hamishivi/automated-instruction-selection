@@ -120,17 +120,22 @@ tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)
 model = AutoModelForSeq2SeqLM.from_pretrained(data_args.model_name)
 
 
-# retokenizing since it wont take long and we might want to use other models
+# cut down lengths
+# T0 was trained without eos, so we don't add it in here.
+def preprocess_function(example):
+    output = {"input_ids": example["inputs"]}
+    if len(example["inputs"]) > data_args.max_source_length:
+        output = example["inputs"][: data_args.max_source_length - 1]  # + [tokenizer.eos_token_id]
+    output["labels"] = example["targets"]
+    if len(example["targets"]) > data_args.max_target_length:
+        output["labels"] = example["targets"][
+            : data_args.max_target_length - 1
+        ]  # + [tokenizer.eos_token_id]
+    return output
+
+
 def transform_ds(ds):
-    tok_output = tokenizer(
-        ds["inputs_pretokenized"], max_length=data_args.max_source_length, truncation=True
-    )
-    ds["input_ids"] = tok_output.input_ids
-    tok_output = tokenizer(
-        ds["targets_pretokenized"], max_length=data_args.max_target_length, truncation=True
-    )
-    ds["labels"] = tok_output.input_ids
-    return ds
+    return ds.map(preprocess_function)
 
 
 train_datasets = [transform_ds(ds) for ds in train_datasets]
