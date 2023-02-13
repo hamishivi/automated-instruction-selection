@@ -9,7 +9,7 @@ import numpy
 import torch
 from sklearn.decomposition import PCA
 from fastdist import fastdist
-from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, AutoConfig
 
 
 parser = argparse.ArgumentParser()
@@ -25,6 +25,7 @@ parser.add_argument(
     default=["encoder\.block\.23\.layer\.1.*", "encoder\.final_layer_norm"],
     help="Multiple regexes to specify a set of parameters of interest"
 )
+parser.add_argument("--random_weights", action="store_true", help="Randomly initialize model instead of downloading pretrained weights")
 parser.add_argument("--run_pca", action="store_true")
 parser.add_argument("--num_pca_components", type=int, default=100)
 parser.add_argument("--computed_gradients", type=str, help="Pickle file to store computed gradients")
@@ -67,7 +68,11 @@ if args.computed_distances is None or not os.path.exists(args.computed_distances
 
 
         tokenizer = AutoTokenizer.from_pretrained(args.model)
-        model = AutoModelForSeq2SeqLM.from_pretrained(args.model)
+        if args.random_weights:
+            config = AutoConfig.from_pretrained(args.model)
+            model = AutoModelForSeq2SeqLM.from_config(config)
+        else:
+            model = AutoModelForSeq2SeqLM.from_pretrained(args.model)
         model.cuda()
         parameters_of_interest = []
         num_parameters = 0
