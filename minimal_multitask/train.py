@@ -1,4 +1,5 @@
 import json
+import os
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 
@@ -185,7 +186,10 @@ trainer = MultiEvalSeq2SeqTrainer(
 )
 
 print("Training model!")
-output = trainer.train()
+if os.path.exists(training_args.output_dir):
+    output = trainer.train(resume_from_checkpoint=training_args.output_dir)
+else:
+    output = trainer.train()
 
 print("Evaluating model!")
 metrics = trainer.evaluate(eval_datasets=eval_datasets, max_length=data_args.max_target_length)
