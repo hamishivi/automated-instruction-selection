@@ -186,9 +186,9 @@ trainer = MultiEvalSeq2SeqTrainer(
 )
 
 print("Training model!")
-if os.path.exists(training_args.output_dir):
+try:
     output = trainer.train(resume_from_checkpoint=training_args.output_dir)
-else:
+except ValueError:
     output = trainer.train()
 
 print("Evaluating model!")
