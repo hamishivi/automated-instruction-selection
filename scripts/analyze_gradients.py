@@ -14,6 +14,7 @@ from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, AutoConfig
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--datasets", type=str, help="Text file with a list of P3 dataset names (one per line) we want to analyze")
+parser.add_argument("--split_name", type=str, default="train", help="The split in each dataset to use data from (default is 'train')")
 parser.add_argument("--p3_data", type=str, help="Gzipped P3 jsonl data file")
 parser.add_argument("--p3_indices", type=str, help="Gzipped file with dataset names corresponding to the P3 data file")
 parser.add_argument("--max_instances_per_dataset", type=int, default=1000)
@@ -44,9 +45,12 @@ if args.computed_distances is None or not os.path.exists(args.computed_distances
         p3_data_ptr = gzip.open(p3_data_filename, "rt")
         p3_indices_ptr = gzip.open(p3_dataset_indices_filename, "rt")
         for data_line, dataset_indices_line in tqdm(zip(p3_data_ptr, p3_indices_ptr)):
+            data_line_parts = dataset_indices_line.split("\t")
+            if data_line_parts[1] != args.split_name:
+                continue
             # P3 dataset names also have prompt template IDs concatenated to them. We want the logic to work even if the ``dataset_of_interest``
             # list does not have those prompt template IDs.
-            dataset_name_with_prompt = dataset_indices_line.split("\t")[0]
+            dataset_name_with_prompt = data_line_parts[0]
             dataset_name = None
             for name in datasets_of_interest:
                 if dataset_name_with_prompt.startswith(name):
