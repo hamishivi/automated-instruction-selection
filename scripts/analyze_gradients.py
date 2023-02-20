@@ -31,6 +31,7 @@ parser.add_argument("--run_pca", action="store_true")
 parser.add_argument("--num_pca_components", type=int, default=100)
 parser.add_argument("--computed_gradients", type=str, help="Pickle file to store computed gradients")
 parser.add_argument("--computed_distances", type=str, help="Pickle file to store computed pairwise distances")
+parser.add_argument("--print_intra_dataset_distances", action="store_true")
 parser.add_argument("--output", type=str, help="TSV file where intra and inter dataset distances will be written")
 args = parser.parse_args()
 
@@ -141,10 +142,11 @@ dataset_index_ranges = {
         }
 
 with open(args.output, "w") as outfile:
-    print("Intra dataset averages", file=outfile)
-    for dataset_name in datasets_of_interest:
-        i, j = dataset_index_ranges[dataset_name]
-        print(f"{dataset_name}\t{distances[i:j, i:j].mean()}", file=outfile)
+    if args.print_intra_dataset_distances:
+        print("Intra dataset averages", file=outfile)
+        for dataset_name in datasets_of_interest:
+            i, j = dataset_index_ranges[dataset_name]
+            print(f"{dataset_name}\t{distances[i:j, i:j].mean()}", file=outfile)
         
     print("\nInter dataset averages", file=outfile)
     print("\t".join([""] + datasets_of_interest), file=outfile)
