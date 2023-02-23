@@ -185,40 +185,42 @@ trainer = MultiEvalSeq2SeqTrainer(
     compute_metrics=compute_metrics,
 )
 
-print("Training model!")
-try:
-    output = trainer.train(resume_from_checkpoint=training_args.output_dir)
-except ValueError:
-    output = trainer.train()
+if training_args.do_train:
+    print("Training model!")
+    try:
+        output = trainer.train(resume_from_checkpoint=training_args.output_dir)
+    except ValueError:
+        output = trainer.train()
 
-print("Evaluating model!")
-metrics = trainer.evaluate(eval_datasets=eval_datasets, max_length=data_args.max_target_length)
-
-print("Postprocessing evaluation metrics!")
-counts: Dict[str, int] = {}
-averaged_metrics: Dict[str, float] = {}
-# final postprocessing: average across prompts from the same task, weighted by size.
-for task in eval_tasks:
-    subprompts = TASK_TO_PROMPTS[task]
+if training_args.do_eval:
+    print("Evaluating model!")
+    metrics = trainer.evaluate(eval_datasets=eval_datasets, max_length=data_args.max_target_length)
+    
+    print("Postprocessing evaluation metrics!")
+    counts: Dict[str, int] = {}
+    averaged_metrics: Dict[str, float] = {}
+    # final postprocessing: average across prompts from the same task, weighted by size.
+    for task in eval_tasks:
+        subprompts = TASK_TO_PROMPTS[task]
+        for metric in metrics:
+            for prompt in subprompts:
+                # some prompts can be substrings of others, but we know the metric
+                # uses format <prompt>.<metric>. Metric names don't contain '.' but
+                # prompts can, hence splitting and rejoining.
+                if prompt.lower() == ".".join(metric.lower().split(".")[:-1]):
+                    metric_name = metric.split(".")[-1]
+                    value = metrics[metric]
+                    averaged_metrics[f"{task}.{metric_name}"] = (
+                        averaged_metrics.get(f"{task}.{metric_name}", 0) + value
+                    )
+                    counts[f"{task}.{metric_name}"] = counts.get(f"{task}.{metric_name}", 0) + 1
+    
+    metrics.update(averaged_metrics)
+    
+    # normalise metrics by number of subtasks
     for metric in metrics:
-        for prompt in subprompts:
-            # some prompts can be substrings of others, but we know the metric
-            # uses format <prompt>.<metric>. Metric names don't contain '.' but
-            # prompts can, hence splitting and rejoining.
-            if prompt.lower() == ".".join(metric.lower().split(".")[:-1]):
-                metric_name = metric.split(".")[-1]
-                value = metrics[metric]
-                averaged_metrics[f"{task}.{metric_name}"] = (
-                    averaged_metrics.get(f"{task}.{metric_name}", 0) + value
-                )
-                counts[f"{task}.{metric_name}"] = counts.get(f"{task}.{metric_name}", 0) + 1
-
-metrics.update(averaged_metrics)
-
-# normalise metrics by number of subtasks
-for metric in metrics:
-    metrics[metric] = metrics[metric] / counts.get(metric, 1)
-
-# save to metrics.json for beaker :)
-with open(data_args.metrics_output, "w") as w:
-    json.dump(metrics, w)
+        metrics[metric] = metrics[metric] / counts.get(metric, 1)
+    
+    # save to metrics.json for beaker :)
+    with open(data_args.metrics_output, "w") as w:
+        json.dump(metrics, w)
