@@ -13,7 +13,7 @@ from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, AutoConfig
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--datasets", type=str, help="Text file with a list of P3 dataset names (one per line) we want to analyze")
+parser.add_argument("--datasets", type=str, help="Text file with a list of P3 dataset names we want to analyze, optionally with a tab-separated mapping")
 parser.add_argument("--split_name", type=str, default="train", help="The split in each dataset to use data from (default is 'train')")
 parser.add_argument("--p3_data", type=str, help="Gzipped P3 jsonl data file")
 parser.add_argument("--p3_indices", type=str, help="Gzipped file with dataset names corresponding to the P3 data file")
@@ -36,13 +36,28 @@ parser.add_argument("--output", type=str, help="TSV file where intra and inter d
 args = parser.parse_args()
 
 
-datasets_of_interest = [x.strip() for x in open(args.datasets)]
+dataset_name_lines = [x.strip() for x in open(args.datasets)]
+if "\t" in dataset_name_lines[0]:
+    # We have a mapping
+    dataset_name_mapping = {}
+    mapped_dataset_names = []
+    datasets_of_interest = []
+    for string in dataset_name_lines:
+        name, mapping = string.split("\t")
+        mapped_dataset_names.append(mapping)
+        datasets_of_interest.append(name)
+        dataset_name_mapping[name] = mapping
+else:
+    dataset_name_mapping = {x: x for x in dataset_name_lines}
+    mapped_dataset_names = dataset_name_lines
+    datasets_of_interest = dataset_name_lines
+
 if args.computed_distances is None or not os.path.exists(args.computed_distances):
     if args.computed_gradients is None or not os.path.exists(args.computed_gradients):
         print("Reading P3 data")
         p3_data_filename = args.p3_data
         p3_dataset_indices_filename = args.p3_indices
-        text_data = {x: [] for x in datasets_of_interest}
+        text_data = {x: [] for x in mapped_dataset_names}
         p3_data_ptr = gzip.open(p3_data_filename, "rt")
         p3_indices_ptr = gzip.open(p3_dataset_indices_filename, "rt")
         for data_line, dataset_indices_line in tqdm(zip(p3_data_ptr, p3_indices_ptr)):
@@ -59,15 +74,16 @@ if args.computed_distances is None or not os.path.exists(args.computed_distances
                     break
             if dataset_name is None:
                 continue
-            if len(text_data[dataset_name]) >= args.max_instances_per_dataset:
+            mapped_dataset_name = dataset_name_mapping[dataset_name]
+            if len(text_data[mapped_dataset_name]) >= args.max_instances_per_dataset:
                 continue
-            text_data[dataset_name].append(json.loads(data_line))
+            text_data[mapped_dataset_name].append(json.loads(data_line))
             if all([len(text_data[x]) >= args.max_instances_per_dataset for x in text_data]):
                 break
 
         print("Read instances from datasets:")
-        for dataset_name in datasets_of_interest:
-            print(f"\t{dataset_name}\t{len(text_data[dataset_name])}")
+        for mapped_dataset_name in mapped_dataset_names:
+            print(f"\t{mapped_dataset_name}\t{len(text_data[mapped_dataset_name])}")
         p3_data_ptr.close()
         p3_indices_ptr.close()
 
@@ -92,8 +108,8 @@ if args.computed_distances is None or not os.path.exists(args.computed_distances
         print(f"\tThat's a total of {num_parameters} parameters")
 
         all_dataset_gradients = []
-        for dataset_name in tqdm(datasets_of_interest):
-            instances = text_data[dataset_name]
+        for mapped_dataset_name in tqdm(mapped_dataset_names):
+            instances = text_data[mapped_dataset_name]
             for instance in tqdm(instances):
                 inputs = tokenizer.encode(instance["input"], truncation=True, return_tensors="pt").cuda()
                 targets = tokenizer.encode(instance["target"], truncation=True, return_tensors="pt").cuda()
@@ -138,21 +154,21 @@ dataset_index_ranges = {
             i * args.max_instances_per_dataset,
             (i + 1) * args.max_instances_per_dataset
             )
-        for i, name in enumerate(datasets_of_interest)
+        for i, name in enumerate(mapped_dataset_names)
         }
 
 with open(args.output, "w") as outfile:
     if args.print_intra_dataset_distances:
         print("Intra dataset averages", file=outfile)
-        for dataset_name in datasets_of_interest:
-            i, j = dataset_index_ranges[dataset_name]
+        for mapped_dataset_name in mapped_dataset_names:
+            i, j = dataset_index_ranges[mapped_dataset_name]
             print(f"{dataset_name}\t{distances[i:j, i:j].mean()}", file=outfile)
         
     print("\nInter dataset averages", file=outfile)
-    print("\t".join([""] + datasets_of_interest), file=outfile)
-    for dataset_name1 in datasets_of_interest:
+    print("\t".join([""] + mapped_dataset_names), file=outfile)
+    for dataset_name1 in mapped_dataset_names:
         d1_distances = []
-        for dataset_name2 in datasets_of_interest:
+        for dataset_name2 in mapped_dataset_names:
             i1, j1 = dataset_index_ranges[dataset_name1]
             i2, j2 = dataset_index_ranges[dataset_name2]
             d1_distances.append(distances[i1:j1, i2:j2].mean())
