@@ -64,17 +64,10 @@ if args.computed_distances is None or not os.path.exists(args.computed_distances
             data_line_parts = dataset_indices_line.split("\t")
             if data_line_parts[1] != args.split_name:
                 continue
-            # P3 dataset names also have prompt template IDs concatenated to them. We want the logic to work even if the ``dataset_of_interest``
-            # list does not have those prompt template IDs.
             dataset_name_with_prompt = data_line_parts[0]
-            dataset_name = None
-            for name in datasets_of_interest:
-                if dataset_name_with_prompt.startswith(name):
-                    dataset_name = name
-                    break
-            if dataset_name is None:
+            if dataset_name_with_prompt not in datasets_of_interest:
                 continue
-            mapped_dataset_name = dataset_name_mapping[dataset_name]
+            mapped_dataset_name = dataset_name_mapping[dataset_name_with_prompt]
             if len(text_data[mapped_dataset_name]) >= args.max_instances_per_dataset:
                 continue
             text_data[mapped_dataset_name].append(json.loads(data_line))
