@@ -44,7 +44,8 @@ if "\t" in dataset_name_lines[0]:
     datasets_of_interest = []
     for string in dataset_name_lines:
         name, mapping = string.split("\t")
-        mapped_dataset_names.append(mapping)
+        if mapping not in mapped_dataset_names:
+            mapped_dataset_names.append(mapping)
         datasets_of_interest.append(name)
         dataset_name_mapping[name] = mapping
 else:
