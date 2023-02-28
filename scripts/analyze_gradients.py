@@ -117,6 +117,7 @@ if args.computed_distances is None or not os.path.exists(args.computed_distances
         for name, parameter in model.named_parameters():
             if any([re.match(pattern, name) is not None for pattern in args.parameter_name_regex]):
                 parameters_of_interest.append((name, parameter))
+                num_parameters += parameter.numel()
 
         print(f"Computing gradients on {args.model}")
         print(f"Computing gradients only on {[x[0] for x in parameters_of_interest]}")
@@ -179,10 +180,11 @@ dataset_index_ranges = {
 }
 
 with open(args.output, "w") as outfile:
-    print("Intra dataset averages", file=outfile)
-    for dataset_name in datasets_of_interest:
-        i, j = dataset_index_ranges[dataset_name]
-        print(f"{dataset_name}\t{distances[i:j, i:j].mean()}", file=outfile)
+    if args.print_intra_dataset_distances:
+        print("Intra dataset averages", file=outfile)
+        for mapped_dataset_name in mapped_dataset_names:
+            i, j = dataset_index_ranges[mapped_dataset_name]
+            print(f"{mapped_dataset_name}\t{distances[i:j, i:j].mean()}", file=outfile)
 
     print("\nInter dataset averages", file=outfile)
     print("\t".join([""] + mapped_dataset_names), file=outfile)
