@@ -11,6 +11,7 @@ import numpy as np
 import torch
 from tqdm import tqdm
 from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
+from minimal_multitask.dataset_mapping import TASK_TO_PROMPTS
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
@@ -45,14 +46,8 @@ parser.add_argument(
 parser.add_argument("--mag_output", type=str, help="Pickle file to store computed norms")
 args = parser.parse_args()
 
-
-prompts_of_interest = [x.strip() for x in open(args.prompts)]
-datasets = [x.strip() for x in open(args.datasets)]
-prompt_2_dataset = {}
-for prompt in prompts_of_interest:
-    for ds in datasets:
-        if ds.lower() in prompt.lower():
-            prompt_2_dataset[prompt] = ds
+tasks = list(TASK_TO_PROMPTS.keys())
+prompts_of_interest = [prompt for prompt_list in TASK_TO_PROMPTS.values() for prompt in prompt_list]
 
 if args.computed_distances is None or not os.path.exists(args.computed_distances):
     print("Reading P3 data")
@@ -77,8 +72,8 @@ if args.computed_distances is None or not os.path.exists(args.computed_distances
     p3_data_ptr.close()
     p3_indices_ptr.close()
 
-    tokenizer = AutoTokenizer.from_pretrained(args.model)
-    model = AutoModelForSeq2SeqLM.from_pretrained(args.model)
+    tokenizer = AutoTokenizer.from_pretrained("t5-base")  # args.model)
+    model = AutoModelForSeq2SeqLM.from_pretrained(args.model, from_flax=True)
     model.cuda()
     parameters_of_interest = []
     for name, parameter in model.named_parameters():
@@ -90,33 +85,33 @@ if args.computed_distances is None or not os.path.exists(args.computed_distances
     # print(f"Computing gradients only on {args.encoder_block_name} and the final layer norm weight")
 
     all_task_gradients: Dict[str, Any] = {}
-    for dataset_name in tqdm(prompts_of_interest):
-        dataset_prefix = prompt_2_dataset[dataset_name]
-        instances = text_data[dataset_name]
-        all_task_gradients[dataset_prefix] = None
-        for instance in tqdm(instances):
-            inputs = tokenizer.encode(
-                instance["input"], return_tensors="pt", truncation=True
-            ).cuda()
-            targets = tokenizer.encode(instance["target"], return_tensors="pt").cuda()
-            model_outputs = model(input_ids=inputs, labels=targets, return_dict=True)
-            loss = model_outputs["loss"]
-            loss.backward(inputs=[p for n, p in parameters_of_interest])
+    for task in tqdm(tasks):
+        all_prompt_gradients = []
+        for prompt_name in tqdm(TASK_TO_PROMPTS[task]):
+            instances = text_data[prompt_name]
+            for instance in tqdm(instances):
+                inputs = tokenizer.encode(
+                    instance["input"], return_tensors="pt", truncation=True
+                ).cuda()
+                targets = tokenizer.encode(instance["target"], return_tensors="pt").cuda()
+                model_outputs = model(input_ids=inputs, labels=targets, return_dict=True)
+                loss = model_outputs["loss"]
+                loss.backward(inputs=[p for n, p in parameters_of_interest])
 
-            gradients = (
-                torch.cat([p.grad.flatten() for _, p in parameters_of_interest])
-                .detach()
-                .cpu()
-                .numpy()
-            )
-            if all_task_gradients[dataset_prefix] is None:
-                all_task_gradients[dataset_prefix] = gradients
-            else:
-                all_task_gradients[dataset_prefix] += gradients
-            model.zero_grad()
-        # average out the task gradient
-        all_task_gradients[dataset_prefix] /= args.max_instances_per_dataset
-        # all_task_gradients[dataset_name] = np.stack(all_task_gradients[dataset_name], axis=0).mean(axis=0)
+                gradients = (
+                    torch.cat([p.grad.flatten() for _, p in parameters_of_interest])
+                    .detach()
+                    .cpu()
+                    .numpy()
+                )
+                all_prompt_gradients.append(gradients)
+                # if all_task_gradients[dataset_prefix] is None:
+                #     all_task_gradients[dataset_prefix] = gradients
+                # else:
+                #     all_task_gradients[dataset_prefix] += gradients
+                model.zero_grad()
+            # average out the task gradient
+        all_task_gradients[task] = np.stack(all_prompt_gradients, axis=0).mean(axis=0)
 
 # compute the overall average
 all_task_gradient = np.stack(all_task_gradients.values(), axis=0).mean(axis=0)
@@ -125,8 +120,8 @@ with open(args.mag_output, "w") as outfile:
     print("Average gradient norm:", np.linalg.norm(all_task_gradient), file=outfile)
     print("Per-task norms:", file=outfile)
     norms = []
-    for dataset_prefix in datasets:
-        if dataset_prefix in all_task_gradients:
-            norms.append(np.linalg.norm(all_task_gradients[dataset_prefix]))
-            print(f"{dataset_prefix}\t{norms[-1]}", file=outfile)
+    for task in tasks:
+        if task in all_task_gradients:
+            norms.append(np.linalg.norm(all_task_gradients[task]))
+            print(f"{task}\t{norms[-1]}", file=outfile)
     # print("Overall variance (magnitude conflict):", np.var(norms), file=outfile)

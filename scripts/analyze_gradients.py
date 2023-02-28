@@ -80,7 +80,7 @@ if args.computed_distances is None or not os.path.exists(args.computed_distances
         p3_data_ptr.close()
         p3_indices_ptr.close()
 
-        tokenizer = AutoTokenizer.from_pretrained(args.model)
+        tokenizer = AutoTokenizer.from_pretrained("t5-base")
         model = AutoModelForSeq2SeqLM.from_pretrained(args.model)
         model.cuda()
         parameters_of_interest = []
