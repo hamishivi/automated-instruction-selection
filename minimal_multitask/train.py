@@ -1,5 +1,4 @@
 import json
-import os
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 
@@ -195,7 +194,7 @@ if training_args.do_train:
 if training_args.do_eval:
     print("Evaluating model!")
     metrics = trainer.evaluate(eval_datasets=eval_datasets, max_length=data_args.max_target_length)
-    
+
     print("Postprocessing evaluation metrics!")
     counts: Dict[str, int] = {}
     averaged_metrics: Dict[str, float] = {}
@@ -214,13 +213,13 @@ if training_args.do_eval:
                         averaged_metrics.get(f"{task}.{metric_name}", 0) + value
                     )
                     counts[f"{task}.{metric_name}"] = counts.get(f"{task}.{metric_name}", 0) + 1
-    
+
     metrics.update(averaged_metrics)
-    
+
     # normalise metrics by number of subtasks
     for metric in metrics:
         metrics[metric] = metrics[metric] / counts.get(metric, 1)
-    
+
     # save to metrics.json for beaker :)
     with open(data_args.metrics_output, "w") as w:
         json.dump(metrics, w)

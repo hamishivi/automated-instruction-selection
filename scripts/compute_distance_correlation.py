@@ -1,5 +1,6 @@
-import sys
 import pickle
+import sys
+
 import numpy
 from scipy.stats import pearsonr
 
