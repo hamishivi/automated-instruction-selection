@@ -468,7 +468,7 @@ PROMPT_MAPPING: Dict[str, Tuple[str, str]] = {
     "winogrande_winogrande_xl_does_underscore_refer_to": ("evaluation", "evaluation"),
     "winogrande_winogrande_xl_fill_in_the_blank": ("evaluation", "evaluation"),
     "winogrande_winogrande_xl_stand_for": ("evaluation", "evaluation"),
-    "winogrande_winogrande_xl_underscore_refer_to": ("evaluation", "evaluation")
+    "winogrande_winogrande_xl_underscore_refer_to": ("evaluation", "evaluation"),
 }
 
 # these dictionaries may be useful, so we define them here
