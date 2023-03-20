@@ -23,7 +23,6 @@ args = parser.parse_args()
 model = AutoModelForSeq2SeqLM.from_pretrained(args.model)
 tokenizer = AutoTokenizer.from_pretrained(args.tokenizer)
 model.cuda()
-model = torch.compile(model)
 
 random_gen = random.Random(42)
 
