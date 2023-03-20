@@ -59,7 +59,7 @@ with torch.inference_mode():
         inputs = tokenizer(inputs, return_tensors='pt').to(0)
         len_ids = inputs.input_ids.shape[-1]
         output_tokens = model.generate(**inputs, do_sample=False, max_length=1024)[0]
-        output = tokenizer.decode(output_tokens[len_ids:], skip_special_tokens=True)
+        output = tokenizer.decode(output_tokens, skip_special_tokens=True)
         outs.append(output)
 
 try:
