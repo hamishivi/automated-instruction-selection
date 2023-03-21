@@ -46,21 +46,19 @@ original_columns = ds.column_names
 ds = ds.map(convert_format)
 ds.set_format("pt")
 
-ins = []
-ids = []
-for sample in ds:
-    ins.append(sample['input'])
-    ids.append(sample['id'])
-
-outs = []
+predictions = {}
+loss = {}
 print('generating...')
 with torch.inference_mode():
-    for inputs in tqdm(KeyDataset(ds, "input"), total=len(ins)):
-        inputs = tokenizer(inputs, return_tensors='pt').to(0)
+    for example in tqdm(ds, total=len(ds)):
+        qid = example['id']
+        inputs = tokenizer(example['input'], return_tensors='pt').to(0)
+        outputs = tokenizer(example['targets'], return_tensors='pt').to(0)
         len_ids = inputs.input_ids.shape[-1]
         output_tokens = model.generate(**inputs, do_sample=False, max_length=1024)[0]
         output = tokenizer.decode(output_tokens, skip_special_tokens=True)
-        outs.append(output)
+        predictions[qid] = output
+        loss[qid] = model(**inputs, labels=outputs.input_ids).loss.item()
 
 try:
     os.mkdir(args.output_folder)
@@ -69,9 +67,6 @@ except OSError as exc:
         raise
     pass
 
-predictions = {}
-for i, o in zip(ids, outs):
-    predictions[i] = o
 
 with open(os.path.join(args.output_folder, 'predictions.json'), 'w') as w:
     w.write(json.dumps(predictions))
@@ -86,4 +81,5 @@ with open('minimal_multitask/sni/test_references.jsonl') as fin:
             instance["track"] = "default"
         eval_instances[instance["id"]] = instance
 
-compute_all_metrics(predictions, eval_instances, os.path.join(args.output_folder, 'metrics.json'))
+compute_all_metrics(predictions, eval_instances, os.path.join(args.output_folder, 'metrics.json'), loss_dict=loss)
+
