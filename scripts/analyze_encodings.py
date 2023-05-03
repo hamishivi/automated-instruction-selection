@@ -10,11 +10,7 @@ import torch
 from fastdist import fastdist
 from sklearn.decomposition import PCA
 from tqdm import tqdm
-from transformers import (
-    AutoConfig,
-    AutoTokenizer,
-    T5EncoderModel,
-)
+from transformers import AutoConfig, AutoTokenizer, T5EncoderModel
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
