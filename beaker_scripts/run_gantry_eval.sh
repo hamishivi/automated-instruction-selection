@@ -8,7 +8,6 @@ while read line; do
       og_name=${arr[0]}
       dataset_id=${arr[1]}
       chkpt=$(beaker dataset ls ${dataset_id} | grep -oPe checkpoint\-[0-9]+ | tail -n 1)
-      # echo "${og_name} ${dataset_id} ${chkpt}"
       gantry run -y -n ${og_name}-evaluate --allow-dirty \
         --workspace $WORKSPACE \
         --gpus 1 \
@@ -28,7 +27,7 @@ while read line; do
         --dry-run \
         --save-spec tmp.yaml \
         -- python minimal_multitask/train.py --do_eval --output_dir /results --eval_tasks evaluation --bf16 --model_name /inputs/  --predict_with_generate --metrics_output /results/metrics.json --generation_max_length 256 --train_tasks glue_mrpc_generate --tokenizer_name t5-base
-      sed -i 's/\- mountPath\: \/inputs/\- mountPath\: \/inputs\n    subPath\: checkpoint-1950/g' tmp.yaml
+      sed -i "s/\- mountPath\: \/inputs/\- mountPath\: \/inputs\n    subPath\: ${chkpt}/g" tmp.yaml
 
       beaker experiment create tmp.yaml -n ${og_name}-evaluate -p preemptible -w $WORKSPACE
 done < data/eval_task_datasets.txt

@@ -93,8 +93,8 @@ for task1, task2 in itertools.product(task_list, repeat=2):
     base_score_task2 = task_results[task2][task2]
     task1_increase = (task1_score - base_score_task1) / base_score_task1
     task2_increase = (task2_score - base_score_task2) / base_score_task2
-    arg_scores[task1][task2] = mean([task1_increase, task2_increase])
-    arg_scores[task2][task1] = mean([task1_increase, task2_increase])
+    arg_scores[task1][task2] = task2_increase
+    arg_scores[task2][task1] = task1_increase
 
 for task1 in task_list:
     for task2 in task_list:

@@ -22,7 +22,7 @@ parser.add_argument(
     "--metric",
     default="rougeL",
     type=str,
-    help="What metric to examine. Must be either rougeL or eval_loss",
+    help="What metric to examine. Must be either loss or rougeL or exact_match",
 )
 parser.add_argument(
     "--eval_task",
@@ -58,7 +58,11 @@ for line in data[1:]:
     experiment_name = line[11]
     # this is the main difference with non-eval: we grab the average of the metric across tasks.
     # some tasks failed and/or got preempted, ignore.
-    if not line[col_to_index[f"metrics_evaluation.eval_{args.metric}"]]:
+    if args.eval_task is not None:
+        col_name = f"metrics_{args.metric}_for_{args.eval_task}_default_track"
+    else:
+        col_name = f"metrics_{args.metric}_default_track"
+    if not line[col_to_index[col_name]]:
         continue
     if 'evaluate' not in experiment_name:
         continue
@@ -69,7 +73,7 @@ for line in data[1:]:
                 scores.append(float(line[col_to_index[col]]))
         avg_score = mean(scores)
     else:
-        avg_score = float(line[col_to_index[f"metrics_evaluation.eval_{args.metric}"]])
+        avg_score = float(line[col_to_index[col_name]])
     for task1, task2 in itertools.product(task_list, repeat=2):
         if task1 == task2 and "only" in experiment_name and task1 in experiment_name:
             task_results[task1][task2] = avg_score
@@ -111,6 +115,12 @@ for task1, task2 in itertools.product(task_list, repeat=2):
 for task1 in task_list:
     for task2 in task_list:
         if task2 in arg_scores[task1]:
+            # if arg_scores[task1][task2] > 0 and arg_scores[task2][task1] > 0:
+            #     print("-1",end=',')
+            # elif arg_scores[task1][task2] < 0 and arg_scores[task2][task1] < 0:
+            #     print("1", end=",")
+            # else:
+            #     print("0", end=",")
             print(arg_scores[task1][task2], end=",")
         else:
             print("", end=",")

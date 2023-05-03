@@ -6,9 +6,15 @@ beaker = Beaker.from_env(default_workspace="ai2/minimal-multitask-finetuning")
 
 
 for experiment in beaker.workspace.iter_experiments('ai2/minimal-multitask-finetuning'):
-    job = experiment.jobs[0]
+    job = experiment.jobs[-1]
     dataset = beaker.job.results(job.id)
-    if 'evaluate' in experiment.name:
+    if 'evaluate' in experiment.name or not job.is_finalized:
+        continue
+    if dataset is None:
+        print('No dataset for', experiment.name)
+        continue
+    # only grab tasks in our small task list
+    if not any([t in experiment.name for t in small_task_list]):
         continue
     print(experiment.name, dataset.id)
 

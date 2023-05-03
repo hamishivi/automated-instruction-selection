@@ -11,7 +11,7 @@ import torch
 from fastdist import fastdist
 from sklearn.decomposition import PCA
 from tqdm import tqdm
-from transformers import AutoConfig, AutoModelForSeq2SeqLM, AutoTokenizer
+from transformers import AutoConfig, AutoModelForSeq2SeqLM, AutoTokenizer, T5EncoderModel
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
@@ -34,13 +34,6 @@ parser.add_argument(
 parser.add_argument("--max_instances_per_dataset", type=int, default=1000)
 parser.add_argument("--model", type=str, default="google/t5-xl-lm-adapt")
 parser.add_argument(
-    "--parameter_name_regex",
-    type=str,
-    nargs="+",
-    default=[r"encoder\.final_layer_norm"],
-    help="Multiple regexes to specify a set of parameters of interest",
-)
-parser.add_argument(
     "--random_weights",
     action="store_true",
     help="Randomly initialize model instead of downloading pretrained weights",
@@ -52,6 +45,9 @@ parser.add_argument(
 )
 parser.add_argument(
     "--computed_distances", type=str, help="Pickle file to store computed pairwise distances"
+)
+parser.add_argument(
+    "--tokenizer", type=str, default="google/t5-xl-lm-adapt"
 )
 parser.add_argument("--print_intra_dataset_distances", action="store_true")
 parser.add_argument(
@@ -121,49 +117,34 @@ if args.computed_distances is None or not os.path.exists(args.computed_distances
         text_data = new_text_data
 
 
-        tokenizer = AutoTokenizer.from_pretrained('t5-base')
+        tokenizer = AutoTokenizer.from_pretrained(args.tokenizer, use_fast=False)
         if args.random_weights:
             config = AutoConfig.from_pretrained(args.model)
-            model = AutoModelForSeq2SeqLM.from_config(config)
+            model = T5EncoderModel.from_config(config)
         else:
-            model = AutoModelForSeq2SeqLM.from_pretrained(args.model)
+            model = T5EncoderModel.from_pretrained(args.model)
         model.cuda()
         parameters_of_interest = []
         num_parameters = 0
-        for name, parameter in model.named_parameters():
-            if any([re.match(pattern, name) is not None for pattern in args.parameter_name_regex]):
-                parameters_of_interest.append((name, parameter))
-                num_parameters += parameter.numel()
-
-        print(f"Computing gradients on {args.model}")
-        print(f"Computing gradients only on {[x[0] for x in parameters_of_interest]}")
-        print(f"\tThat's a total of {num_parameters} parameters")
+        all_dataset_gradients = []
         dataset_index_ranges = {}
         index_counter = 0
-        all_dataset_gradients = []
         for mapped_dataset_name in tqdm(mapped_dataset_names):
-            dataset_index_ranges[mapped_dataset_name] = (index_counter, index_counter + len(text_data[mapped_dataset_name]))
-            index_counter += len(text_data[mapped_dataset_name])
             instances = text_data[mapped_dataset_name]
+            dataset_index_ranges[mapped_dataset_name] = [index_counter, None]
             for instance in tqdm(instances):
-                inputs = tokenizer.encode(
-                    instance["input"], truncation=True, return_tensors="pt"
-                ).cuda()
-                targets = tokenizer.encode(
-                    instance["target"], truncation=True, return_tensors="pt"
-                ).cuda()
-                model_outputs = model(input_ids=inputs, labels=targets, return_dict=True)
-                loss = model_outputs["loss"]
-                loss.backward(inputs=[p for _, p in parameters_of_interest])
-
-                gradients = (
-                    torch.cat([p.grad.flatten() for _, p in parameters_of_interest])
-                    .detach()
-                    .cpu()
-                    .numpy()
-                )
-                all_dataset_gradients.append(gradients)
-                model.zero_grad()
+                with torch.inference_mode():
+                    inputs = tokenizer.encode(
+                        instance["input"], truncation=True, return_tensors="pt"
+                    ).cuda()
+                    targets = tokenizer.encode(
+                        instance["target"], truncation=True, return_tensors="pt"
+                    ).cuda()
+                    model_outputs = model(input_ids=inputs, return_dict=True)
+                    encoded_input = model_outputs.last_hidden_state.detach().cpu().numpy()
+                    all_dataset_gradients.append(encoded_input[0].mean(0))
+            dataset_index_ranges[mapped_dataset_name][1] = index_counter + len(instances)
+            index_counter += len(instances)
 
         all_gradients = numpy.stack(all_dataset_gradients)
         print(f"Done computing gradients. The size of the matrix is {all_gradients.shape}")
@@ -198,7 +179,6 @@ else:
 #     for i, name in enumerate(mapped_dataset_names)
 # }
 
-mapped_dataset_names = sorted(mapped_dataset_names)
 with open(args.output, "w") as outfile:
     if args.print_intra_dataset_distances:
         print("Intra dataset averages", file=outfile)
@@ -206,6 +186,7 @@ with open(args.output, "w") as outfile:
             i, j = dataset_index_ranges[mapped_dataset_name]
             print(f"{mapped_dataset_name}\t{distances[i:j, i:j].mean()}", file=outfile)
 
+    mapped_dataset_names = sorted(mapped_dataset_names)
     print("\nInter dataset averages", file=outfile)
     print("\t".join([""] + mapped_dataset_names), file=outfile)
     for dataset_name1 in mapped_dataset_names:
