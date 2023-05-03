@@ -1,19 +1,18 @@
 import logging
 import random
+import re
 import string
 from dataclasses import dataclass
 from typing import Any, Optional, Union
 
-from transformers import PreTrainedTokenizerBase, AutoTokenizer
+from transformers import AutoTokenizer, PreTrainedTokenizerBase
 from transformers.utils import PaddingStrategy
-import re
 
 logger = logging.getLogger(__name__)
 
 
 @dataclass
 class DataCollatorForNI:
-
     tokenizer: PreTrainedTokenizerBase
     model: Optional[Any] = None
     padding: Union[bool, str, PaddingStrategy] = True
@@ -32,7 +31,6 @@ class DataCollatorForNI:
     random_gen: random.Random = random.Random(42)
 
     def __call__(self, batch, return_tensors=None):
-
         if return_tensors is None:
             return_tensors = self.return_tensors
 
@@ -244,10 +242,12 @@ class DataCollatorForNI:
 
         return model_inputs
 
-tokenizer = AutoTokenizer.from_pretrained('t5-base')
+
+tokenizer = AutoTokenizer.from_pretrained("t5-base")
+
 
 # just for some calc stuff
-def convert_format_pack_positive_examples(example,tokenizer, hyper_num_pos=2):
+def convert_format_pack_positive_examples(example, tokenizer, hyper_num_pos=2):
     task_idx = re.findall(r"^task(\d+)_", example["Task"])
     assert len(task_idx) == 1
     task_idx = int(task_idx[0])

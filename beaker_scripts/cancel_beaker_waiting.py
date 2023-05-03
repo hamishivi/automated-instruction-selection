@@ -1,19 +1,19 @@
-'''
+"""
 Simple script to cancel and delete all jobs in the minimal multitask workspace
 that haven't completed succesfully. Deleting these manually would take
 waaaaay too long.
-'''
+"""
 from beaker import Beaker
 
 beak = Beaker.from_env(default_workspace="ai2/minimal-multitask-finetuning")
 
-#workspace = beak.get(workspace="ai2/minimal-multitask-finetuning")
+# workspace = beak.get(workspace="ai2/minimal-multitask-finetuning")
 
 # we will cancel/delete if the job is one of these
 job_status_to_cancel = [
-    'created',
-    'scheduled',
-    'failed',
+    "created",
+    "scheduled",
+    "failed",
 ]
 
 # run through experiments.

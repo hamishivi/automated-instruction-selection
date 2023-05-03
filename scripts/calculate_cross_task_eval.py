@@ -37,7 +37,12 @@ if args.task_list is None:
 else:
     task_list = [line.strip() for line in open(args.task_list, "r")]
 
-eval_task_list = set([l.strip().replace("_score_eval", "") for l in open('data/eval_tasks.txt', 'r').readlines()])
+eval_task_list = set(
+    [
+        line.strip().replace("_score_eval", "")
+        for line in open("data/eval_tasks.txt", "r").readlines()
+    ]
+)
 
 task_list = sorted(task_list)
 data = open(args.results_file, "r").readlines()
@@ -47,37 +52,31 @@ column_heads = data[0].split(",")
 col_to_index = {}
 for task in task_list:
     for i, col in enumerate(column_heads):
-        if (
-            args.metric in col
-        ):
+        if args.metric in col:
             col_to_index[col] = i
 
 task_results: Dict[Any, Any] = defaultdict(dict)
 for line in data[1:]:
-    line = line.split(",")
-    experiment_name = line[11]
+    line_split = line.split(",")
+    experiment_name = line_split[11]
     # this is the main difference with non-eval: we grab the average of the metric across tasks.
     # some tasks failed and/or got preempted, ignore.
-    if not line[col_to_index[f"metrics_evaluation.eval_{args.metric}"]]:
+    if not line_split[col_to_index[f"metrics_evaluation.eval_{args.metric}"]]:
         continue
-    if 'evaluate' not in experiment_name:
+    if "evaluate" not in experiment_name:
         continue
     if args.eval_task is not None:
         scores = []
         for col in column_heads:
             if args.eval_task in col and args.metric in col:
-                scores.append(float(line[col_to_index[col]]))
+                scores.append(float(line_split[col_to_index[col]]))
         avg_score = mean(scores)
     else:
-        avg_score = float(line[col_to_index[f"metrics_evaluation.eval_{args.metric}"]])
+        avg_score = float(line_split[col_to_index[f"metrics_evaluation.eval_{args.metric}"]])
     for task1, task2 in itertools.product(task_list, repeat=2):
         if task1 == task2 and "only" in experiment_name and task1 in experiment_name:
             task_results[task1][task2] = avg_score
-        elif (
-            task1 in experiment_name
-            and task2 in experiment_name
-            and task1 != task2
-        ):
+        elif task1 in experiment_name and task2 in experiment_name and task1 != task2:
             task_results[task1][task2] = avg_score
 
 for task1 in task_list:

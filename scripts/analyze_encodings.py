@@ -3,15 +3,18 @@ import gzip
 import json
 import os
 import pickle
-import re
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 import numpy
 import torch
 from fastdist import fastdist
 from sklearn.decomposition import PCA
 from tqdm import tqdm
-from transformers import AutoConfig, AutoModelForSeq2SeqLM, AutoTokenizer, T5EncoderModel
+from transformers import (
+    AutoConfig,
+    AutoTokenizer,
+    T5EncoderModel,
+)
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
@@ -46,9 +49,7 @@ parser.add_argument(
 parser.add_argument(
     "--computed_distances", type=str, help="Pickle file to store computed pairwise distances"
 )
-parser.add_argument(
-    "--tokenizer", type=str, default="google/t5-xl-lm-adapt"
-)
+parser.add_argument("--tokenizer", type=str, default="google/t5-xl-lm-adapt")
 parser.add_argument("--print_intra_dataset_distances", action="store_true")
 parser.add_argument(
     "--output", type=str, help="TSV file where intra and inter dataset distances will be written"
@@ -103,8 +104,9 @@ if args.computed_distances is None or not os.path.exists(args.computed_distances
 
         # re-organise data by task grouping prompts together.
         from minimal_multitask.dataset_mapping import PROMPT_MAPPING
-        new_mapping = {}
-        new_text_data = {}
+
+        new_mapping: Dict[Any, Any] = {}
+        new_text_data: Dict[Any, Any] = {}
         for mapped_dataset_name in mapped_dataset_names:
             task = PROMPT_MAPPING[mapped_dataset_name][0]
             if task not in new_mapping:
@@ -116,7 +118,6 @@ if args.computed_distances is None or not os.path.exists(args.computed_distances
         mapped_dataset_names = list(new_mapping.keys())
         text_data = new_text_data
 
-
         tokenizer = AutoTokenizer.from_pretrained(args.tokenizer, use_fast=False)
         if args.random_weights:
             config = AutoConfig.from_pretrained(args.model)
@@ -124,7 +125,7 @@ if args.computed_distances is None or not os.path.exists(args.computed_distances
         else:
             model = T5EncoderModel.from_pretrained(args.model)
         model.cuda()
-        parameters_of_interest = []
+        parameters_of_interest: List[Any] = []
         num_parameters = 0
         all_dataset_gradients = []
         dataset_index_ranges = {}

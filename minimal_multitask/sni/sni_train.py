@@ -1,18 +1,19 @@
 import json
 from dataclasses import dataclass, field
 from typing import Optional
+
 import numpy as np
 from datasets import load_dataset
+from sni_collator import DataCollatorForNI
+from sni_evaluation import compute_all_metrics, compute_metrics
 from transformers import (
     AutoModelForSeq2SeqLM,
     AutoTokenizer,
     DataCollatorForSeq2Seq,
     HfArgumentParser,
+    Seq2SeqTrainer,
     Seq2SeqTrainingArguments,
-    Seq2SeqTrainer
 )
-from sni_evaluation import compute_metrics, compute_all_metrics
-from sni_collator import DataCollatorForNI
 
 
 @dataclass
@@ -20,6 +21,7 @@ class DataArguments:
     """
     Arguments about training, not covered by the seq2seq arguments
     """
+
     model_name: str = field(
         default="google/t5-xl-lm-adapt",
         metadata={"help": "Name of model. Must be a AutoModelForSeq2SeqLM-compatible model."},
@@ -45,7 +47,7 @@ class DataArguments:
         metadata={"help": "Number of positive examples to use. Usually 0 or 2, 0 by default."},
     )
     reference_file: str = field(
-        default='/net/nfs.cirrascale/allennlp/hamishi/minimal-multitask-tuning/minimal_multitask/sni/test_references.jsonl',
+        default="/net/nfs.cirrascale/allennlp/hamishi/minimal-multitask-tuning/minimal_multitask/sni/test_references.jsonl",  # noqa
         metadata={"help": "SNI eval reference file."},
     )
 
@@ -68,15 +70,18 @@ data_collator = DataCollatorForNI(
     tokenizer,
     num_pos_examples=data_args.num_pos_examples,
     max_source_length=data_args.max_source_length,
-    max_target_length=data_args.max_target_length
+    max_target_length=data_args.max_target_length,
 )
+
 
 def transform_ds(sample):
     res = data_collator(sample)
-    return { k: v.long().flatten().tolist() for k, v in res.items() } 
+    return {k: v.long().flatten().tolist() for k, v in res.items()}
+
 
 train_dataset = train_dataset.map(transform_ds, batched=False, num_proc=32)
 eval_dataset = eval_dataset.map(transform_ds, batched=False, num_proc=32)
+
 
 def metrics_wrapper(eval_pred):
     predictions, labels = eval_pred
@@ -84,8 +89,9 @@ def metrics_wrapper(eval_pred):
     predictions = tokenizer.batch_decode(predictions, skip_special_tokens=True)
     labels = tokenizer.batch_decode(labels, skip_special_tokens=True)
     # formatting thing for metrics
-    labels = [[l] for l in labels]
+    labels = [[label] for label in labels]
     return compute_metrics(predictions, labels)
+
 
 trainer = Seq2SeqTrainer(
     model=model,
@@ -109,7 +115,10 @@ if training_args.do_train:
 
 if training_args.do_eval:
     predictions, _, metrics = trainer.predict(eval_dataset)
-    results = {id: tokenizer.decode(pred, skip_special_tokens=True) for id, pred in zip(eval_dataset["id"], predictions)}
+    results = {
+        id: tokenizer.decode(pred, skip_special_tokens=True)
+        for id, pred in zip(eval_dataset["id"], predictions)
+    }
 
     eval_instances = {}
     with open(data_args.reference_file) as fin:
@@ -120,5 +129,5 @@ if training_args.do_eval:
             if "track" not in instance:
                 instance["track"] = "default"
             eval_instances[instance["id"]] = instance
-    
+
     compute_all_metrics(results, eval_instances, data_args.metrics_output)

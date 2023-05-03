@@ -107,8 +107,9 @@ if args.computed_distances is None or not os.path.exists(args.computed_distances
 
         # re-organise data by task grouping prompts together.
         from minimal_multitask.dataset_mapping import PROMPT_MAPPING
-        new_mapping = {}
-        new_text_data = {}
+
+        new_mapping: Dict[Any, Any] = {}
+        new_text_data: Dict[Any, Any] = {}
         for mapped_dataset_name in mapped_dataset_names:
             task = PROMPT_MAPPING[mapped_dataset_name][0]
             if task not in new_mapping:
@@ -120,8 +121,7 @@ if args.computed_distances is None or not os.path.exists(args.computed_distances
         mapped_dataset_names = list(new_mapping.keys())
         text_data = new_text_data
 
-
-        tokenizer = AutoTokenizer.from_pretrained('t5-base')
+        tokenizer = AutoTokenizer.from_pretrained("t5-base")
         if args.random_weights:
             config = AutoConfig.from_pretrained(args.model)
             model = AutoModelForSeq2SeqLM.from_config(config)
@@ -142,7 +142,10 @@ if args.computed_distances is None or not os.path.exists(args.computed_distances
         index_counter = 0
         all_dataset_gradients = []
         for mapped_dataset_name in tqdm(mapped_dataset_names):
-            dataset_index_ranges[mapped_dataset_name] = (index_counter, index_counter + len(text_data[mapped_dataset_name]))
+            dataset_index_ranges[mapped_dataset_name] = (
+                index_counter,
+                index_counter + len(text_data[mapped_dataset_name]),
+            )
             index_counter += len(text_data[mapped_dataset_name])
             instances = text_data[mapped_dataset_name]
             for instance in tqdm(instances):

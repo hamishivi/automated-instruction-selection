@@ -1,7 +1,6 @@
 import argparse
 import itertools
 from collections import defaultdict
-from statistics import mean
 from typing import Any, Dict
 
 from minimal_multitask.dataset_mapping import TASK_TO_PROMPTS

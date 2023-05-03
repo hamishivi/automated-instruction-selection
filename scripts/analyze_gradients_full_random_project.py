@@ -61,10 +61,14 @@ parser.add_argument(
     "--output", type=str, help="TSV file where intra and inter dataset distances will be written"
 )
 parser.add_argument(
-    "--project_gradient", action="store_true", help="Randomly project the gradient. Preserves distances to some degree. Required for large models."
+    "--project_gradient",
+    action="store_true",
+    help="Randomly project the gradient. Preserves distances to some degree. Required for large models.",
 )
 parser.add_argument(
-    "--large_gradient_matmul", action="store_true", help="Use a batch matmul script. Required for gradients over max numpy int size (~2 billion)"
+    "--large_gradient_matmul",
+    action="store_true",
+    help="Use a batch matmul script. Required for gradients over max numpy int size (~2 billion)",
 )
 args = parser.parse_args()
 
@@ -116,8 +120,8 @@ if args.computed_distances is None or not os.path.exists(args.computed_distances
         p3_indices_ptr.close()
 
         # re-organise data by task grouping prompts together.
-        new_mapping = {}
-        new_text_data = {}
+        new_mapping: Dict[Any, Any] = {}
+        new_text_data: Dict[Any, Any] = {}
         for mapped_dataset_name in mapped_dataset_names:
             task = PROMPT_MAPPING[mapped_dataset_name][0]
             if task not in new_mapping:
@@ -145,7 +149,7 @@ if args.computed_distances is None or not os.path.exists(args.computed_distances
 
         print(f"Computing gradients on {args.model}")
         print(f"Computing gradients only on {[x[0] for x in parameters_of_interest]}")
-        print(f"\tThat's a total of {num_parameters} parameters")            
+        print(f"\tThat's a total of {num_parameters} parameters")
 
         all_dataset_gradients = []
         dataset_index_ranges = {}
@@ -164,12 +168,12 @@ if args.computed_distances is None or not os.path.exists(args.computed_distances
                 loss = model_outputs["loss"]
                 loss.backward(inputs=[p for _, p in parameters_of_interest])
 
-                gradients = (
-                    torch.cat([p.grad.flatten() for _, p in parameters_of_interest]).detach()
-                )
+                gradients = torch.cat(
+                    [p.grad.flatten() for _, p in parameters_of_interest]
+                ).detach()
                 model.zero_grad()
                 # project gradient down
-                gen = torch.Generator(device='cuda')
+                gen = torch.Generator(device="cuda")
                 gen.manual_seed(1000)
                 with torch.inference_mode():
                     if args.project_gradient:
@@ -177,25 +181,39 @@ if args.computed_distances is None or not os.path.exists(args.computed_distances
                             projected_gradients = []
                             for _ in tqdm(range(100), position=2, leave=False):
                                 # rand_proj = torch.ones((gradients.shape[0], 1), device='cuda')
-                                rand_proj = torch.normal(mean=0.0, std=1.0, size=(gradients.shape[0], 1), generator=gen, device='cuda')
+                                rand_proj = torch.normal(
+                                    mean=0.0,
+                                    std=1.0,
+                                    size=(gradients.shape[0], 1),
+                                    generator=gen,
+                                    device="cuda",
+                                )
                                 # matmul has a max size... 😱 so we do it in chunks
                                 # i tried to use int_max, but it gave weird cuda memory errors...
                                 max_size = 2000000000
                                 if rand_proj.shape[0] >= max_size:
                                     result_projs = []
                                     for i in range(0, gradients.shape[0], max_size):
-                                        end = min(i+max_size, gradients.shape[0])
+                                        end = min(i + max_size, gradients.shape[0])
                                         result_projs.append(gradients[i:end] @ rand_proj[i:end])
-                                    projected_gradients.append(torch.stack(result_projs, axis=0).sum(axis=0))
+                                    projected_gradients.append(
+                                        torch.stack(result_projs, axis=0).sum(axis=0)
+                                    )
                                 else:
                                     projected_gradients.append(gradients @ rand_proj)
                             gradients = torch.cat(projected_gradients, axis=0).cpu().numpy()
                         else:
-                            rand_proj = torch.normal(mean=0.0, std=1.0, size=(gradients.shape[0], 100), generator=gen, device='cuda')
+                            rand_proj = torch.normal(
+                                mean=0.0,
+                                std=1.0,
+                                size=(gradients.shape[0], 100),
+                                generator=gen,
+                                device="cuda",
+                            )
                             gradients = (gradients @ rand_proj).detach().cpu().numpy()
                 all_dataset_gradients.append(gradients)
                 model.zero_grad()
-            dataset_index_ranges[mapped_dataset_name][1] =  index_counter + len(instances)
+            dataset_index_ranges[mapped_dataset_name][1] = index_counter + len(instances)
             index_counter += len(instances)
 
         all_gradients = numpy.stack(all_dataset_gradients)
