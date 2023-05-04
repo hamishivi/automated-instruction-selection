@@ -1,0 +1,15 @@
+cnn_dailymail_3.0.0_summarise
+cnn_dailymail_3.0.0_generate
+glue_qqp_answer
+rotten_tomatoes_answer
+wiki_bio_guess
+wiki_bio_details
+wiki_bio_generate
+ag_news
+kilt_tasks_hotpotqa_answer
+cosmos_qa_answer
+cosmos_qa_generate_question
+ropes_answer
+quail_answer
+adversarial_qa_answer
+adversarial_qa_generate_question
