@@ -23,6 +23,12 @@ parser.add_argument(
     action="store_true",
     help="evaluate on few shot (3-shot) setting to match Flan-T5 and BBH papers.",
 )
+parser.add_argument(
+    "--allennlp_weight",
+    type=str,
+    default=None,
+    help="Location of allennlp weight. If specified, the model name is just used to load config, and the weights come from this file."
+)
 args = parser.parse_args()
 
 data_subsets = [
@@ -56,12 +62,15 @@ data_subsets = [
 ]
 
 model = AutoModelForSeq2SeqLM.from_pretrained(args.model_name)
+if args.allennlp_weight is not None:
+    model.load_state_dict({ k.replace("transformer.", ""): v for k, v in torch.load(args.allennlp_weight).items()})
 tokenizer = AutoTokenizer.from_pretrained(
     args.tokenizer_name if args.tokenizer_name else args.model_name
 )
 metric = evaluate.load("exact_match")
 # tokenize inputs
 
+model = model.cuda()
 
 def evaluate_samples(examples, prompt=None):
     with torch.inference_mode():
@@ -76,8 +85,8 @@ def evaluate_samples(examples, prompt=None):
             inputs = tokenizer(inputs, return_tensors="pt", padding=True, truncation=False)
             # most bbh outputs are very short
             outputs = model.generate(
-                inputs["input_ids"], attention_mask=inputs["attention_mask"], max_length=10
-            )
+                inputs["input_ids"].cuda(), attention_mask=inputs["attention_mask"].cuda(), max_length=10
+            ).detach().cpu()
             batch["pred"] = tokenizer.batch_decode(outputs, skip_special_tokens=True)
             # hacky, but needed at least for causal judgements...
             batch["pred"] = [pred.replace("A: ", "") for pred in batch["pred"]]
