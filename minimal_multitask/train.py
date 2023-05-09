@@ -197,6 +197,10 @@ def transform_ds(ds, num_proc=1):
 train_datasets = [transform_ds(ds, num_proc=64) for ds in train_datasets]
 eval_datasets = [transform_ds(ds) for ds in eval_datasets]
 
+# for some reason, flan has empty targets sometimes. filter them out.
+train_datasets = [ds.filter(lambda x: len(x["labels"]) > 0) for ds in train_datasets]
+eval_datasets = [ds.filter(lambda x: len(x["labels"]) > 0) for ds in eval_datasets]
+
 
 nltk.download("punkt", quiet=True)
 rouge = evaluate.load("rouge")
