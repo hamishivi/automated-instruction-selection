@@ -5,7 +5,7 @@ from typing import Dict, List, Optional
 import evaluate
 import nltk
 import numpy as np
-from dataset_mapping import TASK_TO_PROMPTS
+from dataset_mapping import TASK_TO_PROMPTS, BBH_SUBSETS
 from datasets import concatenate_datasets, interleave_datasets, load_dataset
 from multi_eval_seq2seq_trainer import MultiEvalSeq2SeqTrainer
 from transformers import (
@@ -34,6 +34,14 @@ class DataArguments:
         metadata={
             "help": f"List of the tasks to evaluate on. Tasks must be from {TASK_TO_PROMPTS.keys()}."
         },
+    )
+    sample_file: Optional[str] = field(
+        metadata={"help": "Path to file containing samples to train on. If given, overrides train_tasks."},
+        default=None,
+    )
+    eval_bbh: bool = field(
+        metadata={"help": "Whether to evaluate on the BBH dataset. If true, overrides eval_tasks."},
+        default=False,
     )
     max_samples_per_train_dataset: int = field(
         default=10000,  # 10k as our 'reasonable default'. This covers the majority of task splits.
@@ -71,53 +79,71 @@ training_args, data_args = parser.parse_args_into_dataclasses()
 train_tasks = data_args.train_tasks
 eval_tasks = data_args.eval_tasks
 
-train_datasets = []
-for task in train_tasks:
-    if task not in TASK_TO_PROMPTS:
-        raise ValueError(
-            f"train task {task} not valid. Tasks must be from {TASK_TO_PROMPTS.keys()}"
-        )
-    subprompts = TASK_TO_PROMPTS[task]
-    subdatasets = []
-    for prompt in subprompts:
-        ds = load_dataset("bigscience/P3", prompt, split="train").shuffle(seed=training_args.seed)
-        subdatasets.append(ds)
-    # concatenate = size-proportional mixing.
-    train_datasets.append(concatenate_datasets(subdatasets).shuffle(seed=training_args.seed))
-    # cap at task level so we have roughly similar amounts of training data.
-    if (
-        data_args.max_samples_per_train_dataset > 0
-        and len(train_datasets[-1]) > data_args.max_samples_per_train_dataset
-    ):
-        train_datasets[-1] = train_datasets[-1].select(
-            range(data_args.max_samples_per_train_dataset)
-        )
-
-eval_datasets = []
-eval_dataset_names = []
-for task in eval_tasks:
-    if task not in TASK_TO_PROMPTS:
-        raise ValueError(f"eval task {task} not valid. Tasks must be from {TASK_TO_PROMPTS.keys()}")
-    subprompts = TASK_TO_PROMPTS[task]
-    for prompt in subprompts:
-        ds = load_dataset("bigscience/P3", prompt)
-        # annoyingly, not all datasets have validation sets.
-        if "validation" in ds.keys():
-            ds = ds["validation"]
-        elif "test" in ds.keys():
-            ds = ds["test"]
-            print(f"{prompt} is using the test set for eval.")
-        else:
-            ds = ds["train"]
-            print(f"{prompt} is using the train set for eval.")
-        ds = ds.shuffle(seed=training_args.seed)
+if data_args.sample_file is not None:
+    train_datasets = [load_dataset("json", data_files=data_args.sample_file).shuffle(seed=training_args.seed)['train']]
+else:
+    train_datasets = []
+    for task in train_tasks:
+        if task not in TASK_TO_PROMPTS:
+            raise ValueError(
+                f"train task {task} not valid. Tasks must be from {TASK_TO_PROMPTS.keys()}"
+            )
+        subprompts = TASK_TO_PROMPTS[task]
+        subdatasets = []
+        for prompt in subprompts:
+            ds = load_dataset("bigscience/P3", prompt, split="train").shuffle(seed=training_args.seed)
+            subdatasets.append(ds)
+        # concatenate = size-proportional mixing.
+        train_datasets.append(concatenate_datasets(subdatasets).shuffle(seed=training_args.seed))
+        # cap at task level so we have roughly similar amounts of training data.
         if (
-            data_args.max_samples_per_eval_dataset > 0
-            and len(ds) > data_args.max_samples_per_train_dataset
+            data_args.max_samples_per_train_dataset > 0
+            and len(train_datasets[-1]) > data_args.max_samples_per_train_dataset
         ):
-            ds = ds.select(range(data_args.max_samples_per_eval_dataset))
+            train_datasets[-1] = train_datasets[-1].select(
+                range(data_args.max_samples_per_train_dataset)
+            )
+
+if data_args.eval_bbh:
+    subsets = BBH_SUBSETS
+    prompts = [open(f"data/direct_bbh_prompts/{subset}.txt").read().split("-----")[-1] for subset in subsets]
+    eval_datasets = []
+    eval_dataset_names = []
+    # transform eval datasets to include prompts.
+    for subset, prompt in zip(subsets, prompts):
+        ds = load_dataset("lukaemon/bbh", subset)
+        ds = ds.map(lambda sample: {"input": prompt + f"\n\nQ:{sample['input']}\nA: ", **sample})
+        # to match the format of the other datasets.
+        ds = ds.rename_column("input", "inputs")
+        ds = ds.rename_column("target", "targets")
         eval_datasets.append(ds)
-        eval_dataset_names.append(prompt)
+        eval_dataset_names.append(subset)
+else:
+    eval_datasets = []
+    eval_dataset_names = []
+    for task in eval_tasks:
+        if task not in TASK_TO_PROMPTS:
+            raise ValueError(f"eval task {task} not valid. Tasks must be from {TASK_TO_PROMPTS.keys()}")
+        subprompts = TASK_TO_PROMPTS[task]
+        for prompt in subprompts:
+            ds = load_dataset("bigscience/P3", prompt)
+            # annoyingly, not all datasets have validation sets.
+            if "validation" in ds.keys():
+                ds = ds["validation"]
+            elif "test" in ds.keys():
+                ds = ds["test"]
+                print(f"{prompt} is using the test set for eval.")
+            else:
+                ds = ds["train"]
+                print(f"{prompt} is using the train set for eval.")
+            ds = ds.shuffle(seed=training_args.seed)
+            if (
+                data_args.max_samples_per_eval_dataset > 0
+                and len(ds) > data_args.max_samples_per_train_dataset
+            ):
+                ds = ds.select(range(data_args.max_samples_per_eval_dataset))
+            eval_datasets.append(ds)
+            eval_dataset_names.append(prompt)
 
 tokenizer_name = (
     data_args.tokenizer_name if data_args.tokenizer_name is not None else data_args.model_name
@@ -125,6 +151,28 @@ tokenizer_name = (
 tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)
 model = AutoModelForSeq2SeqLM.from_pretrained(data_args.model_name)
 
+# if sample file or bbh, we need to tokenize the data
+def tokenize_function(examples):
+    input_tokenized = tokenizer(
+        examples['inputs'],
+        truncation=True,
+        return_tensors='pt',
+        max_length=data_args.max_source_length,
+        add_special_tokens=False
+    ).input_ids.long()
+    target_tokenized = tokenizer(
+        examples['targets'],
+        truncation=True,
+        return_tensors='pt',
+        max_length=data_args.max_target_length,
+        add_special_tokens=False
+    ).input_ids.long()
+    return {"inputs": input_tokenized.flatten(), "targets": target_tokenized.flatten()}
+
+if data_args.sample_file is not None:
+    train_datasets = [ds.map(tokenize_function, num_proc=64) for ds in train_datasets]
+if data_args.eval_bbh:
+    eval_datasets = [ds.map(tokenize_function) for ds in eval_datasets]
 
 # cut down lengths
 # No eos on input matches how t0 was trained.
@@ -133,7 +181,7 @@ def preprocess_function(example):
     if len(example["inputs"]) > data_args.max_source_length:
         output["input_ids"] = example["inputs"][
             : data_args.max_source_length - 1
-        ]  # + [tokenizer.eos_token_id]
+        ] + [tokenizer.eos_token_id]
     output["labels"] = example["targets"]
     if len(example["targets"]) > data_args.max_target_length:
         output["labels"] = example["targets"][: data_args.max_target_length - 1] + [
@@ -142,17 +190,17 @@ def preprocess_function(example):
     return output
 
 
-def transform_ds(ds):
-    return ds.map(preprocess_function)
+def transform_ds(ds, num_proc=1):
+    return ds.map(preprocess_function, num_proc=num_proc)
 
 
-train_datasets = [transform_ds(ds) for ds in train_datasets]
+train_datasets = [transform_ds(ds, num_proc=64) for ds in train_datasets]
 eval_datasets = [transform_ds(ds) for ds in eval_datasets]
 
 
 nltk.download("punkt", quiet=True)
-metric = evaluate.load("rouge")
-
+rouge = evaluate.load("rouge")
+exact_match = evaluate.load("exact_match")
 
 def compute_metrics(eval_preds):
     preds, labels = eval_preds
@@ -161,13 +209,17 @@ def compute_metrics(eval_preds):
     decoded_preds = tokenizer.batch_decode(preds, skip_special_tokens=True)
     decoded_labels = tokenizer.batch_decode(labels, skip_special_tokens=True)
 
+    # some light postprocessing for BBH.
+    if args.eval_bbh:
+        batch["pred"] = [pred.replace("A: ", "") for pred in batch["pred"]]
+    exact_match = exact_match.compute(predictions=decoded_preds, references=decoded_labels)
+
     # rougeLSum expects newline after each sentence
     decoded_preds = ["\n".join(nltk.sent_tokenize(pred.strip())) for pred in decoded_preds]
     decoded_labels = ["\n".join(nltk.sent_tokenize(label.strip())) for label in decoded_labels]
 
-    result = metric.compute(predictions=decoded_preds, references=decoded_labels, use_stemmer=True)
-    return result
-
+    rouge = rouge.compute(predictions=decoded_preds, references=decoded_labels, use_stemmer=True)
+    return {**rouge, **exact_match}
 
 trainer = MultiEvalSeq2SeqTrainer(
     model=model,
