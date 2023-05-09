@@ -111,7 +111,7 @@ if data_args.eval_bbh:
     eval_dataset_names = []
     # transform eval datasets to include prompts.
     for subset, prompt in zip(subsets, prompts):
-        ds = load_dataset("lukaemon/bbh", subset)
+        ds = load_dataset("lukaemon/bbh", subset, split='test')
         ds = ds.map(lambda sample: {"input": prompt + f"\n\nQ:{sample['input']}\nA: ", **sample})
         # to match the format of the other datasets.
         ds = ds.rename_column("input", "inputs")
@@ -214,16 +214,16 @@ def compute_metrics(eval_preds):
     decoded_labels = tokenizer.batch_decode(labels, skip_special_tokens=True)
 
     # some light postprocessing for BBH.
-    if args.eval_bbh:
-        batch["pred"] = [pred.replace("A: ", "") for pred in batch["pred"]]
-    exact_match = exact_match.compute(predictions=decoded_preds, references=decoded_labels)
+    if data_args.eval_bbh:
+        decoded_preds = [pred.replace("A: ", "") for pred in decoded_preds]
+    exact_match_score = exact_match.compute(predictions=decoded_preds, references=decoded_labels)
 
     # rougeLSum expects newline after each sentence
     decoded_preds = ["\n".join(nltk.sent_tokenize(pred.strip())) for pred in decoded_preds]
     decoded_labels = ["\n".join(nltk.sent_tokenize(label.strip())) for label in decoded_labels]
 
-    rouge = rouge.compute(predictions=decoded_preds, references=decoded_labels, use_stemmer=True)
-    return {**rouge, **exact_match}
+    rouge_score = rouge.compute(predictions=decoded_preds, references=decoded_labels, use_stemmer=True)
+    return {**rouge_score, **exact_match_score}
 
 trainer = MultiEvalSeq2SeqTrainer(
     model=model,
