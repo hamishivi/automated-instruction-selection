@@ -5,7 +5,7 @@ from typing import Dict, List, Optional
 import evaluate
 import nltk
 import numpy as np
-from dataset_mapping import TASK_TO_PROMPTS, BBH_SUBSETS
+from dataset_mapping import BBH_SUBSETS, TASK_TO_PROMPTS
 from datasets import concatenate_datasets, interleave_datasets, load_dataset
 from multi_eval_seq2seq_trainer import MultiEvalSeq2SeqTrainer
 from transformers import (
@@ -36,7 +36,9 @@ class DataArguments:
         },
     )
     sample_file: Optional[str] = field(
-        metadata={"help": "Path to file containing samples to train on. If given, overrides train_tasks."},
+        metadata={
+            "help": "Path to file containing samples to train on. If given, overrides train_tasks."
+        },
         default=None,
     )
     eval_bbh: bool = field(
@@ -80,7 +82,11 @@ train_tasks = data_args.train_tasks
 eval_tasks = data_args.eval_tasks
 
 if data_args.sample_file is not None:
-    train_datasets = [load_dataset("json", data_files=data_args.sample_file).shuffle(seed=training_args.seed)['train']]
+    train_datasets = [
+        load_dataset("json", data_files=data_args.sample_file).shuffle(seed=training_args.seed)[
+            "train"
+        ]
+    ]
 else:
     train_datasets = []
     for task in train_tasks:
@@ -91,7 +97,9 @@ else:
         subprompts = TASK_TO_PROMPTS[task]
         subdatasets = []
         for prompt in subprompts:
-            ds = load_dataset("bigscience/P3", prompt, split="train").shuffle(seed=training_args.seed)
+            ds = load_dataset("bigscience/P3", prompt, split="train").shuffle(
+                seed=training_args.seed
+            )
             subdatasets.append(ds)
         # concatenate = size-proportional mixing.
         train_datasets.append(concatenate_datasets(subdatasets).shuffle(seed=training_args.seed))
@@ -106,12 +114,15 @@ else:
 
 if data_args.eval_bbh:
     subsets = BBH_SUBSETS
-    prompts = [open(f"data/direct_bbh_prompts/{subset}.txt").read().split("-----")[-1] for subset in subsets]
+    prompts = [
+        open(f"data/direct_bbh_prompts/{subset}.txt").read().split("-----")[-1]
+        for subset in subsets
+    ]
     eval_datasets = []
     eval_dataset_names = []
     # transform eval datasets to include prompts.
     for subset, prompt in zip(subsets, prompts):
-        ds = load_dataset("lukaemon/bbh", subset, split='test')
+        ds = load_dataset("lukaemon/bbh", subset, split="test")
         ds = ds.map(lambda sample: {"input": prompt + f"\n\nQ:{sample['input']}\nA: ", **sample})
         # to match the format of the other datasets.
         ds = ds.rename_column("input", "inputs")
@@ -123,7 +134,9 @@ else:
     eval_dataset_names = []
     for task in eval_tasks:
         if task not in TASK_TO_PROMPTS:
-            raise ValueError(f"eval task {task} not valid. Tasks must be from {TASK_TO_PROMPTS.keys()}")
+            raise ValueError(
+                f"eval task {task} not valid. Tasks must be from {TASK_TO_PROMPTS.keys()}"
+            )
         subprompts = TASK_TO_PROMPTS[task]
         for prompt in subprompts:
             ds = load_dataset("bigscience/P3", prompt)
@@ -151,37 +164,40 @@ tokenizer_name = (
 tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)
 model = AutoModelForSeq2SeqLM.from_pretrained(data_args.model_name)
 
+
 # if sample file or bbh, we need to tokenize the data
 def tokenize_function(examples):
     input_tokenized = tokenizer(
-        examples['inputs'],
+        examples["inputs"],
         truncation=True,
-        return_tensors='pt',
+        return_tensors="pt",
         max_length=data_args.max_source_length,
-        add_special_tokens=False
+        add_special_tokens=False,
     ).input_ids.long()
     target_tokenized = tokenizer(
-        examples['targets'],
+        examples["targets"],
         truncation=True,
-        return_tensors='pt',
+        return_tensors="pt",
         max_length=data_args.max_target_length,
-        add_special_tokens=False
+        add_special_tokens=False,
     ).input_ids.long()
     return {"inputs": input_tokenized.flatten(), "targets": target_tokenized.flatten()}
+
 
 if data_args.sample_file is not None:
     train_datasets = [ds.map(tokenize_function, num_proc=64) for ds in train_datasets]
 if data_args.eval_bbh:
     eval_datasets = [ds.map(tokenize_function) for ds in eval_datasets]
 
+
 # cut down lengths
 # No eos on input matches how t0 was trained.
 def preprocess_function(example):
     output = {"input_ids": example["inputs"]}
     if len(example["inputs"]) > data_args.max_source_length:
-        output["input_ids"] = example["inputs"][
-            : data_args.max_source_length - 1
-        ] + [tokenizer.eos_token_id]
+        output["input_ids"] = example["inputs"][: data_args.max_source_length - 1] + [
+            tokenizer.eos_token_id
+        ]
     output["labels"] = example["targets"]
     if len(example["targets"]) > data_args.max_target_length:
         output["labels"] = example["targets"][: data_args.max_target_length - 1] + [
@@ -206,6 +222,7 @@ nltk.download("punkt", quiet=True)
 rouge = evaluate.load("rouge")
 exact_match = evaluate.load("exact_match")
 
+
 def compute_metrics(eval_preds):
     preds, labels = eval_preds
     # decode preds and labels
@@ -222,8 +239,11 @@ def compute_metrics(eval_preds):
     decoded_preds = ["\n".join(nltk.sent_tokenize(pred.strip())) for pred in decoded_preds]
     decoded_labels = ["\n".join(nltk.sent_tokenize(label.strip())) for label in decoded_labels]
 
-    rouge_score = rouge.compute(predictions=decoded_preds, references=decoded_labels, use_stemmer=True)
+    rouge_score = rouge.compute(
+        predictions=decoded_preds, references=decoded_labels, use_stemmer=True
+    )
     return {**rouge_score, **exact_match_score}
+
 
 trainer = MultiEvalSeq2SeqTrainer(
     model=model,

@@ -14,7 +14,7 @@ class MultiEvalSeq2SeqTrainer(Seq2SeqTrainer):
         *,
         eval_datasets: Optional[List[Dataset]] = None,
         eval_dataset_names: List[str] = None,
-        **kwargs
+        **kwargs,
     ):
         super().__init__(**kwargs)
         self.eval_datasets = eval_datasets
@@ -107,7 +107,9 @@ class MultiEvalSeq2SeqTrainer(Seq2SeqTrainer):
         if _gen_kwargs.get("max_length") is None and _gen_kwargs.get("max_new_tokens") is None:
             _gen_kwargs["max_length"] = self.args.generation_max_length
         _gen_kwargs["num_beams"] = (
-            _gen_kwargs["num_beams"] if _gen_kwargs.get("num_beams") is not None else self.args.generation_num_beams
+            _gen_kwargs["num_beams"]
+            if _gen_kwargs.get("num_beams") is not None
+            else self.args.generation_num_beams
         )
         self._gen_kwargs = _gen_kwargs
 
