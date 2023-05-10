@@ -195,14 +195,12 @@ if data_args.eval_bbh:
 def preprocess_function(example):
     output = {"input_ids": example["inputs"]}
     if len(example["inputs"]) > data_args.max_source_length:
-        output["input_ids"] = example["inputs"][: data_args.max_source_length - 1] + [
-            tokenizer.eos_token_id
-        ]
+        output["input_ids"] = example["inputs"][: data_args.max_source_length - 1]
+    output["input_ids"] += [tokenizer.eos_token_id]
     output["labels"] = example["targets"]
     if len(example["targets"]) > data_args.max_target_length:
-        output["labels"] = example["targets"][: data_args.max_target_length - 1] + [
-            tokenizer.eos_token_id
-        ]
+        output["labels"] = example["targets"][: data_args.max_target_length - 1]
+    output["labels"] += [tokenizer.eos_token_id]
     return output
 
 
@@ -243,7 +241,6 @@ def compute_metrics(eval_preds):
         predictions=decoded_preds, references=decoded_labels, use_stemmer=True
     )
     return {**rouge_score, **exact_match_score}
-
 
 trainer = MultiEvalSeq2SeqTrainer(
     model=model,
