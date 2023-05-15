@@ -100,7 +100,7 @@ def evaluate_samples(examples, prompt=None):
             batch["pred"] = tokenizer.batch_decode(outputs, skip_special_tokens=True)
             # hacky, but needed at least for causal judgements...
             batch["pred"] = [pred.replace("A: ", "") for pred in batch["pred"]]
-            print(batch["pred"])
+            # print(batch["pred"])
             metric.add_batch(predictions=batch["pred"], references=batch["target"])
     return metric.compute()
 
