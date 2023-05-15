@@ -83,7 +83,7 @@ def evaluate_samples(examples, prompt=None):
         )
         for batch in tqdm(dataloader):
             if prompt:
-                inputs = [prompt + f"\n\nQ:{inp}\nA: " for inp in batch["input"]]
+                inputs = [prompt + f"\n\nQ: {inp}\nA: " for inp in batch["input"]]
             else:
                 inputs = batch["input"]
             inputs = tokenizer(inputs, return_tensors="pt", padding=True, truncation=False)
@@ -92,7 +92,7 @@ def evaluate_samples(examples, prompt=None):
                 model.generate(
                     inputs["input_ids"].cuda(),
                     attention_mask=inputs["attention_mask"].cuda(),
-                    max_length=10,
+                    max_new_tokens=10,
                 )
                 .detach()
                 .cpu()
@@ -100,6 +100,7 @@ def evaluate_samples(examples, prompt=None):
             batch["pred"] = tokenizer.batch_decode(outputs, skip_special_tokens=True)
             # hacky, but needed at least for causal judgements...
             batch["pred"] = [pred.replace("A: ", "") for pred in batch["pred"]]
+            print(batch["pred"])
             metric.add_batch(predictions=batch["pred"], references=batch["target"])
     return metric.compute()
 
