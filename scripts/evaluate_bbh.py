@@ -27,7 +27,8 @@ parser.add_argument(
     "--allennlp_weight",
     type=str,
     default=None,
-    help="Location of allennlp weight. If specified, the model name is just used to load config, and the weights come from this file."
+    help="Location of allennlp weight. If specified, the model name is just "
+    "used to load config, and the weights come from this file.",
 )
 args = parser.parse_args()
 
@@ -63,7 +64,9 @@ data_subsets = [
 
 model = AutoModelForSeq2SeqLM.from_pretrained(args.model_name)
 if args.allennlp_weight is not None:
-    model.load_state_dict({ k.replace("transformer.", ""): v for k, v in torch.load(args.allennlp_weight).items()})
+    model.load_state_dict(
+        {k.replace("transformer.", ""): v for k, v in torch.load(args.allennlp_weight).items()}
+    )
 tokenizer = AutoTokenizer.from_pretrained(
     args.tokenizer_name if args.tokenizer_name else args.model_name
 )
@@ -72,6 +75,7 @@ metric = evaluate.load("exact_match")
 
 model = model.cuda()
 
+
 def evaluate_samples(examples, prompt=None):
     with torch.inference_mode():
         dataloader = torch.utils.data.DataLoader(
@@ -79,17 +83,24 @@ def evaluate_samples(examples, prompt=None):
         )
         for batch in tqdm(dataloader):
             if prompt:
-                inputs = [prompt + f"\n\nQ:{inp}\nA: " for inp in batch["input"]]
+                inputs = [prompt + f"\n\nQ: {inp}\nA: " for inp in batch["input"]]
             else:
                 inputs = batch["input"]
             inputs = tokenizer(inputs, return_tensors="pt", padding=True, truncation=False)
             # most bbh outputs are very short
-            outputs = model.generate(
-                inputs["input_ids"].cuda(), attention_mask=inputs["attention_mask"].cuda(), max_length=10
-            ).detach().cpu()
+            outputs = (
+                model.generate(
+                    inputs["input_ids"].cuda(),
+                    attention_mask=inputs["attention_mask"].cuda(),
+                    max_new_tokens=10,
+                )
+                .detach()
+                .cpu()
+            )
             batch["pred"] = tokenizer.batch_decode(outputs, skip_special_tokens=True)
             # hacky, but needed at least for causal judgements...
             batch["pred"] = [pred.replace("A: ", "") for pred in batch["pred"]]
+            # print(batch["pred"])
             metric.add_batch(predictions=batch["pred"], references=batch["target"])
     return metric.compute()
 

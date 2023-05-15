@@ -1,5 +1,5 @@
 # build artifacts
-
+data/mmlu/
 .eggs/
 .mypy_cache
 my_package.egg-info/
