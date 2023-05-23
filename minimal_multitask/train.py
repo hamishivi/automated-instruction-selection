@@ -112,6 +112,14 @@ else:
                 range(data_args.max_samples_per_train_dataset)
             )
 
+
+tokenizer_name = (
+    data_args.tokenizer_name if data_args.tokenizer_name is not None else data_args.model_name
+)
+tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)
+model = AutoModelForSeq2SeqLM.from_pretrained(data_args.model_name)
+
+
 if data_args.eval_bbh:
     subsets = BBH_SUBSETS
     prompts = [
@@ -123,7 +131,21 @@ if data_args.eval_bbh:
     # transform eval datasets to include prompts.
     for subset, prompt in zip(subsets, prompts):
         ds = load_dataset("lukaemon/bbh", subset, split="test")
-        ds = ds.map(lambda sample: {"input": prompt + f"\n\nQ:{sample['input']}\nA: ", **sample})
+        prompt = open(f"data/direct_bbh_prompts/{subset}.txt").read().split("-----")[1:]
+        def prompt_data(batch):
+            inputs = [f"\n{inp}\nAnswer: " for inp in batch["input"]]
+            # dynamic adding of few-shot examples
+            for i, inp in enumerate(inputs):
+                few_shot_idx = 1
+                while len(tokenizer(prompt[0] + inp)["input_ids"] + tokenizer(prompt[few_shot_idx])['input_ids']) < 2048:
+                    inp = f"\n{prompt[few_shot_idx]}" + inp
+                    few_shot_idx += 1
+                    # stop at 3 shots
+                    if few_shot_idx == len(prompt):
+                        break
+                batch["input"][i] = (prompt[0] + '\n' + inp).strip()
+            return batch
+        ds = ds.map(prompt_data, batched=True)
         # to match the format of the other datasets.
         ds = ds.rename_column("input", "inputs")
         ds = ds.rename_column("target", "targets")
@@ -158,11 +180,6 @@ else:
             eval_datasets.append(ds)
             eval_dataset_names.append(prompt)
 
-tokenizer_name = (
-    data_args.tokenizer_name if data_args.tokenizer_name is not None else data_args.model_name
-)
-tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)
-model = AutoModelForSeq2SeqLM.from_pretrained(data_args.model_name)
 
 
 # if sample file or bbh, we need to tokenize the data
@@ -230,7 +247,7 @@ def compute_metrics(eval_preds):
 
     # some light postprocessing for BBH.
     if data_args.eval_bbh:
-        decoded_preds = [pred.replace("A: ", "") for pred in decoded_preds]
+        decoded_preds = [pred.strip()[:len(decoded_labels[i])] for i, pred in enumerate(decoded_preds)]
     exact_match_score = exact_match.compute(predictions=decoded_preds, references=decoded_labels)
 
     # rougeLSum expects newline after each sentence
