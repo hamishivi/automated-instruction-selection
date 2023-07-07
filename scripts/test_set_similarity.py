@@ -23,24 +23,24 @@ use_eos = True
 use_sgpt = False
 eval_dataset = "bbh"
 
-subsample = 1000
+subsample = 5000
 
 
 prompts = {}
 completions = {}
 correctness = {}
-for file in os.listdir("bbh_cot_datasets"):
+for file in os.listdir("data/camel_results/bbh_cot"):
     if file.endswith(".jsonl"):
         f = file.split(".")[0]
-        dataset = [json.loads(data) for data in open(f"bbh_cot_datasets/{file}")]
+        dataset = [json.loads(data) for data in open(f"data/camel_results/bbh_cot/{file}")]
         prompts[f] = [x["input"] for x in dataset]
         completions[f] = [x["target"] for x in dataset]
         correctness[f] = [x["was_correct"] for x in dataset]
 # mmlu
-for file in os.listdir("mmlu_5shot_datasets"):
+for file in os.listdir("data/camel_results/mmlu_0shot"):
     if file.endswith(".jsonl"):
         f = file.split(".")[0]
-        dataset = [json.loads(data) for data in open(f"mmlu_5shot_datasets/{file}")]
+        dataset = [json.loads(data) for data in open(f"data/camel_results/mmlu_0shot/{file}")]
         prompts[f] += [x["input"] for x in dataset]
         completions[f] += [x["target"] for x in dataset]
         correctness[f] += [x["was_correct"] for x in dataset]
@@ -66,9 +66,9 @@ tokenizer = AutoTokenizer.from_pretrained(
 )
 
 # load camel encodings
-camel_encoded_data = np.load("data/vectors/camel_encodings_prompt_only_eos_all.npy")
+camel_encoded_data = np.load("data/vectors/camel_encodings_prompt_only_eos.npy")
 camel_metadata = pickle.load(
-    open("data/vectors/camel_encodings_prompt_only_eos_all_metadata.pkl", "rb")
+    open("data/vectors/camel_encodings_prompt_only_eos_metadata.pkl", "rb")
 )
 camels = camel_metadata["camels"]
 camel_lengths = camel_metadata["camel_lengths"]
@@ -142,22 +142,22 @@ for f in camel_lengths:
     cos_mins = cos_mat.max(axis=1).tolist()
 
     # Plotting
-    fig, axes = plt.subplots(nrows=2, ncols=1, figsize=(5, 3), sharex=True)
-    for i, row in enumerate(euc_mat):
-        if correctness[f][i]:
-            axes[0].hist(row, 1000, alpha=0.3, color="blue")
-        else:
-            axes[1].hist(row, 1000, alpha=0.3, color="red")
-    plt.savefig(f"tmp/euc_hist_{f}.png")
-    plt.close()
-    fig, axes = plt.subplots(nrows=2, ncols=1, figsize=(5, 3), sharex=True)
-    for i, row in enumerate(cos_mat):
-        if correctness[f][i]:
-            axes[0].hist(row, 1000, alpha=0.3, color="blue")
-        else:
-            axes[1].hist(row, 1000, alpha=0.3, color="red")
-    plt.savefig(f"tmp/cos_hist_{f}.png")
-    plt.close()
+    # fig, axes = plt.subplots(nrows=2, ncols=1, figsize=(5, 3), sharex=True)
+    # for i, row in enumerate(euc_mat):
+    #     if correctness[f][i]:
+    #         axes[0].hist(row, 1000, alpha=0.3, color="blue")
+    #     else:
+    #         axes[1].hist(row, 1000, alpha=0.3, color="red")
+    # plt.savefig(f"tmp/euc_hist_{f}.png")
+    # plt.close()
+    # fig, axes = plt.subplots(nrows=2, ncols=1, figsize=(5, 3), sharex=True)
+    # for i, row in enumerate(cos_mat):
+    #     if correctness[f][i]:
+    #         axes[0].hist(row, 1000, alpha=0.3, color="blue")
+    #     else:
+    #         axes[1].hist(row, 1000, alpha=0.3, color="red")
+    # plt.savefig(f"tmp/cos_hist_{f}.png")
+    # plt.close()
     # binned stats calc
     binned_correctness = scipy.stats.binned_statistic(
         euc_mat.mean(1), correctness[f], statistic="mean", bins=100
