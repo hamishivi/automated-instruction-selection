@@ -132,7 +132,7 @@ else:
             text_data[x["info"]["_task_name"]] = []
         text_data[x["info"]["_task_name"]].append({"input": x["inputs"], "target": x["targets"]})
     dataset_name_lines = list(text_data.keys())
-    mapped_dataset_names = {x: x for x in dataset_name_lines}
+    mapped_dataset_names = [x for x in dataset_name_lines]
 
 
 if args.computed_distances is None or not os.path.exists(args.computed_distances):
@@ -184,8 +184,10 @@ if args.computed_distances is None or not os.path.exists(args.computed_distances
             all_gradients = pickle.load(infile)
 
     print("Computing cosine distances")
-    #distances = 1 - fastdist.cosine_pairwise_distance(all_gradients, return_matrix=True)
-    distances = fastdist.matrix_pairwise_distance(all_gradients.astype(np.float64), fastdist.euclidean, "euclidean", return_matrix=True)
+    # distances = 1 - fastdist.cosine_pairwise_distance(all_gradients, return_matrix=True)
+    distances = fastdist.matrix_pairwise_distance(
+        all_gradients.astype(np.float64), fastdist.euclidean, "euclidean", return_matrix=True
+    )
     if args.computed_distances is not None:
         with open(args.computed_distances, "wb") as outfile:
             pickle.dump(distances, outfile)
@@ -208,7 +210,7 @@ with open(args.output, "w") as outfile:
             print(f"{mapped_dataset_name}\t{distances[i:j, i:j].mean()}", file=outfile)
 
     mapped_dataset_names = sorted(mapped_dataset_names)
-    print("\Combo dataset averages", file=outfile)
+    print("Combo dataset averages", file=outfile)
     print("\t".join([""] + mapped_dataset_names), file=outfile)
     for dataset_name1 in mapped_dataset_names:
         d1_distances = []
@@ -217,13 +219,17 @@ with open(args.output, "w") as outfile:
             i2, j2 = dataset_index_ranges[dataset_name2]
             # consider *both* the combo pairs and the dataset pairs
             if dataset_name1 != dataset_name2:
-                all_dists = np.concatenate([
-                    distances[i1:j1, i2:j2].flatten(),
-                    distances[i1:j1, i1:j1].flatten(),
-                    distances[i2:j2, i2:j2].flatten()], axis=0)
+                all_dists = np.concatenate(
+                    [
+                        distances[i1:j1, i2:j2].flatten(),
+                        distances[i1:j1, i1:j1].flatten(),
+                        distances[i2:j2, i2:j2].flatten(),
+                    ],
+                    axis=0,
+                )
             else:
                 all_dists = distances[i1:j1, i1:j1]
             d1_distances.append(all_dists.mean())
-            #d1_distances.append(distances[i1:j1, i2:j2].mean())
+            # d1_distances.append(distances[i1:j1, i2:j2].mean())
         output_line = "\t".join([dataset_name1] + [str(d) for d in d1_distances])
         print(output_line, file=outfile)

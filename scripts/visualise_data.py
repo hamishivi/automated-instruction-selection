@@ -1,21 +1,21 @@
-'''
+"""
 Script for visualising camels datasets with PCA or TSNE.
-'''
-from tqdm import tqdm
-import random
-import pandas as pd
-from sklearn.decomposition import PCA
-import numpy as np
-from sklearn.manifold import TSNE
+"""
 import argparse
 import pickle
-from transformers import AutoTokenizer
+
 import altair as alt
+import numpy as np
+import pandas as pd
+from sklearn.decomposition import PCA
+from sklearn.manifold import TSNE
+from tqdm import tqdm
+from transformers import AutoTokenizer
+
 from scripts.create_llama_encodings import encode_with_messages_format
 
-def main(args):
-    random_gen = random.Random(42)
 
+def main(args):
     counter = 0
     plots = []
     if args.use_tsne:
@@ -27,47 +27,58 @@ def main(args):
     camel_metadata = pickle.load(open(args.input_metadata, "rb"))
     camels = camel_metadata["camels"]
     camel_lengths = camel_metadata["camel_lengths"]
-    tokenizer = AutoTokenizer.from_pretrained('/net/nfs.cirrascale/allennlp/yizhongw/hf_llama_models/7B', use_fast=False)
+    tokenizer = AutoTokenizer.from_pretrained(
+        "/net/nfs.cirrascale/allennlp/yizhongw/hf_llama_models/7B", use_fast=False
+    )
 
     transformed_data = reducer.fit_transform(np.stack(camel_encoded_data))
     labels, all_tooltip_data = [], []
     for f in camel_lengths:
         labels += [f] * camel_lengths[f]
         metadata = camels[f]
-        tooltip_data = [tokenizer.decode(encode_with_messages_format(x, tokenizer, 1024)['input_ids']) for x in metadata]
-        tooltip_data = [' '.join(x.split())[:200] for x in tooltip_data]
+        tooltip_data = [
+            tokenizer.decode(encode_with_messages_format(x, tokenizer, 1024)["input_ids"])
+            for x in metadata
+        ]
+        tooltip_data = [" ".join(x.split())[:200] for x in tooltip_data]
         all_tooltip_data += tooltip_data
 
-    df = pd.DataFrame(transformed_data, columns=['x', 'y'])
-    df['labels'] = labels
-    df['all_tooltip_data'] = all_tooltip_data
-    chart = alt.Chart(df).mark_circle().encode(
-        x='x',
-        y='y',
-        color='labels',
-        tooltip=['labels', 'all_tooltip_data']
-    ).properties(
-        title="All Datasets"
-    ).interactive()
+    df = pd.DataFrame(transformed_data, columns=["x", "y"])
+    df["labels"] = labels
+    df["all_tooltip_data"] = all_tooltip_data
+    chart = (
+        alt.Chart(df)
+        .mark_circle()
+        .encode(x="x", y="y", color="labels", tooltip=["labels", "all_tooltip_data"])
+        .properties(title="All Datasets")
+        .interactive()
+    )
     plots.append(chart)
     for f in tqdm(camel_lengths):
-        df_data = transformed_data[counter:counter+camel_lengths[f]]
+        df_data = transformed_data[counter : counter + camel_lengths[f]]
         metadata = camels[f]
-        counter += camel_lengths[f]    
-        tooltip_data = [tokenizer.decode(encode_with_messages_format(x, tokenizer, 200, args.include_reponse)['input_ids']) for x in metadata]
+        counter += camel_lengths[f]
+        tooltip_data = [
+            tokenizer.decode(
+                encode_with_messages_format(x, tokenizer, 200, args.include_reponse)["input_ids"]
+            )
+            for x in metadata
+        ]
         # remove unnecessary spaces and truncate
-        tooltip_data = [' '.join(x.split())[:200] for x in tooltip_data]
-        
-        df = pd.DataFrame(df_data, columns=['x', 'y'])
-        df['inputs'] = tooltip_data
-        plot = alt.Chart(df).mark_circle().encode(
-            x='x',
-            y='y', tooltip=['inputs']
-        ).properties(
-            title=f
-        ).interactive()
+        tooltip_data = [" ".join(x.split())[:200] for x in tooltip_data]
+
+        df = pd.DataFrame(df_data, columns=["x", "y"])
+        df["inputs"] = tooltip_data
+        plot = (
+            alt.Chart(df)
+            .mark_circle()
+            .encode(x="x", y="y", tooltip=["inputs"])
+            .properties(title=f)
+            .interactive()
+        )
         plots.append(plot)
     alt.concat(*plots, columns=2).save("camel_visualisation.html")
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

@@ -132,19 +132,27 @@ if data_args.eval_bbh:
     for subset, prompt in zip(subsets, prompts):
         ds = load_dataset("lukaemon/bbh", subset, split="test")
         prompt = open(f"data/direct_bbh_prompts/{subset}.txt").read().split("-----")[1:]
+
         def prompt_data(batch):
             inputs = [f"\n{inp}\nAnswer: " for inp in batch["input"]]
             # dynamic adding of few-shot examples
             for i, inp in enumerate(inputs):
                 few_shot_idx = 1
-                while len(tokenizer(prompt[0] + inp)["input_ids"] + tokenizer(prompt[few_shot_idx])['input_ids']) < 2048:
+                while (
+                    len(
+                        tokenizer(prompt[0] + inp)["input_ids"]
+                        + tokenizer(prompt[few_shot_idx])["input_ids"]
+                    )
+                    < 2048
+                ):
                     inp = f"\n{prompt[few_shot_idx]}" + inp
                     few_shot_idx += 1
                     # stop at 3 shots
                     if few_shot_idx == len(prompt):
                         break
-                batch["input"][i] = (prompt[0] + '\n' + inp).strip()
+                batch["input"][i] = (prompt[0] + "\n" + inp).strip()
             return batch
+
         ds = ds.map(prompt_data, batched=True)
         # to match the format of the other datasets.
         ds = ds.rename_column("input", "inputs")
@@ -179,7 +187,6 @@ else:
                 ds = ds.select(range(data_args.max_samples_per_eval_dataset))
             eval_datasets.append(ds)
             eval_dataset_names.append(prompt)
-
 
 
 # if sample file or bbh, we need to tokenize the data
@@ -247,7 +254,9 @@ def compute_metrics(eval_preds):
 
     # some light postprocessing for BBH.
     if data_args.eval_bbh:
-        decoded_preds = [pred.strip()[:len(decoded_labels[i])] for i, pred in enumerate(decoded_preds)]
+        decoded_preds = [
+            pred.strip()[: len(decoded_labels[i])] for i, pred in enumerate(decoded_preds)
+        ]
     exact_match_score = exact_match.compute(predictions=decoded_preds, references=decoded_labels)
 
     # rougeLSum expects newline after each sentence
@@ -258,6 +267,7 @@ def compute_metrics(eval_preds):
         predictions=decoded_preds, references=decoded_labels, use_stemmer=True
     )
     return {**rouge_score, **exact_match_score}
+
 
 trainer = MultiEvalSeq2SeqTrainer(
     model=model,

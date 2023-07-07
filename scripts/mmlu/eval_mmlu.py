@@ -1,19 +1,20 @@
 import argparse
 import os
-import torch
+
 import numpy as np
 import pandas as pd
-from scripts.mmlu.categories import subcategories, categories
+import torch
 from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
-import time
+
+from scripts.mmlu.categories import categories, subcategories
 
 choices = ["A", "B", "C", "D"]
 
 
 def format_subject(subject):
-    l = subject.split("_")
+    entries = subject.split("_")
     s = ""
-    for entry in l:
+    for entry in entries:
         s += " " + entry
     return s
 
@@ -44,7 +45,6 @@ def gen_prompt(train_df, subject, k=-1):
 def eval(args, subject, model, tokenizer, dev_df, test_df):
     cors = []
     all_probs = []
-    answers = choices[: test_df.shape[1] - 2]
 
     for i in range(test_df.shape[0]):
         # get prompt and make sure it fits
@@ -65,9 +65,7 @@ def eval(args, subject, model, tokenizer, dev_df, test_df):
 
         decoder_input_ids = tokenizer("", return_tensors="pt").input_ids.cuda()
         decoder_input_ids = model._shift_right(decoder_input_ids)
-        logits = model(
-            input_ids=input_ids, decoder_input_ids=decoder_input_ids
-        ).logits.flatten()
+        logits = model(input_ids=input_ids, decoder_input_ids=decoder_input_ids).logits.flatten()
 
         probs = (
             torch.nn.functional.softmax(
@@ -101,7 +99,6 @@ def eval(args, subject, model, tokenizer, dev_df, test_df):
 
 
 def main(args):
-
     model = AutoModelForSeq2SeqLM.from_pretrained(args.model)
     tokenizer = AutoTokenizer.from_pretrained(args.model)
     heads_per_gpu = len(model.encoder.block) // args.ngpu
@@ -130,15 +127,13 @@ def main(args):
         os.makedirs(os.path.join(args.save_dir, "results_{}".format(args.model)))
 
     all_cors = []
-    subcat_cors = {
-        subcat: [] for subcat_lists in subcategories.values() for subcat in subcat_lists
-    }
+    subcat_cors = {subcat: [] for subcat_lists in subcategories.values() for subcat in subcat_lists}
     cat_cors = {cat: [] for cat in categories}
 
     for subject in subjects:
-        dev_df = pd.read_csv(
-            os.path.join(args.data_dir, "dev", subject + "_dev.csv"), header=None
-        )[: args.ntrain]
+        dev_df = pd.read_csv(os.path.join(args.data_dir, "dev", subject + "_dev.csv"), header=None)[
+            : args.ntrain
+        ]
         test_df = pd.read_csv(
             os.path.join(args.data_dir, "test", subject + "_test.csv"), header=None
         )
@@ -157,9 +152,7 @@ def main(args):
             choice = choices[j]
             test_df["{}_choice{}_probs".format(args.model, choice)] = probs[:, j]
         test_df.to_csv(
-            os.path.join(
-                args.save_dir, "results_{}".format(args.model), "{}.csv".format(subject)
-            ),
+            os.path.join(args.save_dir, "results_{}".format(args.model), "{}.csv".format(subject)),
             index=None,
         )
 

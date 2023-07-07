@@ -1,6 +1,6 @@
-'''
+"""
 A list of the bbh subtasks. Useful for loading the prompts datasets etc.
-'''
+"""
 DATA_SUBSETS = [
     "boolean_expressions",
     "causal_judgement",
