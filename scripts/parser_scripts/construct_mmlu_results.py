@@ -48,12 +48,12 @@ prefix = "/net/nfs.cirrascale/allennlp/yizhongw/open-instruct/data/eval/mmlu/dev
 samples = []
 for file in os.listdir(args.input_folder):
     if file.endswith(".csv"):
-        subject = file.replace(".csv", "").replace("_", " ")
+        subject = file.replace(".csv", "").replace("_", "")
 
         dev_data = csv.reader(open(f"{prefix}/{file.replace('.csv', '')}_dev.csv"))
         dev_data = list(dev_data)
 
-        few_shot_prompt = gen_prompt(dev_data, subject, k=5)
+        few_shot_prompt = gen_prompt(dev_data, subject, k=0)
 
         with open(os.path.join(args.input_folder, file), "r") as f:
             reader = csv.reader(f, delimiter=",", quotechar='"')
@@ -72,6 +72,7 @@ for file in os.listdir(args.input_folder):
                     {
                         "input": prompt.strip(),
                         "target": data[5],
+                        "probs": model_probs,
                         "prediction": model_pred,
                         "was_correct": was_correct,
                     }
