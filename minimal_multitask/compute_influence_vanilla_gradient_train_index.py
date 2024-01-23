@@ -4,7 +4,11 @@ from minimal_multitask.nn_influence_utils import compute_influences_batched
 from scripts.create_llama_encodings import encode_with_messages_format
 from datasets import load_dataset
 import argparse
+import faiss
+from tqdm import tqdm
+import os
 import pickle
+from minimal_multitask.nn_influence_utils import compute_gradients
 from minimal_multitask.data  import DATASETS
 
 parser = argparse.ArgumentParser()
@@ -72,15 +76,65 @@ batch_train_data_loader = torch.utils.data.DataLoader(train_dataset, batch_size=
 instance_train_data_loader = torch.utils.data.DataLoader(train_dataset, batch_size=1, shuffle=False)
 eval_data_loader = torch.utils.data.DataLoader(test_dataset, batch_size=1, shuffle=False)
 
-# influence calculations. This script does query batching, like anthropic paper.
-# test_batches is used to control batch size when computing influence. Reduce if getting OOM.
-instance_to_influences = {}
-influences, topk_indices, _ = compute_influences_batched(n_gpu=1, device=torch.device("cuda"), model=model, test_inputs=eval_data_loader, batch_train_data_loader=batch_train_data_loader, instance_train_data_loader=instance_train_data_loader,params_filter=params_filter, weight_decay=0.0, weight_decay_ignores=weight_decay_ignores, s_test_damp=5e-3, s_test_scale=1e6, s_test_num_samples=100, s_test_iterations=1, precomputed_s_test=None, test_batches=2)
-# save results for post processing later.
-for test_idx, infs in enumerate(influences):
-    instance_to_influences[test_idx] = {}
-    for train_index in infs:
-        instance_to_influences[test_idx][train_index] = infs[train_index]
+# construct an index over the gradients on the train data
+# use inner product.
+num_params = sum([p.numel() for n, p in model.named_parameters() if p.requires_grad])
+grad_index = faiss.index_factory(num_params, "Flat", faiss.METRIC_INNER_PRODUCT)
 
-with open(args.instance_to_influences, "wb") as f:
-    pickle.dump(instance_to_influences, f)
+# we add to the index in batches to speed things up?
+grad_batch = 512
+accum_grads = []
+# save gradients for visualisation later.
+samples = []
+counter = 0
+if not os.path.exists(args.index_path):
+    for index, train_inputs in enumerate(tqdm(instance_train_data_loader)):
+        grad_z = compute_gradients(
+                n_gpu=1,
+                device=torch.device("cuda:0"),
+                model=model,
+                inputs=train_inputs,
+                params_filter=params_filter,
+                weight_decay=0.0,
+                weight_decay_ignores=weight_decay_ignores
+        )
+        # flatten
+        grad_z = torch.cat([g.reshape(-1) for g in grad_z], axis=0).detach()
+        accum_grads.append(grad_z.detach().cpu().to(torch.float32))
+        if index % grad_batch == 0:
+            # add to index
+            grad_index.add(torch.stack(accum_grads).numpy())
+            accum_grads = []
+    faiss.write_index(grad_index, args.index_path)
+    # del and reload so we can use mmap (save memory!)
+    del grad_index
+
+grad_index = faiss.read_index(args.index_path, faiss.IO_FLAG_MMAP)
+
+
+# influence calculations. Since we are just doing gradient matching,
+# we can just iterate and grab as we go.
+instance_to_influences = {}
+for index, instance in tqdm(enumerate(eval_data_loader), total=len(eval_data_loader)):
+    x = 100
+    grad_test = compute_gradients(
+            n_gpu=1,
+            device=torch.device("cuda:0"),
+            model=model,
+            inputs=instance,
+            params_filter=params_filter,
+            weight_decay=0.0,
+            weight_decay_ignores=weight_decay_ignores
+    )
+    grad_test = torch.cat([g.reshape(-1) for g in grad_test], axis=0).detach().cpu().to(torch.float32)
+    grad_test = grad_test.reshape(1, -1)  # faiss expects a batch dimension
+    # search for closest instance
+    influences, topk_indices = grad_index.search(grad_test.numpy(), args.top_k)
+    # save 
+    index_to_influence = {ind: influence for influence, ind in zip(influences[0], topk_indices[0])}
+    instance_to_influences[index] = index_to_influence
+    # periodically save to disk to avoid losing progress
+    if index % 100 == 0:
+        with open(args.instance_to_influences, "wb") as f:
+            pickle.dump(instance_to_influences, f)
+        print(f"Saved to {args.instance_to_influences} at step {index}")

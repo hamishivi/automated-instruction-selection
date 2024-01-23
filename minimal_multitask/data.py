@@ -3,8 +3,8 @@ General place for datasets. Handle conversion to my desired format.
 '''
 import json
 from datasets import load_dataset, Dataset
-from minimal_multitask.run_mmlu_eval import construct_prompts
-from minimal_multitask.run_alpaca_eval import create_prompt_with_tulu_chat_format
+from minimal_multitask.eval.run_mmlu_eval import construct_prompts
+from minimal_multitask.eval.run_alpaca_eval import create_prompt_with_tulu_chat_format
 
 
 class TestDataset:
@@ -59,11 +59,12 @@ class AlpacaEval(TestDataset):
 class SquadEval(TestDataset):
     def get_all_test_prompts(self, num_samples=500, seed=42):
         test_dataset = load_dataset('squad', split='validation')
+        tokenizer = self.tokenizer
         def convert_squad_sample(sample):
             prompt = sample['question']
             label = sample['answers']['text'][0]
-            messages = [{"role": "user", "content": prompt}, {"role": "assistant", "content": label}]
-            return {'prompt': create_prompt_with_tulu_chat_format(messages, add_bos=False), 'label': label}
+            messages = [{"role": "user", "content": prompt}]
+            return {'prompts': create_prompt_with_tulu_chat_format(messages, tokenizer, add_bos=False), 'labels': label}
         test_dataset = test_dataset.map(convert_squad_sample, remove_columns=['id', 'title', 'context', 'question', 'answers'])
         test_dataset = test_dataset.map(lambda x: construct_test_sample(self.tokenizer, x, max_length=1024))
         test_dataset.set_format(type='torch', columns=['input_ids', 'attention_mask', 'labels'])

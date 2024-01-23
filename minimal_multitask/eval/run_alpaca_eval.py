@@ -57,7 +57,6 @@ def main(args):
         temperature=0,  # greedy decoding
         max_tokens=8192,
     )
-    import pdb; pdb.set_trace()
     outputs = model.generate(prompts, sampling_params)
     outputs = [it.outputs[0].text for it in outputs]
 

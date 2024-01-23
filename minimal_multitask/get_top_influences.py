@@ -40,11 +40,10 @@ for i, influences in instance_to_influences.items():
     # optionally just take top k. Allows closer control of how many instances we train over.
     if args.take_top_k is not None:
         top_influences = top_influences[:args.take_top_k]
-        import pdb; pdb.set_trace()
+    import pdb; pdb.set_trace()
     # clunky if but there in case we have used some different code
     saved_instances += [index if isinstance(index, int) else index.item() for _, index in top_influences]
 
-import pdb; pdb.set_trace()
 saved_instances = list(set(saved_instances))
 print(f"Saved {len(saved_instances)} instances")
 # save top instances

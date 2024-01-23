@@ -21,6 +21,9 @@ parser.add_argument('--seed', type=int, default=42)
 parser.add_argument('--save_dir', type=str)
 parser.add_argument('--use_fast_tokenizer', action='store_true')
 parser.add_argument('--use_flash_attention_2', action='store_true')
+parser.add_argument('--leak_test_data', action='store_true')
+parser.add_argument('--train_dataset', choices=['alpaca', 'lima'], default='alpaca')
+parser.add_argument('--llama', action='store_true')
 args = parser.parse_args()
 
 kwargs = {}
@@ -36,7 +39,7 @@ tokenizer.add_special_tokens({'pad_token': '[PAD]'})
 model.resize_token_embeddings(len(tokenizer))
 if args.lora_rank > -1:
     modules = ["query_key_value", "dense", "dense_h_to_4h", "dense_4h_to_h"]
-    if 'llama' in args.model_name:
+    if 'llama' in args.model_name or args.llama:
         modules = ["q_proj", "o_proj", "v_proj", "k_proj", "gate_proj", "up_proj", "down_proj"]
     peft_config = LoraConfig(
         task_type=TaskType.CAUSAL_LM, 
@@ -49,20 +52,34 @@ if args.lora_rank > -1:
     model = get_peft_model(model, peft_config)
 
 # load and process train dataset
-train_dataset = load_dataset('json', data_files='data/camel_datasets/stanford_alpaca/stanford_alpaca_data.jsonl')
+if args.train_dataset == 'alpaca':
+    train_dataset = load_dataset('json', data_files='data/camel_datasets/stanford_alpaca/stanford_alpaca_data.jsonl')
+    train_dataset = train_dataset['train']
+elif args.train_dataset == 'lima':
+    train_dataset = load_dataset('GAIR/lima', use_auth_token=True, split='train')
+    def convert_lima(example):
+        messages = [
+            {'role': 'user', 'content': example['conversations'][0]},
+            {'role': 'assistant', 'content': example['conversations'][1]}
+        ]
+        return {'messages': messages}
+    train_dataset = train_dataset.map(convert_lima)
 train_dataset = train_dataset.map(lambda x: encode_with_messages_format(x, tokenizer, 1024, True, False))
 train_dataset.set_format(type='torch', columns=['input_ids', 'attention_mask', 'labels'])
-train_dataset = train_dataset['train']
 if args.saved_instances != "":
     train_indices = json.load(open(args.saved_instances, "r"))
     train_dataset = train_dataset.select(train_indices)
 if args.random_select > 0:
     train_dataset = train_dataset.shuffle(seed=args.seed).select(range(args.random_select))
     print(f"Randomly selected {args.random_select} train instances")
-
-# load only the influence-selected indices
-# train_indices = json.load(open("saved_instances.json", "r"))
-# train_dataset = train_dataset.select(train_indices)
+# train on mix of train and test data
+if args.leak_test_data:
+    from minimal_multitask.data import DATASETS
+    test_dataset = DATASETS['squad'](tokenizer).get_all_test_prompts()
+    train_dataset = train_dataset.select(range(len(test_dataset)))
+    new_dataset = []
+    for sample in test_dataset:
+        train_dataset = train_dataset.add_item({k: v.tolist() for k, v in sample.items()})
 
 trainer = Trainer(
     model=model,
