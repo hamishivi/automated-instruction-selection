@@ -1,10 +1,8 @@
 ################################
 ###### Core dependencies #######
 ################################
-transformers==4.26.1
-scikit-learn==1.0.2
-numba==0.56.4
-fastdist==1.1.5
+transformers
+scikit-learn
 datasets
 rouge_score
 evaluate

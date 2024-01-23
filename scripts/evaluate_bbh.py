@@ -81,16 +81,22 @@ def evaluate_samples(examples, prompt):
             # dynamic adding of few-shot examples
             for i, inp in enumerate(inputs):
                 few_shot_idx = 1
-                while len(tokenizer(prompt[0] + inp)["input_ids"] + tokenizer(prompt[few_shot_idx])['input_ids']) < 2048:
+                while (
+                    len(
+                        tokenizer(prompt[0] + inp)["input_ids"]
+                        + tokenizer(prompt[few_shot_idx])["input_ids"]
+                    )
+                    < 2048
+                ):
                     inp = f"\n{prompt[few_shot_idx]}" + inp
                     few_shot_idx += 1
                     # stop at 3 shots
                     if few_shot_idx == len(prompt):
                         break
-                inputs[i] = (prompt[0] + '\n' + inp).strip()
-            # print(inputs)         
+                inputs[i] = (prompt[0] + "\n" + inp).strip()
+            # print(inputs)
             inputs = tokenizer(inputs, return_tensors="pt", padding=True, truncation=False)
-            
+
             # most bbh outputs are very short
             outputs = (
                 model.generate(
@@ -103,8 +109,10 @@ def evaluate_samples(examples, prompt):
             )
             batch["pred"] = tokenizer.batch_decode(outputs, skip_special_tokens=True)
             # print(batch["pred"])
-            batch["pred"] = [pred.strip()[:len(batch["target"][i])] for i, pred in enumerate(batch["pred"])]
-            
+            batch["pred"] = [
+                pred.strip()[: len(batch["target"][i])] for i, pred in enumerate(batch["pred"])
+            ]
+
             metric.add_batch(predictions=batch["pred"], references=batch["target"])
     return metric.compute()
 
@@ -122,4 +130,4 @@ print("all results:")
 print(all_results)
 print(data_subsets)
 for subset in data_subsets:
-    print(f"{all_results[subset]['exact_match']}", end='\t')
+    print(f"{all_results[subset]['exact_match']}", end="\t")

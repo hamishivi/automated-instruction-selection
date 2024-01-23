@@ -50,3 +50,14 @@ docs/build
 site/
 venv/
 test/
+
+# hamish artifacts
+data/
+notebooks/
+viz_plots/
+results/
+*.png
+*.npy
+*.faiss
+tmp/
+quick*.sh
