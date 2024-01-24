@@ -42,4 +42,6 @@ For MMLU, we can also just examine the prompts used for selecting influence.
 python -m minimal_multitask.performance_over_chosen_prompts --input_folder results/pythia_70m/lora_mmlu_results_${i}
 ```
 
+To train a model on random data, we can use the `--random_select k` flag on the `instruction_tune` script, where k is the number of random samples to pick.
+
 And thats it! Squad and AlpacaEval work roughly the same way.
