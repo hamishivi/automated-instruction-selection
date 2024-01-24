@@ -25,6 +25,7 @@ parser.add_argument('--eval_dataset', type=str, choices=DATASETS.keys(), default
 parser.add_argument('--index_path', type=str)
 # be careful with this one! leaks test data into train set so we can sanity check the retrieval
 parser.add_argument('--leak_test_data', action='store_true')
+parser.add_argument('--save_index', action='store_true')
 args = parser.parse_args()
 
 
@@ -118,11 +119,13 @@ if not os.path.exists(args.index_path):
             # add to index
             grad_index.add(torch.stack(accum_grads).numpy())
             accum_grads = []
-    # faiss.write_index(grad_index, args.index_path)
-    # del and reload so we can use mmap (save memory!)
-    # del grad_index
+    if args.save_index:
+        faiss.write_index(grad_index, args.index_path)
+        # del and reload so we can use mmap (save memory!)
+        del grad_index
 
-# grad_index = faiss.read_index(args.index_path, faiss.IO_FLAG_MMAP)
+if os.path.exists(args.index_path):
+    grad_index = faiss.read_index(args.index_path, faiss.IO_FLAG_MMAP)
 
 s_test = None
 stored_grads = None
