@@ -32,7 +32,7 @@ def get_loss_with_weight_decay(
         weight_decay: Optional[float],
         weight_decay_ignores: Optional[List[str]],
         loss_averaging='mean') -> float:
-
+    # loss_averaging = 'sum'
     model.train()
     if isinstance(inputs, list):
         assert len(inputs) == 1
@@ -423,8 +423,9 @@ def compute_influences_train_index(
     # flatten s_test
     s_test = torch.cat([g.reshape(-1) for g in s_test], axis=0)
     # query over index - note the negative!
-    influences, topk_indices = train_index.search(-s_test.cpu().numpy()[None,], top_k)
-    # influences are negative
+    # no negative here as we invert the sign. we want minimal!
+    influences, topk_indices = train_index.search(s_test.cpu().numpy()[None,], top_k)
+    # negate here so the influence scores are right.
     return -influences, topk_indices, -s_test.cpu().numpy()
 
 # same as before but batched over multiple test instances
@@ -500,15 +501,7 @@ def compute_influences_batched(
                         ]
                 # Do the averaging
                 s_test = [a / s_test_iterations for a in s_test]
- # if low rank, approx now. returns uk, sk, vk
-            # def svd_based_low_rank(s, low_rank):
-            #     u, s, v = torch.linalg.svd(s, full_matrices=False)
-            #     return u[:,:low_rank].detach().cpu(), s[:low_rank, :low_rank].detach().cpu(), v[:,:low_rank].detach().cpu()
-            # def reconstruct_from_low_rank(u, s, v):
-            #     return torch.matmul(u, torch.matmul(s, v.T))
-            # if low_rank > 0:
-            #     s_test = [svd_based_low_rank(s, low_rank) for s in s_test]
-            # else:
+
             s_test = [x.detach().cpu() for x in s_test]
             s_tests.append(s_test)
             counterx -= 1
@@ -540,7 +533,7 @@ def compute_influences_batched(
                 grad_z = [x.detach().to('cpu') for x in grad_z]
             grad_z = torch.cat([x.detach().reshape(-1) for x in grad_z], dim=0)
             with torch.no_grad():
-                influence_scores = torch.matmul(s_tests, grad_z).squeeze()
+                influence_scores = - torch.matmul(s_tests, grad_z).squeeze()
             for test_index, inf in enumerate(influence_scores):
                 influences[test_index][index] = inf.item()
                 train_inputs_collections[test_index][index] = train_inputs
