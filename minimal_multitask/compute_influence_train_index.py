@@ -12,6 +12,7 @@ from tqdm import tqdm
 import faiss
 import argparse
 import os
+import numpy as np
 import pickle
 from minimal_multitask.data import DATASETS
 
@@ -26,6 +27,11 @@ parser.add_argument('--index_path', type=str)
 # be careful with this one! leaks test data into train set so we can sanity check the retrieval
 parser.add_argument('--leak_test_data', action='store_true')
 parser.add_argument('--save_index', action='store_true')
+# if passed, we decompose the influence into the per-token influences.
+# not sure how to accumulate this yet, so will yuck you into a debug loop too for now.
+parser.add_argument('--per_test_token_influence', action='store_true')
+# create plots for debugging
+parser.add_argument('--create_plots', action='store_true')
 args = parser.parse_args()
 
 
@@ -75,6 +81,37 @@ if args.leak_test_data:
 print(f"Train dataset size: {len(train_dataset)}")
 print(f"Test dataset size: {len(test_dataset)}")
 
+# helper debug function: plotting length against influence values or ranks.
+def compute_length_vs_influence(topk_indices, influences, save_dir="figures", filter_nops=False):
+    from matplotlib import pyplot as plt
+    train_dataset_lengths = [len([tok for tok in x['labels'] if tok != -100]) for x in train_dataset]
+    
+    def sample_is_nop(idx):
+        if train_dataset_lengths[idx] <= 1:
+            return True
+        if 'nooutput' in tokenizer.decode(train_dataset[idx]['input_ids']).lower():
+            return True
+        return False
+    is_nop = [sample_is_nop(idx) for idx in range(len(train_dataset))]
+
+    # remove -1 indices
+    topk_indices = [x for x in topk_indices[0] if x >= 0]
+    influences = influences[0][:len(topk_indices)]
+
+    # plot: rank against length
+    # scatter is_nop and not is_nop separately
+    plt.scatter(list(range(len(topk_indices))), [train_dataset_lengths[i.item()] for i in topk_indices], c=[0 if is_nop[i.item()] else 1 for i in topk_indices], alpha=0.5)
+    plt.xlabel("Influence Rank")
+    plt.ylabel("Length")
+    plt.savefig(os.path.join(save_dir, "rank_vs_length.png"))
+    plt.clf()
+    # plot: influence against length
+    plt.scatter(influences, [train_dataset_lengths[i.item()] for i in topk_indices], c=[0 if is_nop[i.item()] else 1 for i in topk_indices], alpha=0.5)
+    plt.xlabel("Influence Score")
+    plt.ylabel("Length")
+    plt.savefig(os.path.join(save_dir, "influence_vs_length.png"))
+    plt.clf()
+
 # construct dataloaders
 batch_train_data_loader = torch.utils.data.DataLoader(train_dataset, batch_size=1, shuffle=True)
 instance_train_data_loader = torch.utils.data.DataLoader(train_dataset, batch_size=1, shuffle=False)
@@ -119,6 +156,10 @@ if not os.path.exists(args.index_path):
             # add to index
             grad_index.add(torch.stack(accum_grads).numpy())
             accum_grads = []
+    # add remaining
+    if len(accum_grads) > 0:
+        grad_index.add(torch.stack(accum_grads).numpy())
+        accum_grads = []
     if args.save_index:
         faiss.write_index(grad_index, args.index_path)
         # del and reload so we can use mmap (save memory!)
@@ -138,7 +179,22 @@ for index, instance in tqdm(enumerate(eval_data_loader), total=len(eval_data_loa
     # if index in instance_to_influences:
     #     continue
     x = 100
-    influences, topk_indices, _ = compute_influences_train_index( n_gpu=1, device=torch.device("cuda"), model=model, test_inputs=[instance], batch_train_data_loader=batch_train_data_loader, instance_train_data_loader=instance_train_data_loader, train_index=grad_index, top_k=args.top_k, params_filter=params_filter, weight_decay=0.0, weight_decay_ignores=weight_decay_ignores, s_test_damp=5e-3, s_test_scale=1e6, s_test_num_samples=x, s_test_iterations=1, precomputed_s_test=None, grad_zs=stored_grads)
+    if args.per_test_token_influence:
+        one_hots = torch.nn.functional.one_hot(torch.arange(509), num_classes=509)
+        all_onehot_labels = torch.where(one_hots == 1, instance['labels'], -100)
+        first_noninput_index = (instance['labels'] == -100).sum()
+        # for every token, compute the influence
+        all_token_influences = []
+        all_topk_indices = []
+        for i in range(first_noninput_index, instance['labels'].shape[-1]):
+            influences, topk_indices, _ = compute_influences_train_index(n_gpu=1, device=torch.device("cuda"), model=model, test_inputs=[{'input_ids': instance['input_ids'],'attention_mask': instance['attention_mask'], 'labels': all_onehot_labels[i]}], batch_train_data_loader=batch_train_data_loader, instance_train_data_loader=instance_train_data_loader, train_index=grad_index, top_k=args.top_k, params_filter=params_filter, weight_decay=0.0, weight_decay_ignores=weight_decay_ignores, s_test_damp=5e-3, s_test_scale=1e6, s_test_num_samples=x, s_test_iterations=1, precomputed_s_test=None, grad_zs=stored_grads)
+            all_token_influences.append(influences)
+            all_topk_indices.append(topk_indices)
+        import pdb; pdb.set_trace()
+    else:
+        influences, topk_indices, _ = compute_influences_train_index(n_gpu=1, device=torch.device("cuda"), model=model, test_inputs=[instance], batch_train_data_loader=batch_train_data_loader, instance_train_data_loader=instance_train_data_loader, train_index=grad_index, top_k=args.top_k, params_filter=params_filter, weight_decay=0.0, weight_decay_ignores=weight_decay_ignores, s_test_damp=5e-3, s_test_scale=1e6, s_test_num_samples=x, s_test_iterations=1, precomputed_s_test=None, grad_zs=stored_grads)
+        if index == 0 and args.create_plots:
+            compute_length_vs_influence(topk_indices, influences, filter_nops=True)
     # create dict?
     index_to_influence = {ind: influence for influence, ind in zip(influences[0], topk_indices[0])}
     instance_to_influences[index] = index_to_influence
