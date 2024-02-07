@@ -32,6 +32,7 @@ parser.add_argument('--save_index', action='store_true')
 parser.add_argument('--per_test_token_influence', action='store_true')
 # create plots for debugging
 parser.add_argument('--create_plots', action='store_true')
+parser.add_argument('--s_test_num_samples', type=int, default=100)
 args = parser.parse_args()
 
 
@@ -178,9 +179,10 @@ for index, instance in tqdm(enumerate(eval_data_loader), total=len(eval_data_loa
     # load from saved file
     # if index in instance_to_influences:
     #     continue
-    x = 100
+    x = args.s_test_num_samples
     if args.per_test_token_influence:
-        one_hots = torch.nn.functional.one_hot(torch.arange(509), num_classes=509)
+        instance_length = instance['labels'].shape[-1]
+        one_hots = torch.nn.functional.one_hot(torch.arange(instance_length), num_classes=instance_length)
         all_onehot_labels = torch.where(one_hots == 1, instance['labels'], -100)
         first_noninput_index = (instance['labels'] == -100).sum()
         # for every token, compute the influence
@@ -190,7 +192,6 @@ for index, instance in tqdm(enumerate(eval_data_loader), total=len(eval_data_loa
             influences, topk_indices, _ = compute_influences_train_index(n_gpu=1, device=torch.device("cuda"), model=model, test_inputs=[{'input_ids': instance['input_ids'],'attention_mask': instance['attention_mask'], 'labels': all_onehot_labels[i]}], batch_train_data_loader=batch_train_data_loader, instance_train_data_loader=instance_train_data_loader, train_index=grad_index, top_k=args.top_k, params_filter=params_filter, weight_decay=0.0, weight_decay_ignores=weight_decay_ignores, s_test_damp=5e-3, s_test_scale=1e6, s_test_num_samples=x, s_test_iterations=1, precomputed_s_test=None, grad_zs=stored_grads)
             all_token_influences.append(influences)
             all_topk_indices.append(topk_indices)
-        import pdb; pdb.set_trace()
     else:
         influences, topk_indices, _ = compute_influences_train_index(n_gpu=1, device=torch.device("cuda"), model=model, test_inputs=[instance], batch_train_data_loader=batch_train_data_loader, instance_train_data_loader=instance_train_data_loader, train_index=grad_index, top_k=args.top_k, params_filter=params_filter, weight_decay=0.0, weight_decay_ignores=weight_decay_ignores, s_test_damp=5e-3, s_test_scale=1e6, s_test_num_samples=x, s_test_iterations=1, precomputed_s_test=None, grad_zs=stored_grads)
         if index == 0 and args.create_plots:
