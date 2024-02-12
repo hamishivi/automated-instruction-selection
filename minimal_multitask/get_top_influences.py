@@ -36,11 +36,10 @@ for i, influences in instance_to_influences.items():
         # < since 'good' influence is high negative.
         index_list = [index for index in index_list if average_influences[index] < args.filter_average_influence]
         influence_list = [influence for index, influence in zip(index_list, influence_list) if average_influences[index] < -args.filter_average_influence]
-    top_influences = sorted(zip(influence_list, index_list))
+    top_influences = sorted(zip(influence_list, index_list), reverse=True)
     # optionally just take top k. Allows closer control of how many instances we train over.
     if args.take_top_k is not None:
         top_influences = top_influences[:args.take_top_k]
-    import pdb; pdb.set_trace()
     # clunky if but there in case we have used some different code
     saved_instances += [index if isinstance(index, int) else index.item() for _, index in top_influences]
 

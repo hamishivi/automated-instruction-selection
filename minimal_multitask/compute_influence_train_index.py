@@ -26,11 +26,20 @@ parser.add_argument('--index_path', type=str)
 # be careful with this one! leaks test data into train set so we can sanity check the retrieval
 parser.add_argument('--leak_test_data', action='store_true')
 parser.add_argument('--save_index', action='store_true')
+parser.add_argument('--torch_dtype', type=str, choices=['bf16', 'fp16', 'fp32'], default='bf16')
 args = parser.parse_args()
 
 
 torch.manual_seed(args.seed)
-kwargs = {"torch_dtype": torch.bfloat16}
+if args.torch_dtype == 'bf16':
+    dtype = torch.bfloat16
+elif args.torch_dtype == 'fp16':
+    dtype = torch.float16
+elif args.torch_dtype == 'fp32':
+    dtype = torch.float32
+else:
+    raise ValueError(f"Invalid dtype: {args.torch_dtype}")
+kwargs = {"torch_dtype": dtype}
 if 'llama' in args.model_name:
     kwargs['use_flash_attention_2'] = True
 

@@ -24,14 +24,23 @@ parser.add_argument('--use_flash_attention_2', action='store_true')
 parser.add_argument('--leak_test_data', action='store_true')
 parser.add_argument('--train_dataset', choices=['alpaca', 'lima'], default='alpaca')
 parser.add_argument('--llama', action='store_true')
+parser.add_argument('--batch_size_per_gpu', type=int, default=1)
+parser.add_argument('--gradient_accumulation_steps', type=int, default=128)
+parser.add_argument('--model_dtype', choices=['bf16', 'fp16', 'fp32'], default='bf16')
+parser.add_argument('--train_dtype', choices=['bf16', 'fp16', 'fp32'], default='bf16')
 args = parser.parse_args()
 
 kwargs = {}
 if args.use_flash_attention_2:
     kwargs["use_flash_attention_2"] = True
+if args.model_dtype == 'bf16':
+    kwargs["torch_dtype"] = torch.bfloat16
+elif args.model_dtype == "fp16":
+    kwargs["torch_dtype"] = torch.float16
+elif args.model_dtype == "fp32":
+    kwargs["torch_dtype"] = torch.float32
 model = AutoModelForCausalLM.from_pretrained(
-    args.model_name,    trust_remote_code=True,
-    torch_dtype=torch.bfloat16,
+    args.model_name,   trust_remote_code=True,
     **kwargs
 ).cuda()
 tokenizer = AutoTokenizer.from_pretrained(args.model_name, use_fast=args.use_fast_tokenizer, trust_remote_code=True)
@@ -90,16 +99,17 @@ trainer = Trainer(
         output_dir=args.save_dir,
         overwrite_output_dir=True,
         do_train=True,
-        per_device_train_batch_size=1,
-        gradient_accumulation_steps=128,
+        per_device_train_batch_size=args.batch_size_per_gpu,
+        gradient_accumulation_steps=args.gradient_accumulation_steps,
         report_to="none",
         learning_rate=2e-5,
         lr_scheduler_type="linear",
         warmup_ratio=0.03,
         logging_steps=10,
         num_train_epochs=2,
-        bf16=True,
-        tf32=True
+        bf16=args.train_dtype == 'bf16',
+        fp16=args.train_dtype == 'fp16',
+        tf32=args.train_dtype == 'tf32',
     ),
 )
 

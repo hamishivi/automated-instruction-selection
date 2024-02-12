@@ -51,7 +51,8 @@ class AlpacaEval(TestDataset):
             prompts.append(prompt)
             labels.append(example['output'].strip())
         test_dataset = Dataset.from_dict({'prompts': prompts, 'labels': labels})
-        test_dataset = test_dataset.map(construct_test_sample, load_from_cache_file=False)
+        construct_test_sample_tok = lambda x: construct_test_sample(self.tokenizer, x, max_length=1024)
+        test_dataset = test_dataset.map(construct_test_sample_tok, load_from_cache_file=False)
         test_dataset.set_format(type='torch', columns=['input_ids', 'attention_mask', 'labels'])
         test_dataset = test_dataset.shuffle(seed=seed).select(range(num_samples))
         return test_dataset
