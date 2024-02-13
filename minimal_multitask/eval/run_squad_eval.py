@@ -7,11 +7,12 @@ from transformers import AutoTokenizer
 from minimal_multitask.eval.run_alpaca_eval import create_prompt_with_tulu_chat_format
 
 parser = ArgumentParser()
-parser.add_argument('--model_name', type=str, default='EleutherAI/pythia-70m')
+parser.add_argument('--model_name_or_path', type=str, default='EleutherAI/pythia-70m')
 parser.add_argument('--tokenizer', type=str, default=None)
+parser.add_argument('--dtype', type=str, choices=['float16', 'float32', 'bfloat16', 'auto'], default='bfloat16')
 args = parser.parse_args()
 
-tokenizer = AutoTokenizer.from_pretrained(args.model_name)
+tokenizer = AutoTokenizer.from_pretrained(args.model_name_or_path)
 
 squad_og = load_dataset('squad', split='validation')
 squad_inf_split_og = squad_og.shuffle(seed=42).select(range(500))
@@ -33,9 +34,10 @@ inf_prompts = squad_inf_split['prompt']
 
 # predict over dataset
 model = vllm.LLM(
-        model=args.model_name,
-        tokenizer=args.tokenizer if args.tokenizer is not None else args.model_name,
+        model=args.model_name_or_path,
+        tokenizer=args.tokenizer if args.tokenizer is not None else args.model_name_or_path,
         tensor_parallel_size=torch.cuda.device_count(),
+        dtype=args.dtype
     )
 sampling_params = vllm.SamplingParams(
     temperature=0,  # greedy decoding

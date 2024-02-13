@@ -9,7 +9,7 @@ import random
 import torch
 import datasets
 import vllm
-from alpaca_eval import evaluate as alpaca_farm_evaluate
+from alpaca_eval.main import evaluate as alpaca_farm_evaluate
 from transformers import AutoTokenizer
 
 
