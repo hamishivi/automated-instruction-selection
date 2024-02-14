@@ -30,6 +30,8 @@ parser.add_argument('--save_index', action='store_true')
 # if passed, we decompose the influence into the per-token influences.
 # not sure how to accumulate this yet, so will yuck you into a debug loop too for now.
 parser.add_argument('--per_test_token_influence', action='store_true')
+# normalise the calculated influences
+parser.add_argument('--normalise_influences', action='store_true')
 # create plots for debugging
 parser.add_argument('--create_plots', action='store_true')
 parser.add_argument('--s_test_num_samples', type=int, default=100)
@@ -155,11 +157,17 @@ if not os.path.exists(args.index_path):
         accum_grads.append(grad_z.detach().cpu().to(torch.float32))
         if index % grad_batch == 0:
             # add to index
-            grad_index.add(torch.stack(accum_grads).numpy())
+            vecs_to_add = torch.stack(accum_grads).numpy()
+            if args.normalise_influences:
+                faiss.normalize_L2(vecs_to_add)
+            grad_index.add(vecs_to_add)
             accum_grads = []
     # add remaining
     if len(accum_grads) > 0:
-        grad_index.add(torch.stack(accum_grads).numpy())
+        vecs_to_add = torch.stack(accum_grads).numpy()
+        if args.normalise_influences:
+            faiss.normalize_L2(vecs_to_add)
+        grad_index.add(vecs_to_add)
         accum_grads = []
     if args.save_index:
         faiss.write_index(grad_index, args.index_path)
@@ -180,6 +188,7 @@ for index, instance in tqdm(enumerate(eval_data_loader), total=len(eval_data_loa
     # if index in instance_to_influences:
     #     continue
     x = args.s_test_num_samples
+    sample_to_influences = {}
     if args.per_test_token_influence:
         instance_length = instance['labels'].shape[-1]
         one_hots = torch.nn.functional.one_hot(torch.arange(instance_length), num_classes=instance_length)
@@ -189,18 +198,27 @@ for index, instance in tqdm(enumerate(eval_data_loader), total=len(eval_data_loa
         all_token_influences = []
         all_topk_indices = []
         for i in range(first_noninput_index, instance['labels'].shape[-1]):
-            influences, topk_indices, _ = compute_influences_train_index(n_gpu=1, device=torch.device("cuda"), model=model, test_inputs=[{'input_ids': instance['input_ids'],'attention_mask': instance['attention_mask'], 'labels': all_onehot_labels[i]}], batch_train_data_loader=batch_train_data_loader, instance_train_data_loader=instance_train_data_loader, train_index=grad_index, top_k=args.top_k, params_filter=params_filter, weight_decay=0.0, weight_decay_ignores=weight_decay_ignores, s_test_damp=5e-3, s_test_scale=1e6, s_test_num_samples=x, s_test_iterations=1, precomputed_s_test=None, grad_zs=stored_grads)
+            influences, topk_indices, _ = compute_influences_train_index(n_gpu=1, device=torch.device("cuda"), model=model, test_inputs=[{'input_ids': instance['input_ids'],'attention_mask': instance['attention_mask'], 'labels': all_onehot_labels[i]}], batch_train_data_loader=batch_train_data_loader, instance_train_data_loader=instance_train_data_loader, train_index=grad_index, top_k=args.top_k, params_filter=params_filter, weight_decay=0.0, weight_decay_ignores=weight_decay_ignores, s_test_damp=5e-3, s_test_scale=1e6, s_test_num_samples=x, s_test_iterations=1, precomputed_s_test=None, grad_zs=stored_grads, normalize=args.normalise_influences)
             all_token_influences.append(influences)
             all_topk_indices.append(topk_indices)
+        sample_to_influences[index] = (all_token_influences, all_topk_indices)
+        # just dump this all to disk for now...
+        with open(f"sample_to_influences_tokenwise.pkl", "wb") as f:
+            pickle.dump(sample_to_influences, f)
     else:
-        influences, topk_indices, _ = compute_influences_train_index(n_gpu=1, device=torch.device("cuda"), model=model, test_inputs=[instance], batch_train_data_loader=batch_train_data_loader, instance_train_data_loader=instance_train_data_loader, train_index=grad_index, top_k=args.top_k, params_filter=params_filter, weight_decay=0.0, weight_decay_ignores=weight_decay_ignores, s_test_damp=5e-3, s_test_scale=1e6, s_test_num_samples=x, s_test_iterations=1, precomputed_s_test=None, grad_zs=stored_grads)
+        influences, topk_indices, _ = compute_influences_train_index(n_gpu=1, device=torch.device("cuda"), model=model, test_inputs=[instance], batch_train_data_loader=batch_train_data_loader, instance_train_data_loader=instance_train_data_loader, train_index=grad_index, top_k=args.top_k, params_filter=params_filter, weight_decay=0.0, weight_decay_ignores=weight_decay_ignores, s_test_damp=5e-3, s_test_scale=1e6, s_test_num_samples=x, s_test_iterations=1, precomputed_s_test=None, grad_zs=stored_grads, normalize=args.normalise_influences)
         if index == 0 and args.create_plots:
             compute_length_vs_influence(topk_indices, influences, filter_nops=True)
-    # create dict?
-    index_to_influence = {ind: influence for influence, ind in zip(influences[0], topk_indices[0])}
-    instance_to_influences[index] = index_to_influence
-    # periodically save to disk to avoid losing progress
-    if index % 100 == 0:
-        with open(args.instance_to_influences, "wb") as f:
-            pickle.dump(instance_to_influences, f)
-        print(f"Saved to {args.instance_to_influences} at step {index}")
+        # create dict?
+        index_to_influence = {ind: influence for influence, ind in zip(influences[0], topk_indices[0])}
+        instance_to_influences[index] = index_to_influence
+        # periodically save to disk to avoid losing progress
+        if index % 100 == 0:
+            with open(args.instance_to_influences, "wb") as f:
+                pickle.dump(instance_to_influences, f)
+            print(f"Saved to {args.instance_to_influences} at step {index}")
+
+# final dump.
+with open(args.instance_to_influences, "wb") as f:
+    pickle.dump(instance_to_influences, f)
+print(f"Saved to {args.instance_to_influences} at step {index}")

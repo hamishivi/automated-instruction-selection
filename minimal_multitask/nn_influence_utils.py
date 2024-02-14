@@ -11,7 +11,7 @@ from tqdm import tqdm
 from transformers import PreTrainedTokenizer
 from torch.nn import CrossEntropyLoss
 from typing import Dict, List, Union, Optional, Tuple, Iterator, Any
-
+import faiss
 
 def count_parameters(model: torch.nn.Module) -> int:
     return sum(p.numel() for p in model.parameters())
@@ -377,6 +377,7 @@ def compute_influences_train_index(
         train_indices_to_include: Optional[Union[np.ndarray, List[int]]] = None,
         grad_zs: Optional[List[torch.FloatTensor]] = None,
         low_rank_approx: Optional[bool] = False,
+        normalize: Optional[bool] = False,
 ) -> Tuple[Dict[int, float], Dict[int, Dict], List[torch.FloatTensor]]:
 
     if s_test_iterations < 1:
@@ -417,14 +418,15 @@ def compute_influences_train_index(
         s_test = [a / s_test_iterations for a in s_test]
 
     influences = {}
-    stored_grads = []
-    train_inputs_collections = {}
 
     # flatten s_test
     s_test = torch.cat([g.reshape(-1) for g in s_test], axis=0)
     # query over index - note the negative!
     # no negative here as we invert the sign. we want minimal!
-    influences, topk_indices = train_index.search(s_test.cpu().numpy()[None,], top_k)
+    vec_to_search = s_test.cpu().numpy()[None,]
+    if normalize:
+        faiss.normalize_L2(vec_to_search)
+    influences, topk_indices = train_index.search(vec_to_search, top_k)
     # negate here so the influence scores are right.
     return -influences, topk_indices, -s_test.cpu().numpy()
 
