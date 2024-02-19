@@ -32,28 +32,11 @@ for i, file_name1 in enumerate(args.pickle_files):
     for j, file_name2 in enumerate(args.pickle_files):
         correlations = []
         # pick ~10 random pairs of idxes and compute the correlation between them
-        pairs1 = np.random.choice(len(dataset_sorted_idxes[file_name1]), (100), replace=False)
-        pairs2 = np.random.choice(len(dataset_sorted_idxes[file_name2]), (100), replace=False)
+        pairs1 = np.random.choice(len(dataset_in_order_influences[file_name1]), (100), replace=False)
+        pairs2 = np.random.choice(len(dataset_in_order_influences[file_name2]), (100), replace=False)
         pairs = [(i, j) for i, j in zip(pairs1, pairs2)]
         for i, j in pairs:
-            correlation, _ = spearmanr(dataset_sorted_idxes[file_name1][i], dataset_sorted_idxes[file_name2][j])
-            correlations.append(correlation)
-        print(f'{file_name1} vs {file_name2} Mean:', sum(correlations) / len(correlations))
-
-print()
-print("top-100 rank correlation")
-# top-100 rank correls instead. We just take the top-100 from the first dataset and compare to order in the second dataset
-for i, file_name1 in enumerate(args.pickle_files):
-    for j, file_name2 in enumerate(args.pickle_files):
-        correlations = []
-        # pick ~10 random pairs of idxes and compute the correlation between them
-        pairs1 = np.random.choice(len(dataset_sorted_idxes[file_name1]), (100), replace=False)
-        pairs2 = np.random.choice(len(dataset_sorted_idxes[file_name2]), (100), replace=False)
-        pairs = [(i, j) for i, j in zip(pairs1, pairs2)]
-        for i, j in pairs:
-            top_100 = dataset_sorted_idxes[file_name1][i][:100]
-            ordered_second = [x for x in dataset_sorted_idxes[file_name2][j] if x in top_100]
-            correlation, _ = spearmanr(top_100, ordered_second)
+            correlation, _ = spearmanr(dataset_in_order_influences[file_name1][i], dataset_in_order_influences[file_name2][j])
             correlations.append(correlation)
         print(f'{file_name1} vs {file_name2} Mean:', sum(correlations) / len(correlations))
 
@@ -78,10 +61,15 @@ import random
 
 random_gen = random.Random(42)
 fig, axes = plt.subplots(len(args.pickle_files), len(args.pickle_files), figsize=(20, 20))
+# pick a random two indices for each dataset
+rands1, rands2 = {}, {}
+for filename in args.pickle_files:
+    rands1[filename] = int(len(dataset_in_order_influences[filename]) * random_gen.random())
+    rands2[filename] = int(len(dataset_in_order_influences[filename]) * random_gen.random())
 for i, file_name1 in enumerate(args.pickle_files):
     for j, file_name2 in enumerate(args.pickle_files):
-        rand1 = int(len(dataset_in_order_influences[file_name1]) * random_gen.random())
-        rand2 = int(len(dataset_in_order_influences[file_name2]) * random_gen.random())
+        rand1 = rands1[file_name1]
+        rand2 = rands2[file_name2]
         axes[i,j].scatter(x=dataset_in_order_influences[file_name1][rand1], y=dataset_in_order_influences[file_name2][rand2])
         if i == 0:
             axes[i,j].set_title(file_name2.replace("pickles/", "").replace(".pkl", ""))
