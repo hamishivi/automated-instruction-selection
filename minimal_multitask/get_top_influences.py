@@ -16,7 +16,7 @@ args = parser.parse_args()
 instance_to_influences = pickle.load(open(args.input_file, "rb"))
 
 # load train dataset for printing
-train_dataset = load_dataset('json', data_files='data/camel_datasets/stanford_alpaca/stanford_alpaca_data.jsonl')['train']
+# train_dataset = load_dataset('json', data_files='data/camel_datasets/stanford_alpaca/stanford_alpaca_data.jsonl')['train']
 
 # if we want to filter by average influence, we first compute the average influence for each instance
 if args.filter_average_influence is not None:
@@ -46,6 +46,8 @@ for i, influences in instance_to_influences.items():
 saved_instances = list(set(saved_instances))
 print(f"Saved {len(saved_instances)} instances")
 # save top instances
+if not args.output_file:
+    args.output_file = f"{args.input_file.split('.')[0]}_top{args.take_top_k}.json"
 with open(args.output_file, "w") as f:
     json.dump(saved_instances, f, indent=4)
 
