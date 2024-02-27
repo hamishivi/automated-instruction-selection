@@ -326,7 +326,7 @@ class GSM8kEval(TestDataset):
         return test_dataset
 
 
-# todo: codex, toxigen.
+# todo: humaneval, truthfulqa mc.
 # these are maybe tricky since they dont have hard gold.
 
 DATASETS = {

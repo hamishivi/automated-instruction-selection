@@ -7,6 +7,7 @@ import json
 import sys
 from peft import LoraConfig, TaskType, get_peft_model
 from dataclasses import dataclass, field
+from datasets import load_dataset
 
 @dataclass
 class AdditionalTrainingArguments:
@@ -35,19 +36,19 @@ class AdditionalTrainingArguments:
         metadata={"help": "If set, randomly select the given number of instances from the train set."}
     )
     use_slow_tokenizer: Optional[bool] = field(
-        action='store_true',
+        default=False,
         metadata={"help": "Whether to use slow tokenizer."}
     )
     use_flash_attention_2: Optional[bool] = field(
-        action='store_true',
+        default=True,
         metadata={"help": "Whether to use Flash Attention 2."}
     )
     leak_test_data: Optional[bool] = field(
-        action='store_true',
+        default=False,
         metadata={"help": "Whether to leak test data into train data. Used for debugging."}
     )
     is_llama: Optional[bool] = field(
-        action='store_true',
+        default=True,
         metadata={"help": "If the current model is a llama model, used for LoRA wrapping."}
     )
 

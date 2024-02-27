@@ -12,6 +12,24 @@ from transformers import PreTrainedTokenizer
 from torch.nn import CrossEntropyLoss
 from typing import Dict, List, Union, Optional, Tuple, Iterator, Any
 import faiss
+from trak.projectors import BasicProjector, CudaProjector
+
+# from LESS code
+def get_trak_projector(device: torch.device):
+    """ Get trak projectors (see https://github.com/MadryLab/trak for details) """
+    try:
+        num_sms = torch.cuda.get_device_properties(
+            device.index).multi_processor_count
+        import fast_jl
+        # test run to catch at init time if projection goes through
+        fast_jl.project_rademacher_8(torch.zeros(
+            8, 1_000, device=device), 512, 0, num_sms)
+        projector = CudaProjector
+        print("Using CudaProjector")
+    except:
+        projector = BasicProjector
+        print("Using BasicProjector")
+    return projector
 
 def count_parameters(model: torch.nn.Module) -> int:
     return sum(p.numel() for p in model.parameters())
@@ -64,6 +82,25 @@ def get_loss_with_weight_decay(
         # TODO: setup multi-gpu code (required for larger models)
         assert False
     return loss
+
+def compute_vectorised_gradients(
+        device: torch.device,
+        n_gpu: int,
+        model: torch.nn.Module,
+        inputs: Dict[str, torch.Tensor],
+        params_filter: Optional[List[str]],
+        weight_decay: Optional[float],
+        weight_decay_ignores: Optional[List[str]],
+) -> List[torch.FloatTensor]:
+    model.zero_grad()
+    inputs = {k: v.to(device, non_blocking=True) for k, v in inputs.items()}
+    loss = model(**inputs).loss
+    loss.backward()
+    grads = []
+    for name, param in model.named_parameters():
+        if name not in params_filter:
+            grads.append(param.grad.view(-1).detach())
+    return torch.cat(grads, dim=0)
 
 
 def compute_gradients(
@@ -165,6 +202,7 @@ def compute_s_test(
         scale: float,
         num_samples: Optional[int] = None,
         verbose: bool = True,
+        vanilla_gradients: bool = False,
 ) -> List[torch.FloatTensor]:
 
     v = compute_gradients(
@@ -175,6 +213,10 @@ def compute_s_test(
         params_filter=params_filter,
         weight_decay=weight_decay,
         weight_decay_ignores=weight_decay_ignores)
+
+    # dont do any hvp stuff, just return the vanilla gradients
+    if vanilla_gradients:
+        return v
 
     # Technically, it's hv^-1
     last_estimate = list(v).copy()
@@ -378,6 +420,8 @@ def compute_influences_train_index(
         grad_zs: Optional[List[torch.FloatTensor]] = None,
         low_rank_approx: Optional[bool] = False,
         normalize: Optional[bool] = False,
+        projector: Optional[Any] = None,  # optional random transform projector.
+        vanilla_gradients: bool = False,
 ) -> Tuple[Dict[int, float], Dict[int, Dict], List[torch.FloatTensor]]:
 
     if s_test_iterations < 1:
@@ -405,7 +449,9 @@ def compute_influences_train_index(
                 weight_decay_ignores=weight_decay_ignores,
                 damp=s_test_damp,
                 scale=s_test_scale,
-                num_samples=s_test_num_samples)
+                num_samples=s_test_num_samples,
+                vanilla_gradients=vanilla_gradients,
+            )
 
             # Sum the values across runs
             if s_test is None:
@@ -421,9 +467,12 @@ def compute_influences_train_index(
 
     # flatten s_test
     s_test = torch.cat([g.reshape(-1) for g in s_test], axis=0)
+    # if we are using a projector, project the s_test
+    if projector is not None:
+        s_test = projector.project(s_test.view(1, -1), model_id=0)
     # query over index - note the negative!
     # no negative here as we invert the sign. we want minimal!
-    vec_to_search = s_test.cpu().numpy()[None,]
+    vec_to_search = s_test.cpu().numpy()
     if normalize:
         faiss.normalize_L2(vec_to_search)
     influences, topk_indices = train_index.search(vec_to_search, top_k)

@@ -5,16 +5,17 @@ having to recompute train gradients.
 '''
 import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM
-from minimal_multitask.nn_influence_utils import compute_gradients, compute_influences_train_index
+from minimal_multitask.nn_influence_utils import compute_influences_train_index, get_trak_projector, compute_vectorised_gradients
 from scripts.create_llama_encodings import encode_with_messages_format
 from datasets import load_dataset
 from tqdm import tqdm
 import faiss
 import argparse
 import os
-import numpy as np
+import time
 import pickle
 from minimal_multitask.data import DATASETS
+from trak.projectors import ProjectionType
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--model_name', type=str, default='EleutherAI/pythia-70m')
@@ -35,6 +36,17 @@ parser.add_argument('--normalise_influences', action='store_true')
 # create plots for debugging
 parser.add_argument('--create_plots', action='store_true')
 parser.add_argument('--s_test_num_samples', type=int, default=100)
+# from less- using random transform. -1 means no random transform
+parser.add_argument('--random_transform', type=int, default=-1)
+# how many grads to save before calling the projector.
+# projection is costly, so we want to batch it.
+parser.add_argument('--grad_batch', type=int, default=2)
+# if set, apply some size reduction tricks to the faiss index
+# Note: if set, we should make grad_batch massive to train the index on,
+# and get good results.
+parser.add_argument('--quantize_faiss', action='store_true')
+# if set, use vanilla gradients instead of s_test
+parser.add_argument('--vanilla_gradients', action='store_true')
 args = parser.parse_args()
 
 
@@ -116,7 +128,7 @@ def compute_length_vs_influence(topk_indices, influences, save_dir="figures", fi
     plt.clf()
 
 # construct dataloaders
-batch_train_data_loader = torch.utils.data.DataLoader(train_dataset, batch_size=1, shuffle=True)
+batch_train_data_loader = torch.utils.data.DataLoader(train_dataset, batch_size=1, shuffle=True, pin_memory=True)
 instance_train_data_loader = torch.utils.data.DataLoader(train_dataset, batch_size=1, shuffle=False)
 eval_data_loader = torch.utils.data.DataLoader(test_dataset, batch_size=1, shuffle=False)
 
@@ -130,41 +142,91 @@ weight_decay_ignores = [
         n for n, p in model.named_parameters()
         if not p.requires_grad]
 
+num_params = sum([p.numel() for n, p in model.named_parameters() if p.requires_grad])
+
+# if doing a random transform, set this up here
+index_dim_size = num_params
+if args.random_transform != -1:
+    device = torch.device("cuda")
+    trak_projector_class = get_trak_projector(device)
+    projector = trak_projector_class(
+        grad_dim=num_params,
+        proj_dim=args.random_transform,
+        seed=args.seed,
+        device=device,
+        proj_type=ProjectionType.rademacher,
+        block_size=2,  # fixed for now
+        model_id=0, # we only have one model
+        max_batch_size=16, # could tune..
+        dtype=torch.bfloat16,
+    )
+    index_dim_size = args.random_transform
+else:
+    projector = None
+
+
 # construct an index over the gradients on the train data
 # use inner product.
-num_params = sum([p.numel() for n, p in model.named_parameters() if p.requires_grad])
-grad_index = faiss.index_factory(int(num_params), "Flat", faiss.METRIC_INNER_PRODUCT)
+if args.quantize_faiss:
+    # quantization/hnsw settings from DEFT (https://github.com/allenai/data-efficient-finetuning)
+    encoding_dim = 512
+    neighbors_per_node = 512
+    index_factory_string = f"OPQ8_{encoding_dim},HNSW{neighbors_per_node},PQ8"
+    grad_index = faiss.index_factory(index_dim_size, index_factory_string)
+    # We cannot access the HNSW parameters directly. `index` is of type IndexPreTransform. We need to downcast
+    # the actual index to do this.
+    hnswpq_index = faiss.downcast_index(grad_index.index)
+    hnswpq_index.hnsw.efConstruction = 200
+    hnswpq_index.hnsw.efSearch = 128
+else:
+    grad_index = faiss.index_factory(index_dim_size, "Flat", faiss.METRIC_INNER_PRODUCT)
 
 # we add to the index in batches to speed things up?
-grad_batch = 512
+grad_batch = args.grad_batch
 accum_grads = []
 # save gradients for visualisation later.
 samples = []
 counter = 0
 if not os.path.exists(args.index_path):
     for index, train_inputs in enumerate(tqdm(instance_train_data_loader)):
-        grad_z = compute_gradients(
-                n_gpu=1,
-                device=torch.device("cuda:0"),
-                model=model,
-                inputs=train_inputs,
-                params_filter=params_filter,
-                weight_decay=0.0,
-                weight_decay_ignores=weight_decay_ignores
-        )
-        # flatten
-        grad_z = torch.cat([g.reshape(-1) for g in grad_z], axis=0).detach()
-        accum_grads.append(grad_z.detach().cpu().to(torch.float32))
+        grad_z = compute_vectorised_gradients(
+            n_gpu=1,
+            device=torch.device("cuda:0"),
+            model=model,
+            inputs=train_inputs,
+            params_filter=params_filter,
+            weight_decay=0.0,
+            weight_decay_ignores=weight_decay_ignores
+        ).to(torch.float16)
+        accum_grads.append(grad_z.flatten())
+        # project down.
         if index % grad_batch == 0:
+            with torch.no_grad():
+                accum_grads = torch.stack(accum_grads, dim=0)
+                # project down.
+                if args.random_transform != -1:
+                    accum_grads = projector.project(accum_grads, model_id=0)
+                accum_grads = accum_grads.detach().cpu().numpy()
             # add to index
-            vecs_to_add = torch.stack(accum_grads).numpy()
+            vecs_to_add = accum_grads
             if args.normalise_influences:
                 faiss.normalize_L2(vecs_to_add)
+            # train if not already
+            if not grad_index.is_trained and args.quantize_faiss:
+                grad_index.train(vecs_to_add)
             grad_index.add(vecs_to_add)
             accum_grads = []
+            torch.cuda.empty_cache()
     # add remaining
     if len(accum_grads) > 0:
-        vecs_to_add = torch.stack(accum_grads).numpy()
+        with torch.no_grad():
+            accum_grads = torch.stack(accum_grads, dim=0)
+            # project down.
+            if args.random_transform != -1:
+                accum_grads = projector.project(accum_grads, model_id=0)
+            accum_grads = accum_grads.detach().cpu().numpy()
+        # add to index
+        vecs_to_add = accum_grads
         if args.normalise_influences:
             faiss.normalize_L2(vecs_to_add)
         grad_index.add(vecs_to_add)
@@ -197,16 +259,59 @@ for index, instance in tqdm(enumerate(eval_data_loader), total=len(eval_data_loa
         # for every token, compute the influence
         all_token_influences = []
         all_topk_indices = []
-        for i in range(first_noninput_index, instance['labels'].shape[-1]):
-            influences, topk_indices, _ = compute_influences_train_index(n_gpu=1, device=torch.device("cuda"), model=model, test_inputs=[{'input_ids': instance['input_ids'],'attention_mask': instance['attention_mask'], 'labels': all_onehot_labels[i]}], batch_train_data_loader=batch_train_data_loader, instance_train_data_loader=instance_train_data_loader, train_index=grad_index, top_k=args.top_k, params_filter=params_filter, weight_decay=0.0, weight_decay_ignores=weight_decay_ignores, s_test_damp=5e-3, s_test_scale=1e6, s_test_num_samples=x, s_test_iterations=1, precomputed_s_test=None, grad_zs=stored_grads, normalize=args.normalise_influences)
+        for i in tqdm(list(range(first_noninput_index, instance['labels'].shape[-1]))):
+            influences, topk_indices, _ = compute_influences_train_index(
+                n_gpu=1,
+                device=torch.device("cuda"),
+                model=model,
+                test_inputs=[{'input_ids': instance['input_ids'],'attention_mask': instance['attention_mask'], 'labels': all_onehot_labels[i]}],
+                batch_train_data_loader=batch_train_data_loader,
+                instance_train_data_loader=instance_train_data_loader,
+                train_index=grad_index,
+                top_k=args.top_k,
+                params_filter=params_filter,
+                weight_decay=0.0,
+                weight_decay_ignores=weight_decay_ignores,
+                s_test_damp=5e-3,
+                s_test_scale=1e6,
+                s_test_num_samples=x,
+                s_test_iterations=1,
+                precomputed_s_test=None,
+                grad_zs=stored_grads,
+                normalize=args.normalise_influences,
+                projector=projector,
+                vanilla_gradients=args.vanilla_gradients
+            )
             all_token_influences.append(influences)
             all_topk_indices.append(topk_indices)
         sample_to_influences[index] = (all_token_influences, all_topk_indices)
         # just dump this all to disk for now...
         with open(f"sample_to_influences_tokenwise.pkl", "wb") as f:
+            print("Dumping sample...")
             pickle.dump(sample_to_influences, f)
     else:
-        influences, topk_indices, _ = compute_influences_train_index(n_gpu=1, device=torch.device("cuda"), model=model, test_inputs=[instance], batch_train_data_loader=batch_train_data_loader, instance_train_data_loader=instance_train_data_loader, train_index=grad_index, top_k=args.top_k, params_filter=params_filter, weight_decay=0.0, weight_decay_ignores=weight_decay_ignores, s_test_damp=5e-3, s_test_scale=1e6, s_test_num_samples=x, s_test_iterations=1, precomputed_s_test=None, grad_zs=stored_grads, normalize=args.normalise_influences)
+        influences, topk_indices, _ = compute_influences_train_index(
+            n_gpu=1,
+            device=torch.device("cuda"),
+            model=model,
+            test_inputs=[instance],
+            batch_train_data_loader=batch_train_data_loader,
+            instance_train_data_loader=instance_train_data_loader,
+            train_index=grad_index,
+            top_k=args.top_k,
+            params_filter=params_filter,
+            weight_decay=0.0,
+            weight_decay_ignores=weight_decay_ignores,
+            s_test_damp=5e-3,
+            s_test_scale=1e6,
+            s_test_num_samples=x,
+            s_test_iterations=1,
+            precomputed_s_test=None,
+            grad_zs=stored_grads,
+            normalize=args.normalise_influences,
+            projector=projector,
+            vanilla_gradients=args.vanilla_gradients
+        )
         if index == 0 and args.create_plots:
             compute_length_vs_influence(topk_indices, influences, filter_nops=True)
         # create dict?
