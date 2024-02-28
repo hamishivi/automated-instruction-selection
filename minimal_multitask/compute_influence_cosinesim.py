@@ -25,6 +25,7 @@ parser.add_argument('--index_path', type=str)
 parser.add_argument('--leak_test_data', action='store_true')
 parser.add_argument('--dtype', default='bf16')
 parser.add_argument('--batch_size', type=int, default=1)
+parser.add_argument('--prompt_only', action='store_true')
 args = parser.parse_args()
 
 
@@ -35,8 +36,8 @@ elif args.dtype == "fp16":
     kwargs = {"torch_dtype": torch.float16}
 elif args.dtype == "fp32":
     kwargs = {"torch_dtype": torch.float32}
-# if 'llama' in args.model_name:
-#     kwargs['use_flash_attention_2'] = True
+if 'llama' in args.model_name:
+    kwargs['use_flash_attention_2'] = True
 
 model = AutoModelForCausalLM.from_pretrained(
     args.model_name,
@@ -84,7 +85,10 @@ for index, train_inputs in enumerate(tqdm(train_data_loader)):
         train_outputs = model(**{k: v.to(model.device) for k, v in train_inputs.items() if k != 'labels'}, output_hidden_states=True)
     label_len = torch.sum(train_inputs['labels']!=-100, dim=1)
     # Get the mean hidden state corresponding to the label
-    train_embeddings = torch.mean(train_outputs['hidden_states'][-1][:, -label_len:], dim=1)
+    if args.prompt_only:
+        train_embeddings = train_outputs['hidden_states'][-1][:, :label_len]
+    else:
+        train_embeddings = torch.mean(train_outputs['hidden_states'][-1][:, -label_len:], dim=1)
     all_train_embeds.append(train_embeddings)
 
 all_train_embeds = torch.cat(all_train_embeds, dim=0) 
@@ -96,7 +100,10 @@ for idx, test_inputs in enumerate(tqdm(eval_data_loader)):
         test_outputs = model(**{k: v.to(model.device) for k, v in test_inputs.items() if k != 'labels'}, output_hidden_states=True)
     label_len = torch.sum(test_inputs['labels']!=-100, dim=1)
     # Get the mean hidden state corresponding to the label
-    test_embeddings = torch.mean(test_outputs['hidden_states'][-1][:, -label_len:], dim=1)
+    if args.prompt_only:
+        test_embeddings = test_outputs['hidden_states'][-1][:, :label_len]
+    else:
+        test_embeddings = torch.mean(test_outputs['hidden_states'][-1][:, -label_len:], dim=1)
 
     influences = torch.matmul(test_embeddings / torch.linalg.vector_norm(test_embeddings, dim=1, keepdim=True), all_train_embeds.T)
     sim_influences.append(influences)
@@ -112,5 +119,9 @@ for i in range(sim_influences.shape[0]):
 if not os.path.exists(args.save_dir):
     os.makedirs(args.save_dir)
 
-with open(os.path.join(args.save_dir, f'{args.eval_dataset}{args.num_eval_samples}_cossim_influences.pkl'), 'wb') as f:
-    pickle.dump(influence_dict, f)
+if args.prompt_only:
+    with open(os.path.join(args.save_dir, f'{args.train_dataset}_{args.eval_dataset}{args.num_eval_samples}_cossim_promptonly.pkl'), 'wb') as f:
+        pickle.dump(influence_dict, f)
+else:
+    with open(os.path.join(args.save_dir, f'{args.train_dataset}_{args.eval_dataset}{args.num_eval_samples}_cossim.pkl'), 'wb') as f:
+        pickle.dump(influence_dict, f)
