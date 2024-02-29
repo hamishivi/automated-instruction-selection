@@ -60,16 +60,16 @@ def main(args):
         result_file = args.results_file
     if not os.path.exists(result_file):
         if args.use_vllm:
-            state_dict = {
-                "model": model.state_dict()
-            }
-            dist_cp.load_state_dict(
-                            state_dict=state_dict,
-                            storage_reader= dist_cp.FileSystemReader(args.model_name_or_path),
-                            no_dist=True,
-                        )
-            model.load_state_dict(state_dict["model"])
-            model.cuda()
+            # state_dict = {
+            #     "model": model.state_dict()
+            # }
+            # dist_cp.load_state_dict(
+            #                 state_dict=state_dict,
+            #                 storage_reader= dist_cp.FileSystemReader(args.model_name_or_path),
+            #                 no_dist=True,
+            #             )
+            # model.load_state_dict(state_dict["model"])
+            # model.cuda()
             model = vllm.LLM(
                 model=args.model_name_or_path,
                 tokenizer=args.tokenizer_name_or_path if args.tokenizer_name_or_path is not None else args.model_name_or_path,
@@ -92,7 +92,7 @@ def main(args):
             ds_loader = DataLoader(ds, batch_size=args.batch_size)
 
             model.generation_config.max_length = 2000
-            model.generation_config.eos_token_id = [2, 21106] # Temporariy fix to stop when generating ".</", although it's weird that the model generate this instead of eos token
+            model.generation_config.eos_token_id = [2, 21106, 829] # Temporariy fix to stop when generating ".</", although it's weird that the model generate this instead of eos token
             if args.decoding_algo == "greedy":
                 model.generation_config.temperature=0.0
             elif args.decoding_algo == "sampling":
@@ -106,13 +106,15 @@ def main(args):
         os.makedirs(os.path.dirname(result_file), exist_ok=True)
         with open(result_file, "w") as fout:
             for example, output in zip(alpaca_eval_data, generations):
-                example["output"] = (output.strip())[:-2] # get the rid of the </ at the end
+                if output.endswith("</"):
+                    output = (output.strip())[:-2]
+                example["output"] = (output.strip()) # get the rid of the </ at the end
                 example["generator"] = f"{model_name}-greedy-long"
                 fout.write(json.dumps(example) + "\n")
                 model_results.append(example)
     else:
         print("Loading from existing file: ", result_file)
-        with open(os.path.join(args.save_dir, args.result_file), "r") as fout:
+        with open(result_file, "r") as fout:
             for i in fout:
                 model_results.append(json.loads(i))
 
