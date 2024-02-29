@@ -19,6 +19,7 @@ class AdditionalTrainingArguments:
             )
         },
     )
+    tokenizer_name: Optional[str] = field(default=None)
     train_dataset: str = field(
         default="alpaca",
         metadata={"help": "The dataset to train on."}
@@ -72,11 +73,18 @@ model = AutoModelForCausalLM.from_pretrained(
     torch_dtype=torch.bfloat16,
     **kwargs
 )
-tokenizer = AutoTokenizer.from_pretrained(
-    additional_args.model_name,
-    use_fast=not additional_args.use_slow_tokenizer,
-    trust_remote_code=True
-)
+if not additional_args.tokenizer_name:
+    tokenizer = AutoTokenizer.from_pretrained(
+        additional_args.model_name,
+        use_fast=not additional_args.use_slow_tokenizer,
+        trust_remote_code=True
+    )
+else:
+    tokenizer = AutoTokenizer.from_pretrained(
+        additional_args.tokenizer_name,
+        use_fast=not additional_args.use_slow_tokenizer,
+        trust_remote_code=True
+    )
 tokenizer.add_special_tokens({'pad_token': '[PAD]'})
 model.resize_token_embeddings(len(tokenizer))
 
