@@ -63,7 +63,6 @@ def get_loss_with_weight_decay(
         elif len(inputs[k].shape) == 1:
             inputs[k] = inputs[k][None,]
         assert len(inputs[k].shape) == 2, print(f"{k} input has shape {inputs[k].shape}")
-
     outputs = model(**inputs)
     # model averages tokens, here we are gonna sum them.
     logits, labels = outputs.logits, inputs["labels"]

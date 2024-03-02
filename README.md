@@ -45,3 +45,12 @@ python -m minimal_multitask.performance_over_chosen_prompts --input_folder resul
 To train a model on random data, we can use the `--random_select k` flag on the `instruction_tune` script, where k is the number of random samples to pick.
 
 And thats it! Squad and AlpacaEval work roughly the same way.
+
+
+## new readme!
+
+I have completely overhauled the evaluation framework used here. For now, just know it is basically the same as the open-instruct codebase, but with some minor changes to the data used.
+
+You can get the data files from my gbucket: `gs://hamishi-dev/mmft/eval_data` and put them in `data/eval`.
+
+Then, you can run eval as normal. All the defaults should be set correctly.

@@ -16,6 +16,7 @@ import time
 import pickle
 from minimal_multitask.data import DATASETS
 from trak.projectors import ProjectionType
+from transformers import DataCollatorForSeq2Seq
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--model_name', type=str, default='EleutherAI/pythia-70m')
@@ -71,7 +72,8 @@ if args.tokenizer is not None:
 else:
     tokenizer = AutoTokenizer.from_pretrained(args.model_name)
 
-
+# resize matrix to fit tokenizer, just in case...
+model.resize_token_embeddings(len(tokenizer))
 
 # load and process train dataset
 train_dataset = load_dataset('json', data_files='data/camel_datasets/stanford_alpaca/stanford_alpaca_data.jsonl')
@@ -128,7 +130,7 @@ def compute_length_vs_influence(topk_indices, influences, save_dir="figures", fi
     plt.clf()
 
 # construct dataloaders
-batch_train_data_loader = torch.utils.data.DataLoader(train_dataset, batch_size=1, shuffle=True, pin_memory=True)
+batch_train_data_loader = torch.utils.data.DataLoader(train_dataset, batch_size=2, shuffle=True, pin_memory=True, collate_fn=DataCollatorForSeq2Seq(tokenizer=tokenizer, model=model),)
 instance_train_data_loader = torch.utils.data.DataLoader(train_dataset, batch_size=1, shuffle=False)
 eval_data_loader = torch.utils.data.DataLoader(test_dataset, batch_size=1, shuffle=False)
 
@@ -250,7 +252,6 @@ for index, instance in tqdm(enumerate(eval_data_loader), total=len(eval_data_loa
     # if index in instance_to_influences:
     #     continue
     x = args.s_test_num_samples
-    sample_to_influences = {}
     if args.per_test_token_influence:
         instance_length = instance['labels'].shape[-1]
         one_hots = torch.nn.functional.one_hot(torch.arange(instance_length), num_classes=instance_length)
@@ -284,11 +285,11 @@ for index, instance in tqdm(enumerate(eval_data_loader), total=len(eval_data_loa
             )
             all_token_influences.append(influences)
             all_topk_indices.append(topk_indices)
-        sample_to_influences[index] = (all_token_influences, all_topk_indices)
+        instance_to_influences[index] = (all_token_influences, all_topk_indices)
         # just dump this all to disk for now...
-        with open(f"sample_to_influences_tokenwise.pkl", "wb") as f:
+        with open(args.instance_to_influences, "wb") as f:
             print("Dumping sample...")
-            pickle.dump(sample_to_influences, f)
+            pickle.dump(instance_to_influences, f)
     else:
         influences, topk_indices, _ = compute_influences_train_index(
             n_gpu=1,
@@ -312,6 +313,8 @@ for index, instance in tqdm(enumerate(eval_data_loader), total=len(eval_data_loa
             projector=projector,
             vanilla_gradients=args.vanilla_gradients
         )
+        # clear cache, required...
+        torch.cuda.empty_cache()
         if index == 0 and args.create_plots:
             compute_length_vs_influence(topk_indices, influences, filter_nops=True)
         # create dict?
