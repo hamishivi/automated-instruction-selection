@@ -1,8 +1,0 @@
-# For beaker-gantry
-name: torch-env
-channels:
-- pytorch
-dependencies:
-- python=3.9
-- cudatoolkit=11.5
-- pytorch==1.13.1  # make sure this matches the version in requirements.txt
