@@ -48,13 +48,15 @@ parser.add_argument('--grad_batch', type=int, default=2)
 parser.add_argument('--quantize_faiss', action='store_true')
 # if set, use vanilla gradients instead of s_test
 parser.add_argument('--vanilla_gradients', action='store_true')
+# mark we are using a llama model.
+parser.add_argument('--llama_model', action='store_true')
 args = parser.parse_args()
 
 
 torch.manual_seed(args.seed)
 kwargs = {"torch_dtype": torch.bfloat16}
-if 'llama' in args.model_name:
-    kwargs['use_flash_attention_2'] = True
+if 'llama' in args.model_name or args.llama_model:
+    kwargs['attn_implementation'] = "eager"  # flash doesnt work with second order grad.
 
 
 model = AutoModelForCausalLM.from_pretrained(

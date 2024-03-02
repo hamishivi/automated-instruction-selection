@@ -104,6 +104,9 @@ elif additional_args.train_dataset == 'lima':
         ]
         return {'messages': messages}
     train_dataset = train_dataset.map(convert_lima)
+elif additional_args.train_dataset == 'tulu2':
+    train_dataset = load_dataset('allenai/tulu-v2-sft-mixture', split='train')
+
 train_dataset = train_dataset.map(lambda x: encode_with_messages_format(x, tokenizer, 1024, True, False))
 train_dataset.set_format(type='torch', columns=['input_ids', 'attention_mask', 'labels'])
 if additional_args.saved_instances != "":

@@ -245,7 +245,7 @@ def compute_s_test(
                     new_estimate_norm = new_estimate[0].norm().item()
                     last_estimate_norm = last_estimate[0].norm().item()
                     estimate_norm_diff = new_estimate_norm - last_estimate_norm
-                    pbar.set_description(f"{new_estimate_norm:.2f} | {estimate_norm_diff:.2f}")
+                    pbar.set_description(f"{new_estimate_norm:.5f} | {estimate_norm_diff:.5f}")
 
                 cumulative_num_samples += 1
                 last_estimate = new_estimate
