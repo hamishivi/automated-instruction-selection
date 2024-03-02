@@ -58,15 +58,10 @@ if len(sys.argv) == 2 and sys.argv[1].endswith(".json"):
 else:
     trainer_args, additional_args = parser.parse_args_into_dataclasses()
 
-# model setup
-kwargs = {}
-if additional_args.use_flash_attention_2:
-    kwargs["use_flash_attention_2"] = True
 model = AutoModelForCausalLM.from_pretrained(
     additional_args.model_name,
     trust_remote_code=True,
     torch_dtype=torch.bfloat16,
-    **kwargs
 )
 tokenizer = AutoTokenizer.from_pretrained(
     additional_args.model_name,
