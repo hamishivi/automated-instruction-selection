@@ -156,5 +156,4 @@ dependencies:
       - xformers==0.0.23.post1+cu118
       - datasets==2.18.0
       - alpaca_eval==0.5.4
-      - flash-attn==2.5.2
 prefix: /net/nfs.cirrascale/allennlp/hamishi/conda-envs/mmft
