@@ -55,6 +55,10 @@ class AdditionalTrainingArguments:
         default=True,
         metadata={"help": "If the current model is a llama model, used for LoRA wrapping."}
     )
+    hf_auth_token: Optional[str] = field(
+        default=None,
+        metadata={"help": "The Hugging Face authentication token for loading gated models."}
+    )
 
 parser = HfArgumentParser((TrainingArguments, AdditionalTrainingArguments))
 if len(sys.argv) == 2 and sys.argv[1].endswith(".json"):
@@ -62,6 +66,9 @@ if len(sys.argv) == 2 and sys.argv[1].endswith(".json"):
 else:
     trainer_args, additional_args = parser.parse_args_into_dataclasses()
 
+kwargs = {}
+if additional_args.hf_auth_token is not None:
+    kwargs['use_auth_token'] = additional_args.hf_auth_token
 model = AutoModelForCausalLM.from_pretrained(
     additional_args.model_name,
     trust_remote_code=True,
