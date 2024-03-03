@@ -92,7 +92,7 @@ if additional_args.lora_rank > -1:
 
 # load and process train dataset
 if additional_args.train_dataset == 'alpaca':
-    train_dataset = load_dataset('json', data_files='data/camel_datasets/stanford_alpaca/stanford_alpaca_data.jsonl')
+    train_dataset = load_dataset('json', data_files='/net/nfs.cirrascale/allennlp/hamishi/minimal-multitask-tuning/data/camel_datasets/stanford_alpaca/stanford_alpaca_data.jsonl')
     train_dataset = train_dataset['train']
     train_dataset = train_dataset.map(lambda x: encode_with_messages_format(x, tokenizer, 1024, True, False))
 elif additional_args.train_dataset == 'lima':
