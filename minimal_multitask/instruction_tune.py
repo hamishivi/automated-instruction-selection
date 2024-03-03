@@ -55,9 +55,9 @@ class AdditionalTrainingArguments:
         default=True,
         metadata={"help": "If the current model is a llama model, used for LoRA wrapping."}
     )
-    hf_auth_token: Optional[str] = field(
-        default=None,
-        metadata={"help": "The Hugging Face authentication token for loading gated models."}
+    use_hf_auth_token: Optional[str] = field(
+        default=False,
+        metadata={"help": "Use the token stored in HF_TOKEN."}
     )
 
 parser = HfArgumentParser((TrainingArguments, AdditionalTrainingArguments))
@@ -67,17 +67,19 @@ else:
     trainer_args, additional_args = parser.parse_args_into_dataclasses()
 
 kwargs = {}
-if additional_args.hf_auth_token is not None:
-    kwargs['use_auth_token'] = additional_args.hf_auth_token
+if additional_args.use_hf_auth_token is not None:
+    kwargs['use_auth_token'] = os.environ.get('HF_TOKEN', None)
 model = AutoModelForCausalLM.from_pretrained(
     additional_args.model_name,
     trust_remote_code=True,
     torch_dtype=torch.bfloat16,
+    **kwargs
 )
 tokenizer = AutoTokenizer.from_pretrained(
     additional_args.model_name,
     use_fast=not additional_args.use_slow_tokenizer,
-    trust_remote_code=True
+    trust_remote_code=True,
+    **kwargs
 )
 tokenizer.add_special_tokens({'pad_token': '[PAD]'})
 model.resize_token_embeddings(len(tokenizer))
