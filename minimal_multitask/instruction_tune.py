@@ -27,6 +27,10 @@ class AdditionalTrainingArguments:
         default=-1,
         metadata={"help": "The rank of the LoRA model. -1 means not using LoRA."}
     )
+    lora_alpha: Optional[int] = field(
+        default=-1,
+        metadata={"help": "The rank of the LoRA model. -1 means not using LoRA."}
+    )
     saved_instances: Optional[str] = field(
         default="",
         metadata={"help": "The optional file containing the indices of saved instances."}
@@ -80,8 +84,8 @@ if additional_args.lora_rank > -1:
         task_type=TaskType.CAUSAL_LM, 
         inference_mode=False, 
         r=additional_args.lora_rank, 
-        lora_alpha=2, 
-        lora_dropout=0,
+        lora_alpha=additional_args.lora_alpha, 
+        lora_dropout=0.1,
         target_modules=modules
     )
     model = get_peft_model(model, peft_config)
@@ -90,6 +94,7 @@ if additional_args.lora_rank > -1:
 if additional_args.train_dataset == 'alpaca':
     train_dataset = load_dataset('json', data_files='data/camel_datasets/stanford_alpaca/stanford_alpaca_data.jsonl')
     train_dataset = train_dataset['train']
+    train_dataset = train_dataset.map(lambda x: encode_with_messages_format(x, tokenizer, 1024, True, False))
 elif additional_args.train_dataset == 'lima':
     train_dataset = load_dataset('GAIR/lima', use_auth_token=True, split='train')
     def convert_lima(example):
@@ -99,14 +104,18 @@ elif additional_args.train_dataset == 'lima':
         ]
         return {'messages': messages}
     train_dataset = train_dataset.map(convert_lima)
+    train_dataset = train_dataset.map(lambda x: encode_with_messages_format(x, tokenizer, 1024, True, False))
 elif additional_args.train_dataset == 'tulu2':
     train_dataset = load_dataset('allenai/tulu-v2-sft-mixture', split='train')
+    train_dataset = train_dataset.map(lambda x: encode_with_messages_format(x, tokenizer, 2048, True, False))
 
-train_dataset = train_dataset.map(lambda x: encode_with_messages_format(x, tokenizer, 1024, True, False))
 train_dataset.set_format(type='torch', columns=['input_ids', 'attention_mask', 'labels'])
 if additional_args.saved_instances != "":
     train_indices = json.load(open(additional_args.saved_instances, "r"))
     train_dataset = train_dataset.select(train_indices)
+# for training, filter out empty instances
+# do this after selection to ensure indices are consistent
+train_dataset = train_dataset.filter(lambda x: (x['labels'] != -100).any())
 if additional_args.random_select > 0:
     train_dataset = train_dataset.shuffle(seed=trainer_args.seed).select(range(additional_args.random_select))
     print(f"Randomly selected {additional_args.random_select} train instances")
