@@ -50,8 +50,11 @@ parser.add_argument('--quantize_faiss', action='store_true')
 parser.add_argument('--vanilla_gradients', action='store_true')
 # mark we are using a llama model.
 parser.add_argument('--llama_model', action='store_true')
+# train dataset
+parser.add_argument('--train_dataset', type=str, default='alpaca')
 args = parser.parse_args()
 
+assert args.train_dataset in ['alpaca', 'tulu2'], "Invalid train dataset."
 
 torch.manual_seed(args.seed)
 kwargs = {"torch_dtype": torch.bfloat16}
@@ -78,10 +81,14 @@ else:
 model.resize_token_embeddings(len(tokenizer))
 
 # load and process train dataset
-train_dataset = load_dataset('json', data_files='data/camel_datasets/stanford_alpaca/stanford_alpaca_data.jsonl')
-train_dataset = train_dataset.map(lambda x: encode_with_messages_format(x, tokenizer, 512, True, False))
+if args.train_dataset == 'alpaca':
+    train_dataset = load_dataset('json', data_files='data/camel_datasets/stanford_alpaca/stanford_alpaca_data.jsonl')['train']
+    train_dataset = train_dataset.map(lambda x: encode_with_messages_format(x, tokenizer, 512, True, False))
+elif args.train_dataset == 'tulu2':
+    train_dataset = load_dataset('allenai/tulu-v2-sft-mixture', split='train')
+    train_dataset = train_dataset.map(lambda x: encode_with_messages_format(x, tokenizer, 2048, True, False))
 train_dataset.set_format(type='torch', columns=['input_ids', 'attention_mask', 'labels'])
-train_dataset = train_dataset['train']
+
 
 # test dataset - mostly handled in data.py
 if args.eval_dataset in DATASETS:
