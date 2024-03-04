@@ -37,7 +37,7 @@ def main(args):
 
     logging.info("loading data and model...")
     # load our test set.
-    alpaca_eval_data = json.load(open('data/eval/alpacaeval/alpaca_eval_test.json'))
+    alpaca_eval_data = json.load(open('/net/nfs.cirrascale/allennlp/hamishi/minimal-multitask-tuning/data/eval/alpacaeval/alpaca_eval_test.json'))
     prompts = []
     chat_formatting_function = create_prompt_with_tulu_chat_format
     tokenizer = AutoTokenizer.from_pretrained(args.tokenizer_name_or_path if args.tokenizer_name_or_path is not None else args.model_name_or_path)
