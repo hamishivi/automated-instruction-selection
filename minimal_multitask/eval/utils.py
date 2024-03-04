@@ -6,7 +6,7 @@ import asyncio
 import os
 from importlib import import_module
 from transformers import StoppingCriteria
-from eval.dispatch_openai_requests import dispatch_openai_chat_requesets, dispatch_openai_prompt_requesets
+from minimal_multitask.eval.dispatch_openai_requests import dispatch_openai_chat_requesets, dispatch_openai_prompt_requesets
 
 
 class KeyWordsCriteria(StoppingCriteria):

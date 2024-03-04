@@ -4,7 +4,7 @@ import evaluate
 from argparse import ArgumentParser
 import vllm
 from transformers import AutoTokenizer
-from minimal_multitask.eval.run_alpaca_eval import create_prompt_with_tulu_chat_format
+from minimal_multitask.eval.alpaca_eval.run_alpaca_eval import create_prompt_with_tulu_chat_format
 
 parser = ArgumentParser()
 parser.add_argument('--model_name', type=str, default='EleutherAI/pythia-70m')

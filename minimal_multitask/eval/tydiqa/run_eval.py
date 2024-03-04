@@ -6,7 +6,7 @@ import torch
 import vllm
 import evaluate
 import numpy as np
-from eval.utils import (
+from minimal_multitask.eval.utils import (
     generate_completions, 
     load_hf_lm, 
     query_openai_chat_model,

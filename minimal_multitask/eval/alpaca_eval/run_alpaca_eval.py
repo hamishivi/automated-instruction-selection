@@ -72,7 +72,6 @@ def main(args):
 
     df_leaderboard, annotations = alpaca_farm_evaluate(
         model_outputs=model_results,
-        annotators_config="alpaca_eval_gpt4_0314",
         output_path=args.save_dir,
         is_return_instead_of_print=True,
     )

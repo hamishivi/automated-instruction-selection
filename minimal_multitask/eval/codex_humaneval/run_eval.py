@@ -4,15 +4,15 @@ import json
 import random
 import torch
 import vllm
-from eval.utils import (
+from minimal_multitask.eval.utils import (
     generate_completions, 
     load_hf_lm, 
     query_openai_chat_model,
     dynamic_import_function,
     load_hf_tokenizer,
 )
-from eval.codex_humaneval.data import write_jsonl, read_problems
-from eval.codex_humaneval.evaluation import evaluate_functional_correctness
+from minimal_multitask.eval.codex_humaneval.data import write_jsonl, read_problems
+from minimal_multitask.eval.codex_humaneval.evaluation import evaluate_functional_correctness
 
 
 def main(args):
