@@ -1,3 +1,7 @@
+'''
+Given an influence pickle, select the top k instances based on the selection method.
+Only works with one pickle.
+'''
 import pickle
 import json
 from datasets import load_dataset
@@ -59,7 +63,7 @@ elif 'min' in args.selection_method:
             for test_d, influences in instance_to_influences.items():
                 sorted_influences = sorted(influences.items(), key=lambda x: x[1])
                 # pop off the smallest influence
-                saved_instances.append(sorted_influences.pop(0)[0])            
+                saved_instances.append(sorted_influences.pop(0)[0])
                 # update the influences
                 instance_to_influences[test_d] = {k: v for k, v in sorted_influences}
                 # set list the saved instances in case of dups.
