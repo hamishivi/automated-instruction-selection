@@ -26,6 +26,7 @@ parser.add_argument('--leak_test_data', action='store_true')
 parser.add_argument('--dtype', default='bf16')
 parser.add_argument('--batch_size', type=int, default=1)
 parser.add_argument('--prompt_only', action='store_true')
+parser.add_argument('--label_only', action='store_true')
 args = parser.parse_args()
 
 
@@ -87,8 +88,10 @@ for index, train_inputs in enumerate(tqdm(train_data_loader)):
     # Get the mean hidden state corresponding to the label
     if args.prompt_only:
         train_embeddings = train_outputs['hidden_states'][-1][:, :label_len]
-    else:
+    elif args.label_only:
         train_embeddings = torch.mean(train_outputs['hidden_states'][-1][:, -label_len:], dim=1)
+    else:
+        train_embeddings = torch.mean(train_outputs['hidden_states'][-1], dim=1)
     all_train_embeds.append(train_embeddings)
 
 all_train_embeds = torch.cat(all_train_embeds, dim=0) 
@@ -102,8 +105,10 @@ for idx, test_inputs in enumerate(tqdm(eval_data_loader)):
     # Get the mean hidden state corresponding to the label
     if args.prompt_only:
         test_embeddings = test_outputs['hidden_states'][-1][:, :label_len]
-    else:
+    elif args.label_only:
         test_embeddings = torch.mean(test_outputs['hidden_states'][-1][:, -label_len:], dim=1)
+    else:
+        test_embeddings = torch.mean(test_outputs['hidden_states'][-1], dim=1)
 
     influences = torch.matmul(test_embeddings / torch.linalg.vector_norm(test_embeddings, dim=1, keepdim=True), all_train_embeds.T)
     sim_influences.append(influences)
@@ -121,6 +126,9 @@ if not os.path.exists(args.save_dir):
 
 if args.prompt_only:
     with open(os.path.join(args.save_dir, f'{args.train_dataset}_{args.eval_dataset}{args.num_eval_samples}_cossim_promptonly.pkl'), 'wb') as f:
+        pickle.dump(influence_dict, f)
+elif args.label_only:
+    with open(os.path.join(args.save_dir, f'{args.train_dataset}_{args.eval_dataset}{args.num_eval_samples}_cossim_labelonly.pkl'), 'wb') as f:
         pickle.dump(influence_dict, f)
 else:
     with open(os.path.join(args.save_dir, f'{args.train_dataset}_{args.eval_dataset}{args.num_eval_samples}_cossim.pkl'), 'wb') as f:
