@@ -55,13 +55,13 @@ def visualization(args):
     plt.scatter(list(range(len(score_rank))), [train_len_mapping[i[0]] for i in score_rank], c=[0 if is_nop[i[0]] else 1 for i in score_rank], alpha=0.5)
     plt.xlabel("Influence Rank")
     plt.ylabel("Length")
-    plt.savefig(os.path.join(args.save_dir, f'rank_len{args.test_length_cutoff}_{args.score_file.split("/")[-1].split(".")[0]}.png'))
+    plt.savefig(os.path.join(args.save_dir, f'rank_testlen{args.test_length_cutoff}_{args.score_file.split("/")[-1].split(".")[0]}.png'))
     plt.clf()
     # plot: influence against length
     plt.scatter([aggregate_scores[i[0]] for i in score_rank], [train_len_mapping[i[0]] for i in score_rank], c=[0 if is_nop[i[0]] else 1 for i in score_rank], alpha=0.5)
     plt.xlabel("Influence Score")
     plt.ylabel("Length")
-    plt.savefig(os.path.join(args.save_dir, f'influence_len{args.test_length_cutoff}_{args.score_file.split("/")[-1].split(".")[0]}.png'))
+    plt.savefig(os.path.join(args.save_dir, f'influence_testlen{args.test_length_cutoff}_{args.score_file.split("/")[-1].split(".")[0]}.png'))
     plt.clf()
         
 
@@ -72,6 +72,7 @@ if __name__ == "__main__":
     parser.add_argument("--train_dataset", type=str, choices=['alpaca'], default='alpaca')
     parser.add_argument("--eval_dataset", type=str, choices=DATASETS.keys(), default='alpacafarm')
     parser.add_argument("--score_file", type=str, default="results/llama_7b/correct_squad_influences.pkl")
+    parser.add_argument("--train_length_cutoff", type=int, help="Only use train example above this length", default=-1)
     parser.add_argument("--test_length_cutoff", type=int, help="Only use test example above this length", default=-1)
     parser.add_argument("--filter_noise", action="store_true")
     parser.add_argument("--tokenizer", type=str, default="huggyllama/llama-7b")

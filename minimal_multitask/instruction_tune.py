@@ -1,6 +1,5 @@
 import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM, Trainer, TrainingArguments, DataCollatorForSeq2Seq, HfArgumentParser
-from datasets import load_dataset
 from scripts.create_llama_encodings import encode_with_messages_format
 from typing import Optional
 import os
@@ -8,8 +7,7 @@ import json
 import sys
 from peft import LoraConfig, TaskType, get_peft_model
 from dataclasses import dataclass, field
-
-@dataclass
+from datasets import load_dataset
 class AdditionalTrainingArguments:
     model_name: Optional[str] = field(
         default=None,
@@ -25,6 +23,10 @@ class AdditionalTrainingArguments:
         metadata={"help": "The dataset to train on."}
     )
     lora_rank: Optional[int] = field(
+        default=-1,
+        metadata={"help": "The rank of the LoRA model. -1 means not using LoRA."}
+    )
+    lora_alpha: Optional[int] = field(
         default=-1,
         metadata={"help": "The rank of the LoRA model. -1 means not using LoRA."}
     )
@@ -56,6 +58,16 @@ class AdditionalTrainingArguments:
         default="",
         metadata={"help": "The directory to save the model."}
     )
+    use_hf_auth_token: Optional[str] = field(
+        default=False,
+        metadata={"help": "Use the token stored in HF_TOKEN."}
+    )
+
+parser = HfArgumentParser((TrainingArguments, AdditionalTrainingArguments))
+if len(sys.argv) == 2 and sys.argv[1].endswith(".json"):
+        trainer_args, additional_args = parser.parse_json_file(json_file=os.path.abspath(sys.argv[1]))
+else:
+    trainer_args, additional_args = parser.parse_args_into_dataclasses()
 
 parser = HfArgumentParser((TrainingArguments, AdditionalTrainingArguments))
 if len(sys.argv) == 2 and sys.argv[1].endswith(".json"):
@@ -67,6 +79,8 @@ else:
 kwargs = {}
 if additional_args.use_flash_attention_2:
     kwargs["use_flash_attention_2"] = True
+if additional_args.use_hf_auth_token is not None:
+    kwargs['use_auth_token'] = os.environ.get('HF_TOKEN', None)
 model = AutoModelForCausalLM.from_pretrained(
     additional_args.model_name,
     trust_remote_code=True,
@@ -97,8 +111,8 @@ if additional_args.lora_rank > -1:
         task_type=TaskType.CAUSAL_LM, 
         inference_mode=False, 
         r=additional_args.lora_rank, 
-        lora_alpha=2, 
-        lora_dropout=0,
+        lora_alpha=additional_args.lora_alpha, 
+        lora_dropout=0.1,
         target_modules=modules
     )
     model = get_peft_model(model, peft_config)
@@ -107,6 +121,7 @@ if additional_args.lora_rank > -1:
 if additional_args.train_dataset == 'alpaca':
     train_dataset = load_dataset('json', data_files='data/camel_datasets/stanford_alpaca/stanford_alpaca_data.jsonl')
     train_dataset = train_dataset['train']
+    train_dataset = train_dataset.map(lambda x: encode_with_messages_format(x, tokenizer, 1024, True, False))
 elif additional_args.train_dataset == 'lima':
     train_dataset = load_dataset('GAIR/lima', use_auth_token=True, split='train')
     def convert_lima(example):
@@ -116,11 +131,18 @@ elif additional_args.train_dataset == 'lima':
         ]
         return {'messages': messages}
     train_dataset = train_dataset.map(convert_lima)
-train_dataset = train_dataset.map(lambda x: encode_with_messages_format(x, tokenizer, 1024, True, False))
+    train_dataset = train_dataset.map(lambda x: encode_with_messages_format(x, tokenizer, 1024, True, False))
+elif additional_args.train_dataset == 'tulu2':
+    train_dataset = load_dataset('allenai/tulu-v2-sft-mixture', split='train')
+    train_dataset = train_dataset.map(lambda x: encode_with_messages_format(x, tokenizer, 2048, True, False))
+
 train_dataset.set_format(type='torch', columns=['input_ids', 'attention_mask', 'labels'])
 if additional_args.saved_instances != "":
     train_indices = json.load(open(additional_args.saved_instances, "r"))
     train_dataset = train_dataset.select(train_indices)
+# for training, filter out empty instances
+# do this after selection to ensure indices are consistent
+train_dataset = train_dataset.filter(lambda x: (x['labels'] != -100).any())
 if additional_args.random_select > 0:
     train_dataset = train_dataset.shuffle(seed=trainer_args.seed).select(range(additional_args.random_select))
     print(f"Randomly selected {additional_args.random_select} train instances")

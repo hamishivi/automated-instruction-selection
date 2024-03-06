@@ -71,7 +71,6 @@ else:
 print(f"Train dataset size: {len(train_dataset)}")
 print(f"Test dataset size: {len(test_dataset)}")
 # construct dataloaders
-batch_train_data_loader = torch.utils.data.DataLoader(train_dataset, batch_size=1, shuffle=True)
 instance_train_data_loader = torch.utils.data.DataLoader(train_dataset, batch_size=1, shuffle=False)
 eval_data_loader = torch.utils.data.DataLoader(test_dataset, batch_size=1, shuffle=False)
 
@@ -88,7 +87,7 @@ def get_gradient(sample):
     return { n: p.grad.detach().cpu() for n, p in model.named_parameters() if p.requires_grad }
 
 tr_grad_dict = {}
-for index, train_instance in enumerate(instance_train_data_loader):
+for index, train_instance in tqdm(enumerate(instance_train_data_loader)):
     grads = get_gradient(train_instance)
     for k in grads:
         if 'B' in k:
@@ -96,15 +95,23 @@ for index, train_instance in enumerate(instance_train_data_loader):
     tr_grad_dict[index] = grads
 
 val_grad_dict = {}
-for index, val_instance in enumerate(eval_data_loader):
+for index, val_instance in tqdm(enumerate(eval_data_loader)):
     grads = get_gradient(val_instance)
     for k in grads:
         if 'B' in k:
             grads[k] = grads[k].T
     val_grad_dict[index] = grads
 
+# save gradients
+with open("alpaca_tr_grad_dict.pkl", "wb") as f:
+    pickle.dump(tr_grad_dict, f)
+
+with open(args.eval_dataset + "_val_grad_dict.pkl", "wb") as f:
+    pickle.dump(val_grad_dict, f)
+
 hvp_proposed_dict = defaultdict(dict)
 lambda_const_param = 10
+influence_scores = {}
 for val_id in tqdm(val_grad_dict.keys()):
     for weight_name in val_grad_dict[val_id]:
         # lambda_const computation
@@ -116,13 +123,10 @@ for val_id in tqdm(val_grad_dict.keys()):
         # hvp computation
         hvp=torch.zeros(val_grad_dict[val_id][weight_name].shape)
         for tr_id in tr_grad_dict:
-            tmp_grad = tr_grad_dict[tr_id][weight_name]
             C_tmp = torch.sum(val_grad_dict[val_id][weight_name] * tmp_grad) / (lambda_const + torch.sum(tmp_grad**2))
             hvp += (val_grad_dict[val_id][weight_name] - C_tmp*tmp_grad) / (len(tr_grad_dict)*lambda_const)
         hvp_proposed_dict[val_id][weight_name] = hvp
-
-influence_scores = {}
-for val_id in val_grad_dict:
+    # influence score computation
     influence_scores[val_id] = {}
     for tr_id in tr_grad_dict:
         if_tmp_val = 0
@@ -134,4 +138,4 @@ for val_id in val_grad_dict:
 with open(args.instance_to_influences, "wb") as f:
     pickle.dump(influence_scores, f)
 
-print(f"Saved to {args.instance_to_influences} at step {index}")
+print(f"Saved to {args.instance_to_influences}")

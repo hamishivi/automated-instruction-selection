@@ -1,13 +1,1 @@
-################################
-###### Core dependencies #######
-################################
-transformers
-scikit-learn
-datasets
-rouge_score
-evaluate
-nltk
-protobuf
-matplotlib
-torch
-vllm
+flash-attn==2.5.2
