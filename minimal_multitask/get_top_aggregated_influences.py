@@ -7,6 +7,7 @@ import json
 from datasets import load_dataset
 import argparse
 from tqdm import tqdm
+import math
 from statistics import mean
 from transformers import AutoTokenizer
 
@@ -36,7 +37,10 @@ def compute_influences_for_file(input_file):
     # two selection methods: min or mean or max
     # this is how we aggregate influences.
     # for mean, we just average scores across all test points.
-    # for top min/max, we just take the min/max score across any test point.
+    # for min, we take the minimum score across all test points. (or max for max.)
+    # note for the test points here, top min/max is not the same as when selecting for one dataset.
+    # why? because we need to then keep scores around to aggregate. So taking the min across all test points
+    # is the closest to what we would get. We could also try 
 
     # map idx -> list of all influences
     all_train_scores = {}
@@ -68,31 +72,45 @@ def compute_influences_for_file(input_file):
 per_dataset_influences = {}
 for input_file in args.input_files:
     print("Processing file: {}".format(input_file))
-    influence_scores = compute_influences_for_file(input_file)
-    for idx, score in influence_scores.items():
-        if idx not in per_dataset_influences:
-            per_dataset_influences[idx] = []
-        per_dataset_influences[idx].append(score)
+    per_dataset_influences[input_file] = compute_influences_for_file(input_file)
 
 # inter-dataset aggregation
 inter_dataset_scores = {}
 if args.aggregation_method == 'mean':
     print("Using mean inter-dataset aggregation.")
-    aggregate_scores = {k: mean(v) for k, v in per_dataset_influences.items()}
+    collated_influences = {}
+    for _, infs in per_dataset_influences.items():
+        for idx, score in infs.items():
+            if idx not in collated_influences:
+                collated_influences[idx] = []
+            collated_influences[idx].append(score)
+    inter_dataset_scores = {k: mean(v) for k, v in collated_influences.items()}
+    fn = sorted if 'min' in args.selection_method else lambda x: sorted(x, reverse=True)
+    inter_dataset_scores = fn(inter_dataset_scores.items(), key=lambda x: x[1])[:args.output_size]
 elif args.aggregation_method == 'minmax':
     # base min/max on intra-dataset scores. TODO: more customizability here.
     print("Using minmax inter-dataset aggregation. Using selection method: {}".format(args.selection_method))
-    fn = min if 'min' in args.selection_method else max
-    aggregate_scores = {k: fn(v) for k, v in per_dataset_influences.items()}
+    # unlike before, here we round-robin across datasets to avoid score magnitudes affecting this.
+    pbar = tqdm(total=args.output_size)
+    last_size = 0
+    while len(inter_dataset_scores) < args.output_size:
+        for ds_name, dataset_scores in per_dataset_influences.items():
+            if len(inter_dataset_scores) >= args.output_size:
+                break
+            # sort and pop min/max
+            sorted_scores = sorted(dataset_scores.items(), key=lambda x: x[1], reverse='max' in args.selection_method)
+            idx, score = sorted_scores.pop(0)
+            per_dataset_influences[ds_name] = {k: v for k, v in sorted_scores}
+            inter_dataset_scores[idx] = min(score, inter_dataset_scores.get(idx, math.inf))
+            pbar.update(len(inter_dataset_scores) - last_size)
+            last_size = len(inter_dataset_scores)
+    # convert to list
+    inter_dataset_scores = list(inter_dataset_scores.items())
 else:
     raise ValueError("Invalid aggregation method.")
 
-# finally, we sort and take topk. Again, base min/max on the selection method.
-fn = sorted if 'min' in args.selection_method else lambda x: sorted(x, reverse=True)
-aggregate_scores = fn(aggregate_scores.items(), key=lambda x: x[1])[:args.output_size]
-
 # construct list of train indices
-saved_instances = list(set([int(index) for index, _ in aggregate_scores]))
+saved_instances = list(set([int(index) for index, _ in inter_dataset_scores]))
 assert len(saved_instances) == args.output_size, "Saved instances size does not match output size."
 
 # save the indices
