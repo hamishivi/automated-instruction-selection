@@ -8,3 +8,6 @@ rouge_score
 evaluate
 nltk
 protobuf
+matplotlib
+torch
+vllm

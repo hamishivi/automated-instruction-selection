@@ -8,7 +8,6 @@ import json
 from tqdm import tqdm
 import time
 from transformers import AutoModelForCausalLM, AutoTokenizer, AutoConfig
-from peft import get_peft_model, LoraConfig
 from minimal_multitask.eval.eval_utils import get_next_word_predictions
 
 def create_prompt_with_tulu_chat_format(messages, tokenizer, add_bos=True):
@@ -255,14 +254,9 @@ def main(args):
 
     if args.model_name_or_path:
         print("Loading model and tokenizer...")
-        if not args.lora:
-            config = AutoConfig.from_pretrained(args.model_name_or_path, cache_dir=None, trust_remote_code=True)
-            print("Config: {}".format(config))
-            model = AutoModelForCausalLM.from_pretrained(args.model_name_or_path, config=config, trust_remote_code=True, load_in_8bit=args.load_in_8bit)
-        else:
-            model = AutoModelForCausalLM.from_pretrained(args.lora_base_model, trust_remote_code=True, load_in_8bit=args.load_in_8bit)
-            model = get_peft_model(model, LoraConfig.from_pretrained(args.model_name_or_path, trust_remote_code=True))
-
+        config = AutoConfig.from_pretrained(args.model_name_or_path, cache_dir=None, trust_remote_code=True)
+        print("Config: {}".format(config))
+        model = AutoModelForCausalLM.from_pretrained( args.model_name_or_path, config=config, trust_remote_code=True, load_in_8bit=args.load_in_8bit)
         # from peft import PeftModel
         # model = PeftModel.from_pretrained(model, args.model_name_or_path)
         tokenizer = AutoTokenizer.from_pretrained(args.model_name_or_path, use_fast=True)
@@ -364,7 +358,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--data_dir",
         type=str,
-        default="data/eval/mmlu"
+        default="/net/nfs.cirrascale/allennlp/yizhongw/open-instruct/data/eval/mmlu"
     )
     parser.add_argument(
         "--save_dir",
@@ -377,8 +371,6 @@ if __name__ == "__main__":
         default=None,
         help="if specified, we will load the model to generate the predictions."
     )
-    parser.add_argument("--lora", action="store_true")
-    parser.add_argument("--lora_base_model", type=str)
     parser.add_argument(
         "--tokenizer_name_or_path",
         type=str,
