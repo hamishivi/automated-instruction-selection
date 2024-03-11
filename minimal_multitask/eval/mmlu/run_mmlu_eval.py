@@ -7,6 +7,7 @@ import time
 import json
 from tqdm import tqdm
 import time
+import random
 from transformers import AutoModelForCausalLM, AutoTokenizer, AutoConfig
 from minimal_multitask.eval.eval_utils import get_next_word_predictions
 
@@ -130,8 +131,9 @@ def gen_prompt(train_df, subject, k=-1):
 def construct_prompts(
     tokenizer,
     use_chat_format=True,
-    data_dir='/net/nfs.cirrascale/allennlp/yizhongw/open-instruct/data/eval/mmlu',
+    data_dir='/net/nfs.cirrascale/allennlp/hamishi/open-instruct/data/eval/mmlu',
     ntrain=0,
+    use_dev_samples=False
 ):
     subjects = sorted(
         [
@@ -149,12 +151,16 @@ def construct_prompts(
     }
     cat_cors = {cat: [] for cat in categories}
 
+    prompts_per_subject = {}
+
     for subject in tqdm(subjects, desc=f"Evaluating subjects: "):
+        subject_prompts, subject_labels = [], []
         dev_df = pd.read_csv(
             os.path.join(data_dir, "dev", subject + "_dev.csv"), header=None
         )[: ntrain]
+        # if use dev samples, we will use the dev samples for testing.
         test_df = pd.read_csv(
-            os.path.join(data_dir, "test", subject + "_test.csv"), header=None
+            os.path.join(data_dir, "test" if not use_dev_samples else "dev", subject + ("_test.csv" if not use_dev_samples else "_dev.csv")), header=None
         )
     
         chat_formatting_function = create_prompt_with_tulu_chat_format if use_chat_format else None
@@ -187,9 +193,10 @@ def construct_prompts(
                     else:
                         prompt += " The answer is:"
                 tokenized_prompt = tokenizer(prompt, truncation=False, add_special_tokens=False).input_ids
-            prompts.append(prompt)
-            labels.append(test_df.iloc[i, -1])
-    return prompts, labels
+            subject_prompts.append(prompt)
+            subject_labels.append(test_df.iloc[i, -1])
+            prompts_per_subject[subject] = list(zip(subject_prompts, subject_labels))
+    return prompts_per_subject
 
 
 

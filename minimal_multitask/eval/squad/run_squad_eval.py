@@ -4,11 +4,12 @@ import evaluate
 from argparse import ArgumentParser
 import vllm
 from transformers import AutoTokenizer
-from minimal_multitask.eval.run_alpaca_eval import create_prompt_with_tulu_chat_format
+from minimal_multitask.eval.alpaca_eval.run_alpaca_eval import create_prompt_with_tulu_chat_format
 
 parser = ArgumentParser()
 parser.add_argument('--model_name', type=str, default='EleutherAI/pythia-70m')
 parser.add_argument('--tokenizer', type=str, default=None)
+parser.add_argument('--output_file', type=str, default=None)
 args = parser.parse_args()
 
 tokenizer = AutoTokenizer.from_pretrained(args.model_name)
@@ -61,3 +62,7 @@ print("Results on all squad:")
 print(results)
 print("Results on 500 squad:")
 print(inf_results)
+
+if args.output_file:
+    with open(args.output_file, 'w') as f:
+        f.write(f"Results on all squad:\n{results}\nResults on 500 squad:\n{inf_results}\n")

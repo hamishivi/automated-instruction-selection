@@ -1,61 +1,103 @@
+'''
+Given an influence pickle, select the top k instances based on the selection method.
+Only works with one pickle.
+'''
 import pickle
 import json
 from datasets import load_dataset
 import argparse
-from collections import defaultdict
+from tqdm import tqdm
 from statistics import mean
 from transformers import AutoTokenizer
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--input_file', type=str, default=None)
-parser.add_argument('--output_file', type=str, default=None)
-parser.add_argument('--filter_average_influence', type=float, default=None) # we will negate this value, note.
-parser.add_argument('--take_top_k', type=int, default=1000) # take topk per instance
+parser.add_argument('--input_file', type=str)
+parser.add_argument('--output_file', type=str)
+parser.add_argument('--selection_method', type=str, default='min') # min, mean, max
+parser.add_argument('--output_size', type=int, default=10000) # number of instances total to select.
+parser.add_argument('--train_dataset', type=str, default='alpaca')
 args = parser.parse_args()
+
+assert args.selection_method in ['min', 'max', 'mean_min', 'mean_max'], "Invalid selection method."
+assert args.train_dataset in ['alpaca', 'tulu2'], "Invalid train dataset."
 
 # instance info
 instance_to_influences = pickle.load(open(args.input_file, "rb"))
 
 # load train dataset for printing
-train_dataset = load_dataset('json', data_files='data/camel_datasets/stanford_alpaca/stanford_alpaca_data.jsonl')['train']
+if args.train_dataset == 'alpaca':
+    train_dataset = load_dataset('json', data_files='data/camel_datasets/stanford_alpaca/stanford_alpaca_data.jsonl')['train']
+else:
+    train_dataset = load_dataset('allenai/tulu-v2-sft-mixture', split='train')
+
 tokenizer = AutoTokenizer.from_pretrained('oobabooga/llama-tokenizer')
 
-empty_idxes = []
-for i, sample in enumerate(train_dataset):
-    if len(sample['messages'][-1]['content'].strip()) == 0:
-        empty_idxes.append(i)
-
-nonempties = list(range(len(instance_to_influences)))
-
-# if we want to filter by average influence, we first compute the average influence for each instance
-if args.filter_average_influence is not None:
-    all_influences = defaultdict(list)
+# two selection methods: min or mean or max
+# for mean_min, we simply compute the average influence score for each train point, and then select the top k.
+# for mean_max, we have the inverted form of the above.
+# for min, we select the top k points per test instance such that we have a total of k instances.
+# max is simply min but reversed, for cosine sim or toxigen inversion.
+if 'mean' in args.selection_method:
+    print("Using mean influence selection method.")
+    average_influences = {}
     for i, influences in instance_to_influences.items():
-        for index, influence in influences.items():
-            all_influences[index].append(influence)
-    average_influences = {k: mean(v) for k, v in all_influences.items()}
-else:
-    average_influences = None
-
-# for each test instance, lets take the top-10 most influential train instances
-saved_instances = []
-for i, influences in instance_to_influences.items():
-    index_list, influence_list = influences.keys(), influences.values()
-    if average_influences is not None:
-        # < since 'good' influence is high negative.
-        index_list = [index for index in index_list if average_influences[index] < args.filter_average_influence]
-        influence_list = [influence for index, influence in zip(index_list, influence_list) if average_influences[index] < -args.filter_average_influence]
-    top_influences = sorted(zip(influence_list, index_list))
-    # optionally just take top k. Allows closer control of how many instances we train over.
-    if args.take_top_k is not None:
-        top_influences = top_influences[:args.take_top_k]
-    # for _, idx in top_influences:
-    #     output = train_dataset[idx.item()]['messages'][-1]['content']
-    #     print(len(tokenizer(output).input_ids), end=', ')
-    # clunky if but there in case we have used some different code
-    saved_instances += [index if isinstance(index, int) else index.item() for _, index in top_influences]
+        for train_idx, score in influences.items():
+            if train_idx not in average_influences:
+                average_influences[train_idx] = []
+            average_influences[train_idx].append(score)
+    average_influences = list(average_influences.items())
+    # sort by average influence
+    if 'min' in args.selection_method:
+        average_influences = sorted(average_influences, key=lambda x: mean(x[1]))[:args.output_size]
+    else:
+        average_influences = sorted(average_influences, key=lambda x: mean(x[1]))[-args.output_size:]
+    # construct list of train indices
+    saved_instances = [index for index, _ in average_influences]
+elif 'min' in args.selection_method:
+    print("Using top-min influence selection method.")
+    # round-robin the instances, taking until we hit the output size.
+    saved_instances = []
+    last_size = 0
+    with tqdm(total=args.output_size) as pbar:
+        while len(saved_instances) < args.output_size:
+            for test_d, influences in instance_to_influences.items():
+                sorted_influences = sorted(influences.items(), key=lambda x: x[1])
+                # pop off the smallest influence
+                saved_instances.append(sorted_influences.pop(0)[0])
+                # update the influences
+                instance_to_influences[test_d] = {k: v for k, v in sorted_influences}
+                # set list the saved instances in case of dups.
+                saved_instances = list(set(saved_instances))
+                # update pbar
+                pbar.update(len(saved_instances) - last_size)
+                last_size = len(saved_instances)
+    # if we are over the output size, remove the last few instances.
+    saved_instances = saved_instances[:args.output_size]
+elif 'max' in args.selection_method:
+    print("Using top-max influence selection method.")
+    # round-robin the instances, taking until we hit the output size.
+    saved_instances = []
+    last_size = 0
+    with tqdm(total=args.output_size) as pbar:
+        while len(saved_instances) < args.output_size:
+            for test_d, influences in instance_to_influences.items():
+                sorted_influences = sorted(influences.items(), key=lambda x: x[1], reverse=True)
+                # pop off the largest influence
+                saved_instances.append(sorted_influences.pop(0)[0])
+                # update the influences
+                instance_to_influences[test_d] = {k: v for k, v in sorted_influences}
+                # set list the saved instances in case of dups.
+                saved_instances = list(set(saved_instances))
+                # update pbar
+                pbar.update(len(saved_instances) - last_size)
+                last_size = len(saved_instances)
+    # if we are over the output size, remove the last few instances.
+    saved_instances = saved_instances[:args.output_size]
 
 saved_instances = list(set(saved_instances))
+# convert indices to actual ints.
+saved_instances = [int(i) for i in saved_instances]
+
 print(f"Saved {len(saved_instances)} instances")
 # save top instances
 with open(args.output_file, "w") as f:

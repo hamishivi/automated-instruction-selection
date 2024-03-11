@@ -36,7 +36,8 @@ def main(args):
     os.makedirs(args.save_dir, exist_ok=True)
 
     logging.info("loading data and model...")
-    alpaca_eval_data = datasets.load_dataset("tatsu-lab/alpaca_eval", "alpaca_eval")["eval"]
+    # load our test set.
+    alpaca_eval_data = json.load(open('/net/nfs.cirrascale/allennlp/hamishi/minimal-multitask-tuning/data/eval/alpacaeval/alpaca_eval_test.json'))
     prompts = []
     chat_formatting_function = create_prompt_with_tulu_chat_format
     tokenizer = AutoTokenizer.from_pretrained(args.tokenizer_name_or_path if args.tokenizer_name_or_path is not None else args.model_name_or_path)
@@ -55,7 +56,7 @@ def main(args):
     )
     sampling_params = vllm.SamplingParams(
         temperature=0,  # greedy decoding
-        max_tokens=8192,
+        max_tokens=2048,
     )
     outputs = model.generate(prompts, sampling_params)
     outputs = [it.outputs[0].text for it in outputs]
@@ -71,7 +72,6 @@ def main(args):
 
     df_leaderboard, annotations = alpaca_farm_evaluate(
         model_outputs=model_results,
-        annotators_config="alpaca_eval_gpt4_0314",
         output_path=args.save_dir,
         is_return_instead_of_print=True,
     )

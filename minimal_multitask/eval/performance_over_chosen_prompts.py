@@ -1,4 +1,4 @@
-from minimal_multitask.eval.run_mmlu_eval import construct_prompts
+from minimal_multitask.eval.mmlu.run_mmlu_eval import construct_prompts
 from datasets import Dataset
 import os
 import torch
