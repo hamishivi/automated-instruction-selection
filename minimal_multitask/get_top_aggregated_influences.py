@@ -27,8 +27,10 @@ assert args.aggregation_method in ['mean', 'minmax'], "Invalid aggregation metho
 # load train dataset for printing
 if args.train_dataset == 'alpaca':
     train_dataset = load_dataset('json', data_files='data/camel_datasets/stanford_alpaca/stanford_alpaca_data.jsonl')['train']
-else:
+elif args.train_dataset == 'tulu2':
     train_dataset = load_dataset('allenai/tulu-v2-sft-mixture', split='train')
+else:
+    raise ValueError("Invalid train dataset.")
 
 tokenizer = AutoTokenizer.from_pretrained('oobabooga/llama-tokenizer')
 
