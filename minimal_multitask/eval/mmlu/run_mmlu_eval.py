@@ -131,7 +131,7 @@ def gen_prompt(train_df, subject, k=-1):
 def construct_prompts(
     tokenizer,
     use_chat_format=True,
-    data_dir='/net/nfs.cirrascale/allennlp/hamishi/open-instruct/data/eval/mmlu',
+    data_dir='data/eval/mmlu',
     ntrain=0,
     use_dev_samples=False
 ):
@@ -365,7 +365,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--data_dir",
         type=str,
-        default="/net/nfs.cirrascale/allennlp/yizhongw/open-instruct/data/eval/mmlu"
+        default="data/eval/mmlu"
     )
     parser.add_argument(
         "--save_dir",

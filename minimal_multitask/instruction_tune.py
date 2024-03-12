@@ -8,8 +8,6 @@ import sys
 from peft import LoraConfig, TaskType, get_peft_model
 from dataclasses import dataclass, field
 from datasets import load_dataset
-
-@dataclass
 class AdditionalTrainingArguments:
     model_name: Optional[str] = field(
         default=None,
@@ -19,6 +17,7 @@ class AdditionalTrainingArguments:
             )
         },
     )
+    tokenizer_name: Optional[str] = field(default=None)
     train_dataset: str = field(
         default="alpaca",
         metadata={"help": "The dataset to train on."}
@@ -55,6 +54,10 @@ class AdditionalTrainingArguments:
         default=True,
         metadata={"help": "If the current model is a llama model, used for LoRA wrapping."}
     )
+    save_dir: Optional[str] = field(
+        default="",
+        metadata={"help": "The directory to save the model."}
+    )
     use_hf_auth_token: Optional[str] = field(
         default=False,
         metadata={"help": "Use the token stored in HF_TOKEN."}
@@ -66,7 +69,16 @@ if len(sys.argv) == 2 and sys.argv[1].endswith(".json"):
 else:
     trainer_args, additional_args = parser.parse_args_into_dataclasses()
 
+parser = HfArgumentParser((TrainingArguments, AdditionalTrainingArguments))
+if len(sys.argv) == 2 and sys.argv[1].endswith(".json"):
+    trainer_args, additional_args = parser.parse_json_file(json_file=os.path.abspath(sys.argv[1]))
+else:
+    trainer_args, additional_args = parser.parse_args_into_dataclasses()
+
+# model setup
 kwargs = {}
+if additional_args.use_flash_attention_2:
+    kwargs["use_flash_attention_2"] = True
 if additional_args.use_hf_auth_token is not None:
     kwargs['use_auth_token'] = os.environ.get('HF_TOKEN', None)
 model = AutoModelForCausalLM.from_pretrained(
@@ -75,12 +87,18 @@ model = AutoModelForCausalLM.from_pretrained(
     torch_dtype=torch.bfloat16,
     **kwargs
 )
-tokenizer = AutoTokenizer.from_pretrained(
-    additional_args.model_name,
-    use_fast=not additional_args.use_slow_tokenizer,
-    trust_remote_code=True,
-    **kwargs
-)
+if not additional_args.tokenizer_name:
+    tokenizer = AutoTokenizer.from_pretrained(
+        additional_args.model_name,
+        use_fast=not additional_args.use_slow_tokenizer,
+        trust_remote_code=True
+    )
+else:
+    tokenizer = AutoTokenizer.from_pretrained(
+        additional_args.tokenizer_name,
+        use_fast=not additional_args.use_slow_tokenizer,
+        trust_remote_code=True
+    )
 tokenizer.add_special_tokens({'pad_token': '[PAD]'})
 model.resize_token_embeddings(len(tokenizer))
 
@@ -101,7 +119,7 @@ if additional_args.lora_rank > -1:
 
 # load and process train dataset
 if additional_args.train_dataset == 'alpaca':
-    train_dataset = load_dataset('json', data_files='/net/nfs.cirrascale/allennlp/hamishi/minimal-multitask-tuning/data/camel_datasets/stanford_alpaca/stanford_alpaca_data.jsonl')
+    train_dataset = load_dataset('json', data_files='data/camel_datasets/stanford_alpaca/stanford_alpaca_data.jsonl')
     train_dataset = train_dataset['train']
     train_dataset = train_dataset.map(lambda x: encode_with_messages_format(x, tokenizer, 1024, True, False))
 elif additional_args.train_dataset == 'lima':
@@ -145,6 +163,7 @@ trainer = Trainer(
     data_collator=DataCollatorForSeq2Seq(tokenizer=tokenizer, model=model),
     args=trainer_args
 )
-
+if trainer.is_fsdp_enabled:
+    trainer.accelerator.state.fsdp_plugin.set_state_dict_type("FULL_STATE_DICT")
 trainer.train()
-trainer.save_model()
+trainer.save_model(trainer_args.output_dir)

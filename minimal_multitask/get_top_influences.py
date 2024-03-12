@@ -100,5 +100,7 @@ saved_instances = [int(i) for i in saved_instances]
 
 print(f"Saved {len(saved_instances)} instances")
 # save top instances
+if not args.output_file:
+    args.output_file = f"{args.input_file.split('.')[0]}_top{args.take_top_k}.json"
 with open(args.output_file, "w") as f:
     json.dump(saved_instances, f, indent=4)
