@@ -9,7 +9,7 @@ from datasets import load_dataset, Dataset
 import evaluate
 import vllm
 from transformers import AutoTokenizer, AutoModelForCausalLM
-from minimal_multitask.eval.run_alpaca_eval import create_prompt_with_tulu_chat_format
+from minimal_multitask.eval.alpaca_eval.run_alpaca_eval import create_prompt_with_tulu_chat_format
 
 def main(args):
 
@@ -64,9 +64,10 @@ def main(args):
             ds_loader = DataLoader(ds, batch_size=args.batch_size)
 
             model.generation_config.max_new_tokens = 100
-            model.generation_config.eos_token_id = [2, 21106, 829] # Temporariy fix to stop when generating ".</", although it's weird that the model generate this instead of eos token
+            # model.generation_config.eos_token_id = [2, 21106, 829] # Temporariy fix to stop when generating ".</", although it's weird that the model generate this instead of eos token
             if args.decoding_algo == "greedy":
                 model.generation_config.temperature=0.0
+                model.generation_config.do_sample=False
             elif args.decoding_algo == "sampling":
                 model.generation_config.temperature=args.temperature
             outputs = []
@@ -78,8 +79,8 @@ def main(args):
         os.makedirs(os.path.dirname(result_file), exist_ok=True)
         with open(result_file, "w") as fout:
             for i, output in enumerate(generations):
-                if output.endswith("</"):
-                    output = (output.strip())[:-2]
+                # if output.endswith("</"):
+                #     output = (output.strip())[:-2]
                 fout.write(json.dumps({"Prompt" : prompts[i], "Generation" : (output.strip())}) + "\n")
                 model_results.append({'id': squad_og[i]['id'], 'prediction_text': output})
     else:
