@@ -8,6 +8,8 @@ import sys
 from peft import LoraConfig, TaskType, get_peft_model
 from dataclasses import dataclass, field
 from datasets import load_dataset
+
+@dataclass
 class AdditionalTrainingArguments:
     model_name: Optional[str] = field(
         default=None,
