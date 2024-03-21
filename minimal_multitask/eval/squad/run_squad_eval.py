@@ -96,16 +96,20 @@ def main(args):
     # calculate squad f1c
     f1_scorer = evaluate.load("squad")
     references = [{'id': sample['id'], 'answers': sample['answers']} for sample in squad_og]
-    # outputs = [{'id': squad_og[i]['id'], 'prediction_text': output} for i, output in enumerate(outputs)]
+    outputs = [{'id': squad_og[i]['id'], 'prediction_text': output} for i, output in enumerate(outputs)]
     results = f1_scorer.compute(references=references, predictions=model_results)
-    # inf_references = [{'id': sample['id'], 'answers': sample['answers']} for sample in squad_inf_split_og]
-    # inf_outputs = [{'id': squad_inf_split_og[i]['id'], 'prediction_text': output} for i, output in enumerate(inf_outputs)]
-    # inf_results = f1_scorer.compute(references=inf_references, predictions=inf_outputs)
+    inf_references = [{'id': sample['id'], 'answers': sample['answers']} for sample in squad_inf_split_og]
+    inf_outputs = [{'id': squad_inf_split_og[i]['id'], 'prediction_text': output} for i, output in enumerate(inf_outputs)]
+    inf_results = f1_scorer.compute(references=inf_references, predictions=inf_outputs)
 
     print("Results on all squad:")
     print(results)
-    # print("Results on 500 squad:")
-    # print(inf_results)
+    print("Results on 500 squad:")
+    print(inf_results)
+
+    if args.output_file:
+        with open(args.output_file, 'w') as f:
+            f.write(f"Results on all squad:\n{results}\nResults on 500 squad:\n{inf_results}\n")
 
 
 if __name__ == "__main__":
@@ -134,6 +138,7 @@ if __name__ == "__main__":
     parser.add_argument("--results_file", type=str)
     parser.add_argument("--decoding_algo", type=str, default="greedy", choices=["greedy", "sampling"])
     parser.add_argument("--temperature", type=float, default=0.0)
+    parser.add_argument("--output_file", type=str, default=None)
     args = parser.parse_args()
 
     if not args.save_dir:

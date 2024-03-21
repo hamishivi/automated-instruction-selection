@@ -93,13 +93,15 @@ if not additional_args.tokenizer_name:
     tokenizer = AutoTokenizer.from_pretrained(
         additional_args.model_name,
         use_fast=not additional_args.use_slow_tokenizer,
-        trust_remote_code=True
+        trust_remote_code=True,
+        **kwargs
     )
 else:
     tokenizer = AutoTokenizer.from_pretrained(
         additional_args.tokenizer_name,
         use_fast=not additional_args.use_slow_tokenizer,
-        trust_remote_code=True
+        trust_remote_code=True,
+        **kwargs
     )
 tokenizer.add_special_tokens({'pad_token': '[PAD]'})
 model.resize_token_embeddings(len(tokenizer))
