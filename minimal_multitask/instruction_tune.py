@@ -21,7 +21,7 @@ class AdditionalTrainingArguments:
     )
     train_dataset: str = field(
         default="alpaca",
-        metadata={"help": "The dataset to train on."}
+        metadata={"help": "The dataset to train on. Can be Tulu2, LIMA, Alpaca, or a path to a jsonl file."}
     )
     lora_rank: Optional[int] = field(
         default=-1,
@@ -117,6 +117,13 @@ elif additional_args.train_dataset == 'lima':
 elif additional_args.train_dataset == 'tulu2':
     train_dataset = load_dataset('allenai/tulu-v2-sft-mixture', split='train')
     train_dataset = train_dataset.map(lambda x: encode_with_messages_format(x, tokenizer, 2048, True, False))
+else:
+    if os.path.exists(additional_args.train_dataset):
+        train_dataset = load_dataset('json', data_files=additional_args.train_dataset)
+        train_dataset = train_dataset['train']
+        train_dataset = train_dataset.map(lambda x: encode_with_messages_format(x, tokenizer, 2048, True, False))
+    else:
+        raise ValueError(f"Unknown dataset {additional_args.train_dataset}")
 
 train_dataset.set_format(type='torch', columns=['input_ids', 'attention_mask', 'labels'])
 if additional_args.saved_instances != "":
