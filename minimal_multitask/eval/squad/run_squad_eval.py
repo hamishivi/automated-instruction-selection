@@ -19,7 +19,7 @@ squad_inf_split_og = squad_og.shuffle(seed=42).select(range(500))
 
 # convert everything to tulu
 def convert_squad_sample(sample):
-    prompt = sample['question'] + " Provide a short answer only."
+    prompt = sample['context'] + '\n\n' + sample['question']
     label = sample['answers']['text'][0]
     messages = [{"role": "user", "content": prompt}, {"role": "assistant", "content": label}]
     return {'prompt': create_prompt_with_tulu_chat_format(messages, tokenizer, add_bos=False), 'label': label}
