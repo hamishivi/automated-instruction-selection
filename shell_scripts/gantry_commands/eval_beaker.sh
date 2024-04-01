@@ -1,12 +1,12 @@
 # eval command for a given model
 set -ex
 
-MODEL_NAME=alpaca_squad500_cossim_min10000_cossim_eval
-BEAKER_PATH="01HRD13JA5HK68ZWSGHPRYZ2CY" 
+MODEL_NAME=$1
+BEAKER_PATH=$2
 
 # command for gantry here
 # includes oai key and turning off alpaca eval 2 for alpaca eval stuff.
-GANTRY_CMD="gantry run --cluster ai2/allennlp-cirrascale --cluster ai2/general-cirrascale --cluster ai2/general-cirrascale-a100-80g-ib --cluster ai2/mosaic-cirrascale-a100 --cluster ai2/s2-cirrascale-l40 --budget ai2/oe-adapt --allow-dirty --priority preemptible --workspace ai2/minimal-multitask-finetuning --gpus 1 --env-secret OPENAI_API_KEY=OPENAI_API_KEY --env IS_ALPACA_EVAL_2=False --dataset ${BEAKER_PATH}:/model"
+GANTRY_CMD="gantry run --cluster ai2/allennlp-cirrascale --cluster ai2/general-cirrascale --cluster ai2/general-cirrascale-a100-80g-ib --cluster ai2/mosaic-cirrascale-a100 --cluster ai2/pluto-cirrascale --cluster ai2/s2-cirrascale-l40 --budget ai2/oe-adapt --allow-dirty --priority preemptible --workspace ai2/minimal-multitask-finetuning --gpus 1 --env-secret OPENAI_API_KEY=OPENAI_API_KEY --env IS_ALPACA_EVAL_2=False --dataset ${BEAKER_PATH}:/model"
 
 # mmlu
 # 0shot eval
@@ -74,9 +74,10 @@ $GANTRY_CMD --name ${MODEL_NAME}_codex_pass10 -- python -m minimal_multitask.eva
 
 # squad
 # just eval as normal
-$GANTRY_CMD --name ${MODEL_NAME}_squad_no_context -- python -m minimal_multitask.eval.squad.run_squad_eval \
-    --model_name /model \
-    --output_file "/results/squad_results.txt"
+$GANTRY_CMD --name ${MODEL_NAME}_squad_context -- python -m minimal_multitask.eval.squad.run_squad_eval \
+    --model_name meta-llama/Llama-2-7b-hf \
+    --output_file "results/predictions.json" \
+    --metrics_file "results/metrics.json"
 
 # alpaca eval
 # use my test split

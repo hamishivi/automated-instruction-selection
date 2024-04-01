@@ -1,3 +1,4 @@
+import json
 import torch
 from datasets import load_dataset
 import evaluate
@@ -10,6 +11,7 @@ parser = ArgumentParser()
 parser.add_argument('--model_name', type=str, default='EleutherAI/pythia-70m')
 parser.add_argument('--tokenizer', type=str, default=None)
 parser.add_argument('--output_file', type=str, default=None)
+parser.add_argument('--metrics_file', type=str, default=None)
 args = parser.parse_args()
 
 tokenizer = AutoTokenizer.from_pretrained(args.model_name)
@@ -21,8 +23,9 @@ squad_inf_split_og = squad_og.shuffle(seed=42).select(range(500))
 def convert_squad_sample(sample):
     prompt = sample['context'] + '\n\n' + sample['question']
     label = sample['answers']['text'][0]
-    messages = [{"role": "user", "content": prompt}, {"role": "assistant", "content": label}]
-    return {'prompt': create_prompt_with_tulu_chat_format(messages, tokenizer, add_bos=False), 'label': label}
+    messages = [{"role": "user", "content": prompt}]
+    prompt = create_prompt_with_tulu_chat_format(messages, tokenizer, add_bos=False)
+    return {'prompt': prompt, 'label': label}
 
 squad = squad_og.map(convert_squad_sample, load_from_cache_file=False)
 squad.set_format(type='torch', columns=['prompt', 'label'])
@@ -65,4 +68,12 @@ print(inf_results)
 
 if args.output_file:
     with open(args.output_file, 'w') as f:
-        f.write(f"Results on all squad:\n{results}\nResults on 500 squad:\n{inf_results}\n")
+        for sample in outputs:
+            f.write(json.dumps(sample) + '\n')
+if args.metrics_file:
+    results_dict = {
+        'f1': results['f1'],
+        'inf_f1': inf_results['f1'],
+    }
+    with open(args.metrics_file, 'w') as f:
+        f.write(json.dumps(results_dict))
