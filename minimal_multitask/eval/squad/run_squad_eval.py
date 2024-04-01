@@ -24,7 +24,7 @@ def convert_squad_sample(sample):
     prompt = sample['context'] + '\n\n' + sample['question']
     label = sample['answers']['text'][0]
     messages = [{"role": "user", "content": prompt}]
-    prompt = create_prompt_with_tulu_chat_format(messages, tokenizer, add_bos=False)
+    prompt = create_prompt_with_tulu_chat_format(messages, tokenizer, add_bos=False) + 'Answer: '
     return {'prompt': prompt, 'label': label}
 
 squad = squad_og.map(convert_squad_sample, load_from_cache_file=False)
@@ -47,10 +47,10 @@ sampling_params = vllm.SamplingParams(
 )
 
 outputs = model.generate(prompts, sampling_params)
-outputs = [it.outputs[0].text for it in outputs]
+outputs = [it.outputs[0].text.strip() for it in outputs]
 
 inf_outputs = model.generate(inf_prompts, sampling_params)
-inf_outputs = [it.outputs[0].text for it in inf_outputs]
+inf_outputs = [it.outputs[0].text.strip() for it in inf_outputs]
 
 # calculate squad f1
 f1_scorer = evaluate.load("squad")
