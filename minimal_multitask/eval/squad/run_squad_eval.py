@@ -10,13 +10,13 @@ import evaluate
 import vllm
 from transformers import AutoTokenizer, AutoModelForCausalLM
 from minimal_multitask.eval.alpaca_eval.run_alpaca_eval import create_prompt_with_tulu_chat_format
+from minimal_multitask.eval.squad.squad_eval_1 import evaluate
 
 def main(args):
 
     tokenizer = AutoTokenizer.from_pretrained(args.model_name_or_path)
 
     squad_og = load_dataset('squad', split='validation')
-    squad_inf_split_og = squad_og.shuffle(seed=42).select(range(500))
 
     # convert everything to tulu
     def convert_squad_sample(sample):
@@ -29,10 +29,6 @@ def main(args):
     squad.set_format(type='torch', columns=['prompt', 'label'])
     prompts = squad['prompt']
     print("Length of the datasets: ", len(prompts))
-
-    # squad_inf_split = squad_inf_split_og.map(convert_squad_sample, load_from_cache_file=False)
-    # squad_inf_split.set_format(type='torch', columns=['prompt', 'label'])
-    # inf_prompts = squad_inf_split['prompt']
 
     # predict over dataset
     model_name = os.path.basename(os.path.normpath(args.model_name_or_path)) if args.model_name_or_path is not None else args.openai_engine
@@ -53,7 +49,7 @@ def main(args):
                 max_tokens=8192,
             )
             outputs = model.generate(prompts, sampling_params)
-            generations = [it.outputs[0].text for it in outputs]
+            model_results = [it.outputs[0].text for it in outputs]
         else:
             model = AutoModelForCausalLM.from_pretrained(args.model_name_or_path, torch_dtype=torch.bfloat16, device_map="auto")
             tokenizer.padding_side = 'left'
@@ -75,41 +71,34 @@ def main(args):
                 output = model.generate(batch['input_ids'].cuda(), attention_mask=batch['attention_mask'].cuda())
                 generation = output[:, batch['input_ids'].shape[1]:]
                 outputs.extend(generation)
-            generations = tokenizer.batch_decode(outputs, skip_special_tokens=True)
+            model_results = tokenizer.batch_decode(outputs, skip_special_tokens=True)
         os.makedirs(os.path.dirname(result_file), exist_ok=True)
         with open(result_file, "w") as fout:
-            for i, output in enumerate(generations):
+            for i, output in enumerate(model_results):
                 # if output.endswith("</"):
                 #     output = (output.strip())[:-2]
                 fout.write(json.dumps({"Prompt" : prompts[i], "Generation" : (output.strip())}) + "\n")
-                model_results.append({'id': squad_og[i]['id'], 'prediction_text': output})
     else:
         print("Loading from existing file: ", result_file)
         with open(result_file, "r") as fout:
             for i, content in enumerate(fout):
                 output = json.loads(content)['Generation']
-                model_results.append({'id': squad_og[i]['id'], 'prediction_text': output})
+                model_results.append(output)
 
-    # inf_outputs = model.generate(inf_prompts, sampling_params)
-    # inf_outputs = [it.outputs[0].text for it in inf_outputs]
-
-    # calculate squad f1c
-    f1_scorer = evaluate.load("squad")
     references = [{'id': sample['id'], 'answers': sample['answers']} for sample in squad_og]
-    outputs = [{'id': squad_og[i]['id'], 'prediction_text': output} for i, output in enumerate(outputs)]
-    results = f1_scorer.compute(references=references, predictions=model_results)
-    inf_references = [{'id': sample['id'], 'answers': sample['answers']} for sample in squad_inf_split_og]
-    inf_outputs = [{'id': squad_inf_split_og[i]['id'], 'prediction_text': output} for i, output in enumerate(inf_outputs)]
-    inf_results = f1_scorer.compute(references=inf_references, predictions=inf_outputs)
-
+    outputs = [{'id': squad_og[i]['id'], 'prediction_text': output} for i, output in enumerate(model_results)]
+    results = evaluate(references=references, predictions=outputs)
+    
     print("Results on all squad:")
     print(results)
-    print("Results on 500 squad:")
-    print(inf_results)
 
     if args.output_file:
         with open(args.output_file, 'w') as f:
-            f.write(f"Results on all squad:\n{results}\nResults on 500 squad:\n{inf_results}\n")
+            f.write(f"Results on all squad:\n{results}")
+    if args.results_file:
+        results_dict = results
+        with open(args.results_file, 'w') as f:
+            f.write(json.dumps(results_dict))
 
 
 if __name__ == "__main__":
@@ -139,6 +128,7 @@ if __name__ == "__main__":
     parser.add_argument("--decoding_algo", type=str, default="greedy", choices=["greedy", "sampling"])
     parser.add_argument("--temperature", type=float, default=0.0)
     parser.add_argument("--output_file", type=str, default=None)
+    parser.add_argument('--metrics_file', type=str, default=None)
     args = parser.parse_args()
 
     if not args.save_dir:

@@ -673,7 +673,7 @@ class ToxigenEval(TestDataset):
     
 # not part of the original tulu eval set, but we can use this as a nice simpler task.
 class SquadEval(TestDataset):
-    add_context = False
+    add_context = True
     def get_all_test_prompts(self, num_samples=500, seed=42, max_length=512):
         test_dataset = load_dataset('squad', split='train')
         tokenizer = self.tokenizer
@@ -974,10 +974,13 @@ if __name__ == "__main__":
     from transformers import AutoTokenizer
     tokenizer = AutoTokenizer.from_pretrained('oobabooga/llama-tokenizer')
     # test that we can load all the datasets.
-    for dataset_name, dataset_class in DATASETS.items():
+    ds = {'codex': CodexEval,}
+    for dataset_name, dataset_class in ds.items():
         print(f"Testing {dataset_name}")
         dataset = dataset_class(tokenizer)
         dataset = dataset.get_all_test_prompts()
+        print('----')
+        print(len(dataset))
         print('----')
         print(tokenizer.decode(dataset[0]['input_ids']))
         print('-')
