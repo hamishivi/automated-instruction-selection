@@ -58,14 +58,15 @@ elif 'min' in args.selection_method:
     # round-robin the instances, taking until we hit the output size.
     saved_instances = []
     last_size = 0
+    sorted_instance_to_influence = {}
+    for test_d, influences in instance_to_influences.items():
+        sorted_influences = sorted(influences.items(), key=lambda x: x[1])
+        sorted_instance_to_influence[test_d] = sorted_influences
     with tqdm(total=args.output_size) as pbar:
         while len(saved_instances) < args.output_size:
             for test_d, influences in instance_to_influences.items():
-                sorted_influences = sorted(influences.items(), key=lambda x: x[1])
                 # pop off the smallest influence
-                saved_instances.append(sorted_influences.pop(0)[0])
-                # update the influences
-                instance_to_influences[test_d] = {k: v for k, v in sorted_influences}
+                saved_instances.append(sorted_instance_to_influence[test_d].pop(0)[0])
                 # set list the saved instances in case of dups.
                 saved_instances = list(set(saved_instances))
                 # update pbar
@@ -78,14 +79,15 @@ elif 'max' in args.selection_method:
     # round-robin the instances, taking until we hit the output size.
     saved_instances = []
     last_size = 0
+    sorted_instance_to_influence = {}
+    for test_d, influences in instance_to_influences.items():
+        sorted_influences = sorted(influences.items(), key=lambda x: x[1], reverse=True)
+        sorted_instance_to_influence[test_d] = sorted_influences
     with tqdm(total=args.output_size) as pbar:
         while len(saved_instances) < args.output_size:
             for test_d, influences in instance_to_influences.items():
-                sorted_influences = sorted(influences.items(), key=lambda x: x[1], reverse=True)
                 # pop off the largest influence
-                saved_instances.append(sorted_influences.pop(0)[0])
-                # update the influences
-                instance_to_influences[test_d] = {k: v for k, v in sorted_influences}
+                saved_instances.append(sorted_instance_to_influence[test_d].pop(0)[0])
                 # set list the saved instances in case of dups.
                 saved_instances = list(set(saved_instances))
                 # update pbar
@@ -100,5 +102,7 @@ saved_instances = [int(i) for i in saved_instances]
 
 print(f"Saved {len(saved_instances)} instances")
 # save top instances
+if not args.output_file:
+    args.output_file = f"{args.input_file.split('.')[0]}_{args.selection_method}{args.output_size}.json"
 with open(args.output_file, "w") as f:
     json.dump(saved_instances, f, indent=4)
