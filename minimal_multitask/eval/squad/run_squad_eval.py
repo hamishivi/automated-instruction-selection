@@ -69,8 +69,8 @@ def main(args):
                 generation = output[:, batch['input_ids'].shape[1]:]
                 outputs.extend(generation)
             model_results = tokenizer.batch_decode(outputs, skip_special_tokens=True)
-        os.makedirs(os.path.dirname(result_file), exist_ok=True)
-        with open(result_file, "w") as fout:
+        os.makedirs(os.path.dirname(args.generation_file), exist_ok=True)
+        with open(args.generation_file, "w") as fout:
             for i, output in enumerate(model_results):
                 # if output.endswith("</"):
                 #     output = (output.strip())[:-2]
@@ -126,6 +126,7 @@ if __name__ == "__main__":
     parser.add_argument("--temperature", type=float, default=0.0)
     parser.add_argument("--output_file", type=str, default=None)
     parser.add_argument('--metrics_file', type=str, default=None)
+    parser.add_argument('--generation_file', type=str, default=None)
     args = parser.parse_args()
 
     if not args.save_dir:
