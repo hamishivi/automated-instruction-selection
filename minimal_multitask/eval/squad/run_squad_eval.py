@@ -31,11 +31,8 @@ def main(args):
     print("Length of the datasets: ", len(prompts))
 
     # predict over dataset
-    model_name = os.path.basename(os.path.normpath(args.model_name_or_path)) if args.model_name_or_path is not None else args.openai_engine
     model_results = []
-    result_file = os.path.join(args.save_dir, f"{model_name}-greedy-long-output.jsonl")
-    if args.results_file is not None:
-        result_file = args.results_file
+    result_file = args.results_file
     if not os.path.exists(result_file):
         if args.use_vllm:
             model = vllm.LLM(
