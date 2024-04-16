@@ -54,8 +54,6 @@ parser.add_argument('--llama_model', action='store_true')
 parser.add_argument('--train_dataset', type=str, default='alpaca')
 args = parser.parse_args()
 
-assert args.train_dataset in ['alpaca', 'tulu2'], "Invalid train dataset."
-
 torch.manual_seed(args.seed)
 kwargs = {"torch_dtype": torch.bfloat16}
 if 'llama' in args.model_name or args.llama_model:
