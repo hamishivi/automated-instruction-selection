@@ -81,14 +81,14 @@ model.resize_token_embeddings(len(tokenizer))
 # load and process train dataset
 if args.train_dataset == 'alpaca':
     train_dataset = load_dataset('json', data_files='data/camel_datasets/stanford_alpaca/stanford_alpaca_data.jsonl')['train']
-    train_dataset = train_dataset.map(lambda x: encode_with_messages_format(x, tokenizer, 512, True, False))
+    train_dataset = train_dataset.map(lambda x: encode_with_messages_format(x, tokenizer, 512, True, False), num_proc=16)
 elif args.train_dataset == 'tulu2':
     train_dataset = load_dataset('allenai/tulu-v2-sft-mixture', split='train')
-    train_dataset = train_dataset.map(lambda x: encode_with_messages_format(x, tokenizer, 2048, True, False))
+    train_dataset = train_dataset.map(lambda x: encode_with_messages_format(x, tokenizer, 2048, True, False), num_proc=16)
 else:
     if os.path.exists(args.train_dataset):
         train_dataset = load_dataset('json', data_files=args.train_dataset)['train']
-        train_dataset = train_dataset.map(lambda x: encode_with_messages_format(x, tokenizer, 2048, True, False))
+        train_dataset = train_dataset.map(lambda x: encode_with_messages_format(x, tokenizer, 2048, True, False), num_proc=16)
     else:
         raise ValueError(f"Invalid train dataset: {args.train_dataset}")
 train_dataset.set_format(type='torch', columns=['input_ids', 'attention_mask', 'labels'])
@@ -212,7 +212,7 @@ if not os.path.exists(args.index_path):
             params_filter=params_filter,
             weight_decay=0.0,
             weight_decay_ignores=weight_decay_ignores
-        ).to(torch.float16)
+        ).to(torch.float32)
         accum_grads.append(grad_z.flatten())
         # project down.
         if index % grad_batch == 0:
@@ -221,7 +221,7 @@ if not os.path.exists(args.index_path):
                 # project down.
                 if args.random_transform != -1:
                     accum_grads = projector.project(accum_grads, model_id=0)
-                accum_grads = accum_grads.detach().cpu().to(torch.float16).numpy()
+                accum_grads = accum_grads.detach().cpu().to(torch.float32).numpy()
             # add to index
             vecs_to_add = accum_grads
             if args.normalise_influences:

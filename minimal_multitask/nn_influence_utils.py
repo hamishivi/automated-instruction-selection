@@ -26,7 +26,8 @@ def get_trak_projector(device: torch.device):
             8, 1_000, device=device), 512, 0, num_sms)
         projector = CudaProjector
         print("Using CudaProjector")
-    except:
+    except Exception as e:
+        print(f"Failed to use CudaProjector: {e}")
         projector = BasicProjector
         print("Using BasicProjector")
     return projector
