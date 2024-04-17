@@ -221,7 +221,7 @@ if not os.path.exists(args.index_path):
                 # project down.
                 if args.random_transform != -1:
                     accum_grads = projector.project(accum_grads, model_id=0)
-                accum_grads = accum_grads.detach().cpu().numpy()
+                accum_grads = accum_grads.detach().cpu().to(torch.float32).numpy()
             # add to index
             vecs_to_add = accum_grads
             if args.normalise_influences:
@@ -239,7 +239,7 @@ if not os.path.exists(args.index_path):
             # project down.
             if args.random_transform != -1:
                 accum_grads = projector.project(accum_grads, model_id=0)
-            accum_grads = accum_grads.detach().cpu().numpy()
+            accum_grads = accum_grads.detach().cpu().to(torch.float32).numpy()
         # add to index
         vecs_to_add = accum_grads
         if args.normalise_influences:
