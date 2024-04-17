@@ -1,0 +1,2 @@
+# flash attn must be installed here after packaging
+flash-attn==2.5.2
