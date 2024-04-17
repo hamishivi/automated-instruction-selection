@@ -59,6 +59,12 @@ kwargs = {"torch_dtype": torch.bfloat16}
 if 'llama' in args.model_name or args.llama_model:
     kwargs['attn_implementation'] = "eager"  # flash doesnt work with second order grad.
 
+# make our output dirs
+if os.path.dirname(args.instance_to_influences):
+    os.makedirs(os.path.dirname(args.instance_to_influences), exist_ok=True)
+if args.save_index and os.path.dirname(args.index_path):
+    os.makedirs(os.path.dirname(args.index_path), exist_ok=True)
+
 
 model = AutoModelForCausalLM.from_pretrained(
     args.model_name,
