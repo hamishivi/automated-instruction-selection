@@ -105,7 +105,7 @@ class MMLUShots(TestDataset):
 ## GSM8k
 
 class GSM8kEval(TestDataset):
-    data_dir = "data/eval/gsm"
+    data_dir = "/net/nfs.cirrascale/allennlp/hamishi/minimal-multitask-tuning/data/eval/gsm"
     n_shot = 8
     cot = True
     def get_all_test_prompts(self, num_samples=100, seed=42, max_length=512):
@@ -195,7 +195,7 @@ class GSM8kShots(TestDataset):
 class BBHEval(TestDataset):
     subsets = ['boolean_expressions', 'causal_judgement', 'date_understanding', 'disambiguation_qa', 'dyck_languages', 'formal_fallacies', 'geometric_shapes', 'hyperbaton', 'logical_deduction_five_objects', 'logical_deduction_seven_objects', 'logical_deduction_three_objects', 'movie_recommendation', 'multistep_arithmetic_two', 'navigate', 'object_counting', 'penguins_in_a_table', 'reasoning_about_colored_objects', 'ruin_names', 'salient_translation_error_detection', 'snarks', 'sports_understanding', 'temporal_sequences', 'tracking_shuffled_objects_five_objects', 'tracking_shuffled_objects_seven_objects', 'tracking_shuffled_objects_three_objects', 'web_of_lies', 'word_sorting']
     cot = True
-    data_dir = "data/eval/bbh"
+    data_dir = "/net/nfs.cirrascale/allennlp/hamishi/minimal-multitask-tuning/data/eval/bbh"
     max_num_examples_per_task = 10
 
     # 270 prompts: 10 per task.
@@ -251,7 +251,7 @@ class BBHShots(TestDataset):
     # basically the prompts, but we have to split them up a bunch.
     subsets = ['boolean_expressions', 'causal_judgement', 'date_understanding', 'disambiguation_qa', 'dyck_languages', 'formal_fallacies', 'geometric_shapes', 'hyperbaton', 'logical_deduction_five_objects', 'logical_deduction_seven_objects', 'logical_deduction_three_objects', 'movie_recommendation', 'multistep_arithmetic_two', 'navigate', 'object_counting', 'penguins_in_a_table', 'reasoning_about_colored_objects', 'ruin_names', 'salient_translation_error_detection', 'snarks', 'sports_understanding', 'temporal_sequences', 'tracking_shuffled_objects_five_objects', 'tracking_shuffled_objects_seven_objects', 'tracking_shuffled_objects_three_objects', 'web_of_lies', 'word_sorting']
     cot = True
-    data_dir = "data/eval/bbh"
+    data_dir = "/net/nfs.cirrascale/allennlp/hamishi/minimal-multitask-tuning/data/eval/bbh"
     max_num_examples_per_task = 10
 
     # 270 prompts: 3 per task.
@@ -295,7 +295,7 @@ class BBHShots(TestDataset):
 
 ## TydiQA
 class TydiqaEval(TestDataset):
-    data_dir = "data/eval/tydiqa"
+    data_dir = "/net/nfs.cirrascale/allennlp/hamishi/minimal-multitask-tuning/data/eval/tydiqa"
     max_num_examples_per_lang = 10
     n_shot = 1
     encoding_templates_with_context = {
@@ -432,7 +432,7 @@ class TydiqaEval(TestDataset):
         return test_dataset
 
 class TydiQAShots(TestDataset):
-    data_dir = "data/eval/tydiqa"
+    data_dir = "/net/nfs.cirrascale/allennlp/hamishi/minimal-multitask-tuning/data/eval/tydiqa"
     max_num_examples_per_lang = 10
     n_shot = 1
     encoding_templates_with_context = {
@@ -595,7 +595,7 @@ class CodexEval(TestDataset):
 ## ALPACAEVAL
 
 class AlpacaEval(TestDataset):
-    data_dir = 'data/eval/alpacaeval/alpaca_eval_dev.json'
+    data_dir = '/net/nfs.cirrascale/allennlp/hamishi/minimal-multitask-tuning/data/eval/alpacaeval/alpaca_eval_dev.json'
     def get_all_test_prompts(self, num_samples=50, seed=42, max_length=512):
         data = json.load(open(self.data_dir, "r"))
         # shuffle and select first num_samples
@@ -623,7 +623,7 @@ class AlpacaEval(TestDataset):
 # this might be annoying, so we will typically ignore toxigen in our setups.
 # but maybe we'll tackle this in the future.
 class ToxigenEval(TestDataset):
-    data_dir = "data/eval/toxigen/dev"
+    data_dir = "/net/nfs.cirrascale/allennlp/hamishi/minimal-multitask-tuning/data/eval/toxigen/dev"
     max_prompts_per_group = 10
     # 140 default: 10 per group.
     def get_all_test_prompts(self, num_samples=140, seed=42, max_length=512):
@@ -693,7 +693,7 @@ class SquadEval(TestDataset):
 class BBHEval(TestDataset):
     subsets = ['boolean_expressions', 'causal_judgement', 'date_understanding', 'disambiguation_qa', 'dyck_languages', 'formal_fallacies', 'geometric_shapes', 'hyperbaton', 'logical_deduction_five_objects', 'logical_deduction_seven_objects', 'logical_deduction_three_objects', 'movie_recommendation', 'multistep_arithmetic_two', 'navigate', 'object_counting', 'penguins_in_a_table', 'reasoning_about_colored_objects', 'ruin_names', 'salient_translation_error_detection', 'snarks', 'sports_understanding', 'temporal_sequences', 'tracking_shuffled_objects_five_objects', 'tracking_shuffled_objects_seven_objects', 'tracking_shuffled_objects_three_objects', 'web_of_lies', 'word_sorting']
     cot = False
-    data_dir = "data/eval/bbh"
+    data_dir = "/net/nfs.cirrascale/allennlp/hamishi/minimal-multitask-tuning/data/eval/bbh"
     max_num_examples_per_task = 10
 
     def get_all_test_prompts(self, num_samples=500, seed=42):
@@ -746,7 +746,7 @@ class BBHEval(TestDataset):
         return test_dataset
 
 class TydiqaEval(TestDataset):
-    data_dir = "data/eval/tydiqa"
+    data_dir = "/net/nfs.cirrascale/allennlp/hamishi/minimal-multitask-tuning/data/eval/tydiqa"
     max_num_examples_per_lang = 10
     n_shot = 1
     encoding_templates_with_context = {
@@ -882,7 +882,7 @@ class TydiqaEval(TestDataset):
         return test_dataset
 
 class GSM8kEval(TestDataset):
-    data_dir = "data/eval/gsm"
+    data_dir = "/net/nfs.cirrascale/allennlp/hamishi/minimal-multitask-tuning/data/eval/gsm"
     n_shot = 8
     cot = True
     def get_all_test_prompts(self, num_samples=500, seed=42):
