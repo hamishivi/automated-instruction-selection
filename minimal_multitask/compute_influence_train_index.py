@@ -212,12 +212,12 @@ if not os.path.exists(args.index_path):
             params_filter=params_filter,
             weight_decay=0.0,
             weight_decay_ignores=weight_decay_ignores
-        ).to(torch.float32)
+        ).to(torch.float16)
         accum_grads.append(grad_z.flatten())
         # project down.
         if index % grad_batch == 0:
             with torch.no_grad():
-                accum_grads = torch.stack(accum_grads, dim=0)
+                accum_grads = torch.stack(accum_grads, dim=0).to(torch.float16)
                 # project down.
                 if args.random_transform != -1:
                     accum_grads = projector.project(accum_grads, model_id=0)
