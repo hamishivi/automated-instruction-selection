@@ -1,5 +1,8 @@
 name: /net/nfs.cirrascale/allennlp/hamishi/conda-envs/mmft
 channels:
+  - pytorch
+  - nvidia
+  - conda-forge
   - defaults
 dependencies:
   - python=3.10
