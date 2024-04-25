@@ -17,7 +17,7 @@ parser.add_argument('--output_file', type=str)
 parser.add_argument('--selection_method', type=str, default='min') # min, mean, max
 parser.add_argument('--output_size', type=int, default=10000) # number of instances total to select.
 parser.add_argument('--train_dataset', type=str, default='alpaca')
-parser.add_argument('--aggregation_method', type=str, default='minmax') # mean, minmax
+parser.add_argument('--aggregation_method', type=str, default='minmax', choices=["mean", "minmax"]) # mean, minmax
 args = parser.parse_args()
 
 assert args.selection_method in ['min', 'max', 'mean_min', 'mean_max'], "Invalid selection method."
@@ -95,12 +95,14 @@ elif args.aggregation_method == 'minmax':
     # unlike before, here we round-robin across datasets to avoid score magnitudes affecting this.
     pbar = tqdm(total=args.output_size)
     last_size = 0
+    for ds_name, dataset_scores in per_dataset_influences.items():
+        per_dataset_influences[ds_name] = sorted(dataset_scores.items(), key=lambda x: x[1], reverse='max' in args.selection_method)
     while len(inter_dataset_scores) < args.output_size:
-        for ds_name, dataset_scores in per_dataset_influences.items():
+        for ds_name, sorted_scores in per_dataset_influences.items():
             if len(inter_dataset_scores) >= args.output_size:
                 break
             # sort and pop min/max
-            sorted_scores = sorted(dataset_scores.items(), key=lambda x: x[1], reverse='max' in args.selection_method)
+            # sorted_scores = sorted(dataset_scores.items(), key=lambda x: x[1], reverse='max' in args.selection_method)
             idx, score = sorted_scores.pop(0)
             per_dataset_influences[ds_name] = {k: v for k, v in sorted_scores}
             inter_dataset_scores[idx] = min(score, inter_dataset_scores.get(idx, math.inf))
