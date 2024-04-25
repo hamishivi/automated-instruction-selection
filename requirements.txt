@@ -2,3 +2,4 @@
 flash-attn==2.5.2
 fast-jl==0.1.3
 bitsandbytes
+evaluate
