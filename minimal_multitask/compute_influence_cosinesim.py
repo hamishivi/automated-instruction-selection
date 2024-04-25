@@ -52,11 +52,13 @@ else:
     tokenizer = AutoTokenizer.from_pretrained(args.model_name)
 
 # load and process train dataset
-if args.train_dataset == "alpaca":
-    train_dataset = load_dataset('json', data_files='data/camel_datasets/stanford_alpaca/stanford_alpaca_data.jsonl')
+if args.train_dataset == 'alpaca':
+    train_dataset = load_dataset('json', data_files='data/camel_datasets/stanford_alpaca/stanford_alpaca_data.jsonl')['train']
     train_dataset = train_dataset.map(lambda x: encode_with_messages_format(x, tokenizer, 512, True, False))
+elif args.train_dataset == 'tulu2':
+    train_dataset = load_dataset('allenai/tulu-v2-sft-mixture', split='train')
+    train_dataset = train_dataset.map(lambda x: encode_with_messages_format(x, tokenizer, 2048, True, False))
 train_dataset.set_format(type='torch', columns=['input_ids', 'attention_mask', 'labels'])
-train_dataset = train_dataset['train']
 
 # test dataset - mostly handled in data.py
 if args.eval_dataset in DATASETS:
