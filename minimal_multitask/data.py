@@ -541,8 +541,8 @@ class TydiQAShots(TestDataset):
 from minimal_multitask.eval.codex_humaneval.data import read_problems
 
 class CodexEval(TestDataset):
-    data_file = "data/eval/codex_humaneval/HumanEval_dev.jsonl.gz"
-    data_file_hep = "data/eval/codex_humaneval/humanevalpack.jsonl"
+    data_file = "/net/nfs.cirrascale/allennlp/hamishi/minimal-multitask-tuning/data/eval/codex_humaneval/HumanEval_dev.jsonl.gz"
+    data_file_hep = "/net/nfs.cirrascale/allennlp/hamishi/minimal-multitask-tuning/data/eval/codex_humaneval/humanevalpack.jsonl"
     def get_all_test_prompts(self, num_samples=100, seed=42, max_length=512):
         random.seed(42)
         test_data = list(read_problems(self.data_file).values())

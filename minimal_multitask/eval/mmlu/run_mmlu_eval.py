@@ -131,7 +131,7 @@ def gen_prompt(train_df, subject, k=-1):
 def construct_prompts(
     tokenizer,
     use_chat_format=True,
-    data_dir='data/eval/mmlu',
+    data_dir='/net/nfs.cirrascale/allennlp/hamishi/minimal-multitask-tuning/data/mmlu',
     ntrain=0,
     use_dev_samples=False
 ):
