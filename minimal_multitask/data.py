@@ -938,6 +938,42 @@ class GSM8kEval(TestDataset):
         test_dataset = test_dataset.shuffle(seed=seed).select(range(min(num_samples, len(test_dataset))))
         return test_dataset
 
+class MBPPPlus(TestDataset):
+    dataset = load_dataset("evalplus/mbppplus")['test']
+    dataset.shuffle(seed=42) # Don't change this, relying on this to ensure no overlap between selection set and test set
+    # Always held-out first 100 samples
+    def get_all_test_prompts(self, num_samples=100, seed=42, max_length=512):
+        test_data = self.dataset.select(range(min(num_samples, len(self.dataset))))
+        print("Number of examples:", len(test_data))
+
+        # these stop sequences are those mentioned in the codex paper.
+        stop_sequences = ["\nclass", "\ndef", "\n#", "\nif", "\nprint"]
+
+        prompts = []
+        labels = []
+
+        answer = "Here is the completed function:\n\n\n"
+        def apply_chat_format(tokenizer, inst, suffix):
+            messages = [{"role": "user", "content": inst}]
+            prompt = create_prompt_with_tulu_chat_format(messages, tokenizer, add_bos=False)
+            prefix = "" if prompt[-1] in ["\n", " "] else " "
+            return prompt + prefix + suffix
+            
+        instruction = "Complete the following python function.\n\n\n"
+        for example in test_data:
+            prompts.append(apply_chat_format(self.tokenizer, instruction + example["prompt"], answer))
+            labels.append(example["code"])
+
+        # labels are taken from the "canonical solution" in the data provided.
+        test_dataset = Dataset.from_dict({'prompts': prompts, 'labels': labels})
+        construct_test_sample_tok = lambda x: construct_test_sample(self.tokenizer, x, max_length=max_length)
+        test_dataset = test_dataset.map(construct_test_sample_tok, load_from_cache_file=False)
+        test_dataset.set_format(type='torch', columns=['input_ids', 'attention_mask', 'labels'])
+        test_dataset = test_dataset.shuffle(seed=seed).select(range(min(num_samples, len(test_dataset))))
+        breakpoint()
+        return test_dataset
+
+
 
 # todo: humaneval, truthfulqa mc.
 # these are maybe tricky since they dont have hard gold.
@@ -954,6 +990,7 @@ DATASETS = {
     'codex': CodexEval,
     'alpacafarm': AlpacaEval,
     'squad': SquadEval,
+    'mbppplus': MBPPPlus,
 }
 
 # How do we handle ensuring a difference between selection time and test time?
