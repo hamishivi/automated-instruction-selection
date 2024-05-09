@@ -12,7 +12,7 @@ from tqdm import tqdm
 import faiss
 import argparse
 import os
-import time
+from peft import PeftModel
 import pickle
 from minimal_multitask.data import DATASETS
 from trak.projectors import ProjectionType
@@ -52,6 +52,8 @@ parser.add_argument('--vanilla_gradients', action='store_true')
 parser.add_argument('--llama_model', action='store_true')
 # train dataset
 parser.add_argument('--train_dataset', type=str, default='alpaca')
+# use peft loading (in case you hit merging issues)
+parser.add_argument('--add_pad_before_load', type=str, default=None)
 args = parser.parse_args()
 
 torch.manual_seed(args.seed)
@@ -65,24 +67,30 @@ if os.path.dirname(args.instance_to_influences):
 if args.save_index and os.path.dirname(args.index_path):
     os.makedirs(os.path.dirname(args.index_path), exist_ok=True)
 
-
-model = AutoModelForCausalLM.from_pretrained(
-    args.model_name,
-    **kwargs,
-    device_map="auto",  # use multiple gpus if you can
-)
-# loading sets requires_grad to False, so we need to set it back to True
-for name, param in model.named_parameters():
-    if 'lora' in name:
-        param.requires_grad = True
-
 if args.tokenizer is not None:
     tokenizer = AutoTokenizer.from_pretrained(args.tokenizer)
 else:
     tokenizer = AutoTokenizer.from_pretrained(args.model_name)
 
-# resize matrix to fit tokenizer, just in case...
-model.resize_token_embeddings(len(tokenizer))
+if args.add_pad_before_load:
+    model = AutoModelForCausalLM.from_pretrained(
+        args.add_pad_before_load,
+        **kwargs,
+        device_map="auto",  # use multiple gpus if you can
+    )
+    tokenizer.add_special_tokens({'pad_token': '[PAD]'})
+    model.resize_token_embeddings(len(tokenizer))
+    model = PeftModel.from_pretrained(model, args.model_name)
+else:
+    model = AutoModelForCausalLM.from_pretrained(
+        args.model_name,
+        **kwargs,
+        device_map="auto",  # use multiple gpus if you can
+    )
+# loading sets requires_grad to False, so we need to set it back to True
+for name, param in model.named_parameters():
+    if 'lora' in name:
+        param.requires_grad = True
 
 # load and process train dataset
 if args.train_dataset == 'alpaca':
