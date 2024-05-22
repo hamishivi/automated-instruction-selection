@@ -19,6 +19,7 @@ dependencies:
   - cuda-driver-dev=12.3.101=0
   - cuda-libraries=11.8.0=0
   - cuda-libraries-dev=11.8.0=0
+  - libcusparse=11.8.0=0
   - cuda-nvcc=11.8.89=0
   - cuda-nvrtc=11.8.89=0
   - cuda-nvrtc-dev=11.8.89=0
