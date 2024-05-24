@@ -58,17 +58,13 @@ class FileDataset(TestDataset):
 
 class MMLU(TestDataset):
     shots = 0
-    # default 570 prompts, 10 per category
-    def get_all_test_prompts(self, num_samples=570, seed=42, max_length=512):
-        random_gen = random.Random(seed)
+    # default 982 prompts, just all test prompts
+    def get_all_test_prompts(self, num_samples=-1, seed=42, max_length=512):
         # get the prompts for each subject
         prompts_per_subject = construct_prompts(self.tokenizer, use_chat_format=True, ntrain=self.shots, use_dev_samples=False)
         prompts, labels = [], []
-        while len(prompts) < num_samples:
-            for subject in prompts_per_subject:
-                # random sample and remove a prompt
-                random_gen.shuffle(prompts_per_subject[subject])
-                prompt, label = prompts_per_subject[subject].pop()
+        for subject in prompts_per_subject:
+            for prompt, label in prompts_per_subject[subject]:
                 prompts.append(prompt)
                 labels.append(label)
         # convert as normal.
@@ -76,7 +72,9 @@ class MMLU(TestDataset):
         make_test_sample = lambda x: construct_test_sample(self.tokenizer, x, max_length=max_length)
         test_dataset = test_dataset.map(make_test_sample, load_from_cache_file=False)
         test_dataset.set_format(type='torch', columns=['input_ids', 'attention_mask', 'labels'])
-        test_dataset = test_dataset.shuffle(seed=seed).select(range(num_samples))
+        test_dataset = test_dataset.shuffle(seed=seed)
+        if num_samples > 0:
+            test_dataset = test_dataset.select(range(num_samples))
         return test_dataset
 
 class MMLUShots(TestDataset):
@@ -108,7 +106,7 @@ class GSM8kEval(TestDataset):
     data_dir = "/net/nfs.cirrascale/allennlp/hamishi/minimal-multitask-tuning/data/eval/gsm"
     n_shot = 8
     cot = True
-    def get_all_test_prompts(self, num_samples=100, seed=42, max_length=512):
+    def get_all_test_prompts(self, num_samples=None, seed=42, max_length=512):
         test_data = []
         tokenizer = self.tokenizer
         with open(os.path.join(self.data_dir, f"test.jsonl")) as fin:
@@ -196,7 +194,7 @@ class BBHEval(TestDataset):
     subsets = ['boolean_expressions', 'causal_judgement', 'date_understanding', 'disambiguation_qa', 'dyck_languages', 'formal_fallacies', 'geometric_shapes', 'hyperbaton', 'logical_deduction_five_objects', 'logical_deduction_seven_objects', 'logical_deduction_three_objects', 'movie_recommendation', 'multistep_arithmetic_two', 'navigate', 'object_counting', 'penguins_in_a_table', 'reasoning_about_colored_objects', 'ruin_names', 'salient_translation_error_detection', 'snarks', 'sports_understanding', 'temporal_sequences', 'tracking_shuffled_objects_five_objects', 'tracking_shuffled_objects_seven_objects', 'tracking_shuffled_objects_three_objects', 'web_of_lies', 'word_sorting']
     cot = True
     data_dir = "/net/nfs.cirrascale/allennlp/hamishi/minimal-multitask-tuning/data/eval/bbh"
-    max_num_examples_per_task = 10
+    max_num_examples_per_task = 40  # following eval setting
 
     # 270 prompts: 10 per task.
     def get_all_test_prompts(self, num_samples=270, seed=42, max_length=512):
@@ -296,7 +294,7 @@ class BBHShots(TestDataset):
 ## TydiQA
 class TydiqaEval(TestDataset):
     data_dir = "/net/nfs.cirrascale/allennlp/hamishi/minimal-multitask-tuning/data/eval/tydiqa"
-    max_num_examples_per_lang = 10
+    max_num_examples_per_lang = 100
     n_shot = 1
     encoding_templates_with_context = {
         "english": ("Answer the following question based on the information in the given passage.", "Passage:", "Question:", "Answer:"),
@@ -590,7 +588,10 @@ class CodexEval(TestDataset):
         test_dataset = test_dataset.shuffle(seed=seed).select(range(min(num_samples, len(test_dataset))))
         return test_dataset
 
-# no few-shot examples for codex.
+# codex test - just point to diff file.
+class CodexEvalTest(CodexEval):
+    # test file
+    data_file = "/net/nfs.cirrascale/allennlp/hamishi/minimal-multitask-tuning/data/eval/codex_humaneval/HumanEval.jsonl.gz"
 
 ## ALPACAEVAL
 
@@ -617,6 +618,10 @@ class AlpacaEval(TestDataset):
         return test_dataset
     
 # no few-shot examples for alpacaeval
+
+# version with test prompts
+class AlpacaEvalTest(AlpacaEval):
+    data_dir = '/net/nfs.cirrascale/allennlp/hamishi/minimal-multitask-tuning/data/eval/alpacaeval/alpaca_eval_test.json'
     
 ## Toxigen
 # toxigen is a little weird, so we actually do something different: we sample a label we don't want to generate, and we can consider 'harmful' influences for this.
@@ -676,6 +681,24 @@ class SquadEval(TestDataset):
     add_context = True
     def get_all_test_prompts(self, num_samples=500, seed=42, max_length=512):
         test_dataset = load_dataset('squad', split='train')
+        tokenizer = self.tokenizer
+        def convert_squad_sample(sample):
+            prompt = sample['question']  # no context lmao.
+            if self.add_context:
+                prompt = sample['context'] + "\n\n" + prompt
+            label = sample['answers']['text'][0]
+            messages = [{"role": "user", "content": prompt}]
+            return {'prompts': create_prompt_with_tulu_chat_format(messages, tokenizer, add_bos=False), 'labels': label}
+        test_dataset = test_dataset.map(convert_squad_sample, remove_columns=['id', 'title', 'context', 'question', 'answers'])
+        test_dataset = test_dataset.map(lambda x: construct_test_sample(self.tokenizer, x, max_length=max_length))
+        test_dataset.set_format(type='torch', columns=['input_ids', 'attention_mask', 'labels'])
+        test_dataset = test_dataset.shuffle(seed=seed).select(range(min(num_samples, len(test_dataset))))
+        return test_dataset
+    
+# test version for squad - just the same but we use the validation set.
+class SquadEvalTest(SquadEval):
+    def get_all_test_prompts(self, num_samples=500, seed=42, max_length=512):
+        test_dataset = load_dataset('squad', split='validation')
         tokenizer = self.tokenizer
         def convert_squad_sample(sample):
             prompt = sample['question']  # no context lmao.
@@ -979,17 +1002,20 @@ class MBPPPlus(TestDataset):
 # these are maybe tricky since they dont have hard gold.
 
 DATASETS = {
-    'mmlu': MMLU,
-    'mmlu_shots': MMLUShots,
-    'gsm8k': GSM8kEval,
-    'gsm8k_shots': GSM8kShots,
-    'bbh': BBHEval,
-    'bbh_shots': BBHShots,
-    'tydiqa': TydiqaEval,
-    'tydiqa_shots': TydiQAShots,
+    'mmlu': MMLU,  # all test prompts
+    'mmlu_shots': MMLUShots,  # dev version
+    'gsm8k': GSM8kEval,  # all test prompts by default
+    'gsm8k_shots': GSM8kShots,  # dev version
+    'bbh': BBHEval,  # all test prompts by default (that we eval on)
+    'bbh_shots': BBHShots,  # dev version
+    'tydiqa': TydiqaEval,   # all test prompts by default
+    'tydiqa_shots': TydiQAShots,  # dev version
     'codex': CodexEval,
+    'codex_test': CodexEvalTest,  # test version
     'alpacafarm': AlpacaEval,
+    'alpacafarm_test': AlpacaEvalTest, # test version
     'squad': SquadEval,
+    'squad_test': SquadEvalTest,
     'mbppplus': MBPPPlus,
 }
 
