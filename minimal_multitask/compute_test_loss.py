@@ -4,6 +4,7 @@ We can compute loss over dev splits or given prompt files.
 '''
 import argparse
 import json
+import os
 
 from tqdm import tqdm
 import torch
@@ -22,7 +23,8 @@ parser.add_argument('--results', type=str, default=None)
 args = parser.parse_args()
 
 # load model
-model = AutoModelForCausalLM.from_pretrained(args.model_name, device_map='auto')
+kwargs = dict(device_map='auto', use_auth_token=os.environ.get('HF_TOKEN', None))
+model = AutoModelForCausalLM.from_pretrained(args.model_name, )
 tokenizer = AutoTokenizer.from_pretrained(args.model_name if args.tokenizer is None else args.tokenizer)
 
 results = {}
