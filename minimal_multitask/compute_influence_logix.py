@@ -65,7 +65,6 @@ else:
     else:
         raise ValueError(f"Invalid train dataset: {args.train_dataset}")
 train_dataset.set_format(type='torch', columns=['input_ids', 'attention_mask', 'labels'])
-train_dataset = train_dataset.select(range(100))
 
 data_loader = DataLoader(train_dataset, batch_size=1)
 
