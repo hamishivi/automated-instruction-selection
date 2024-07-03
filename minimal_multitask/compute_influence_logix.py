@@ -105,7 +105,7 @@ if args.grad_save_path is None or not os.path.exists(args.grad_save_path):
     model, data_loader = accelerator.prepare(model, data_loader)
     model.eval()
     for _ in scheduler:
-        for batch in tqdm(data_loader):
+        for i, batch in tqdm(enumerate(data_loader), total=len(data_loader)):
             data_id = tokenizer.batch_decode(batch["input_ids"])
             targets = batch.pop("labels")
             with run(data_id=data_id, mask=batch["attention_mask"]):
@@ -120,18 +120,18 @@ if args.grad_save_path is None or not os.path.exists(args.grad_save_path):
                     ignore_index=-100,
                 )
                 accelerator.backward(loss)
-        logix.finalize()
+        run.finalize()
 else:
     # we can just initialize the logix run from the saved grads
     run = logix.init(args.grad_save_path, config='tmp_logix/logix_config.yaml')
-    logix.watch(model, name_filter=name_filter)
-    logix.initialize_from_log()
+    run.watch(model, name_filter=name_filter)
+    run.initialize_from_log()
     # extra setup
     model = accelerator.prepare(model)
     model.eval()
 
 # setup log dataloader (dataloader over train grads)
-log_loader = logix.build_log_dataloader(batch_size=64)
+log_loader = run.build_log_dataloader(batch_size=64)
 
 # now, we compute influence scores
 # test dataset - mostly handled in data.py
@@ -143,8 +143,8 @@ test_dataset.set_format(type='torch', columns=['input_ids', 'attention_mask', 'l
 test_data_loader = DataLoader(test_dataset, batch_size=1)
 test_data_loader = accelerator.prepare(test_data_loader)
 
-logix.setup({"grad": ["log"]})
-logix.eval()
+run.setup({"grad": ["log"]})
+run.eval()
 merged_test_logs = []
 for idx, batch in enumerate(tqdm(test_data_loader)):
     data_id = tokenizer.batch_decode(batch["input_ids"], skip_special_tokens=True)
@@ -163,7 +163,7 @@ for idx, batch in enumerate(tqdm(test_data_loader)):
         )
         accelerator.backward(loss)
 
-    test_log = logix.get_log()
+    test_log = run.get_log()
     merged_test_logs.append(copy.deepcopy(test_log))
 
 merged_test_log = merge_logs(merged_test_logs)
