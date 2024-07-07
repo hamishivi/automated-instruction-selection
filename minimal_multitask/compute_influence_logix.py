@@ -75,8 +75,8 @@ name_filter = ["att", "mlp"]
 logix_config = {
     "root_dir": ".",
     "logging": {
-        "flush_threshold": 1000000000,
-        "num_workers": 2,
+        "flush_threshold": 50000*8064, # if you never flush, buffer resets at 124007*8064 for some reason?  
+        "num_workers": 1,
         "cpu_offload": True,
         "log_dtype": "float16",
     },
@@ -106,7 +106,8 @@ if args.grad_save_path is None or not os.path.exists(args.grad_save_path):
     model.eval()
     for _ in scheduler:
         for i, batch in tqdm(enumerate(data_loader), total=len(data_loader)):
-            data_id = tokenizer.batch_decode(batch["input_ids"])
+            # add dataset index to data_id to avoid collisions
+            data_id = [tokenizer.decode(batch["input_ids"][0]) + f'_{i}']
             targets = batch.pop("labels")
             with run(data_id=data_id, mask=batch["attention_mask"]):
                 model.zero_grad()
@@ -116,7 +117,7 @@ if args.grad_save_path is None or not os.path.exists(args.grad_save_path):
                 loss = F.cross_entropy(
                     shift_logits.view(-1, shift_logits.size(-1)),
                     shift_labels.view(-1),
-                    reduction="sum",
+                    reduction="mean",  # logix example code had sum?
                     ignore_index=-100,
                 )
                 accelerator.backward(loss)
