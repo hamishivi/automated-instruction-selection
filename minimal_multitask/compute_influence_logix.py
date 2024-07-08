@@ -82,7 +82,7 @@ logix_config = {
     },
     "lora": {
         "init": "random",
-        "rank": 6,
+        "rank": 64,
     }
 }
 os.makedirs("tmp_logix", exist_ok=True)
@@ -98,7 +98,7 @@ if args.grad_save_path is None or not os.path.exists(args.grad_save_path):
     run.watch(model, name_filter=name_filter, type_filter=[nn.Linear])
     # build scheduler
     scheduler = logix.LogIXScheduler(
-        run, lora="random", hessian="none", save="grad"
+        run, lora="random", hessian="raw", save="grad"
     )
 
     # compute influences
