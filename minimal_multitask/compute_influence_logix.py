@@ -98,7 +98,7 @@ if args.grad_save_path is None or not os.path.exists(args.grad_save_path):
     run.watch(model, name_filter=name_filter, type_filter=[nn.Linear])
     # build scheduler
     scheduler = logix.LogIXScheduler(
-        run, lora="random", hessian="raw", save="grad"
+        run, lora="random", hessian="none", save="grad"
     )
 
     # compute influences
@@ -159,7 +159,7 @@ for idx, batch in enumerate(tqdm(test_data_loader)):
         loss = F.cross_entropy(
             shift_logits.view(-1, shift_logits.size(-1)),
             shift_labels.view(-1),
-            reduction="sum",
+            reduction="mean",
             ignore_index=-100,
         )
         accelerator.backward(loss)
