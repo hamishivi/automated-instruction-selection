@@ -12,7 +12,7 @@ from tqdm import tqdm
 import faiss
 import argparse
 import os
-import time
+from peft import PeftModel
 import pickle
 from minimal_multitask.data import DATASETS
 from trak.projectors import ProjectionType
@@ -52,41 +52,59 @@ parser.add_argument('--vanilla_gradients', action='store_true')
 parser.add_argument('--llama_model', action='store_true')
 # train dataset
 parser.add_argument('--train_dataset', type=str, default='alpaca')
+# use peft loading (in case you hit merging issues)
+parser.add_argument('--add_pad_before_load', type=str, default=None)
 args = parser.parse_args()
-
-assert args.train_dataset in ['alpaca', 'tulu2'], "Invalid train dataset."
 
 torch.manual_seed(args.seed)
 kwargs = {"torch_dtype": torch.bfloat16}
 if 'llama' in args.model_name or args.llama_model:
     kwargs['attn_implementation'] = "eager"  # flash doesnt work with second order grad.
 
-
-model = AutoModelForCausalLM.from_pretrained(
-    args.model_name,
-    **kwargs,
-    device_map="auto",  # use multiple gpus if you can
-)
-# loading sets requires_grad to False, so we need to set it back to True
-for name, param in model.named_parameters():
-    if 'lora' in name:
-        param.requires_grad = True
+# make our output dirs
+if os.path.dirname(args.instance_to_influences):
+    os.makedirs(os.path.dirname(args.instance_to_influences), exist_ok=True)
+if args.save_index and os.path.dirname(args.index_path):
+    os.makedirs(os.path.dirname(args.index_path), exist_ok=True)
 
 if args.tokenizer is not None:
     tokenizer = AutoTokenizer.from_pretrained(args.tokenizer)
 else:
     tokenizer = AutoTokenizer.from_pretrained(args.model_name)
 
-# resize matrix to fit tokenizer, just in case...
-model.resize_token_embeddings(len(tokenizer))
+if args.add_pad_before_load:
+    model = AutoModelForCausalLM.from_pretrained(
+        args.add_pad_before_load,
+        **kwargs,
+        device_map="auto",  # use multiple gpus if you can
+    )
+    tokenizer.add_special_tokens({'pad_token': '[PAD]'})
+    model.resize_token_embeddings(len(tokenizer))
+    model = PeftModel.from_pretrained(model, args.model_name)
+else:
+    model = AutoModelForCausalLM.from_pretrained(
+        args.model_name,
+        **kwargs,
+        device_map="auto",  # use multiple gpus if you can
+    )
+# loading sets requires_grad to False, so we need to set it back to True
+for name, param in model.named_parameters():
+    if 'lora' in name:
+        param.requires_grad = True
 
 # load and process train dataset
 if args.train_dataset == 'alpaca':
     train_dataset = load_dataset('json', data_files='data/camel_datasets/stanford_alpaca/stanford_alpaca_data.jsonl')['train']
-    train_dataset = train_dataset.map(lambda x: encode_with_messages_format(x, tokenizer, 512, True, False))
+    train_dataset = train_dataset.map(lambda x: encode_with_messages_format(x, tokenizer, 512, True, False), num_proc=16)
 elif args.train_dataset == 'tulu2':
     train_dataset = load_dataset('allenai/tulu-v2-sft-mixture', split='train')
-    train_dataset = train_dataset.map(lambda x: encode_with_messages_format(x, tokenizer, 2048, True, False))
+    train_dataset = train_dataset.map(lambda x: encode_with_messages_format(x, tokenizer, 2048, True, False), num_proc=16)
+else:
+    if os.path.exists(args.train_dataset):
+        train_dataset = load_dataset('json', data_files=args.train_dataset)['train']
+        train_dataset = train_dataset.map(lambda x: encode_with_messages_format(x, tokenizer, 2048, True, False), num_proc=16)
+    else:
+        raise ValueError(f"Invalid train dataset: {args.train_dataset}")
 train_dataset.set_format(type='torch', columns=['input_ids', 'attention_mask', 'labels'])
 
 
@@ -213,7 +231,7 @@ if not os.path.exists(args.index_path):
         # project down.
         if index % grad_batch == 0:
             with torch.no_grad():
-                accum_grads = torch.stack(accum_grads, dim=0)
+                accum_grads = torch.stack(accum_grads, dim=0).to(torch.float16)
                 # project down.
                 if args.random_transform != -1:
                     accum_grads = projector.project(accum_grads, model_id=0)

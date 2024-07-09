@@ -1,1 +1,6 @@
+# flash attn must be installed here after packaging
 flash-attn==2.5.2
+fast-jl==0.1.3
+bitsandbytes
+evaluate
+logix-ai @ git+https://github.com/logix-project/logix@f576318d16818cd83de642ac29fbbab20d873368
