@@ -7,6 +7,7 @@ import argparse
 import copy
 import pickle
 import yaml
+import math
 
 import torch
 from torch import nn
@@ -44,7 +45,7 @@ if args.use_hf_auth_token is not None:
     kwargs['use_auth_token'] = os.environ.get('HF_TOKEN', None)
 
 # load model
-model = AutoModelForCausalLM.from_pretrained(args.model_name, torch_dtype=torch.bfloat16, **kwargs)
+model = AutoModelForCausalLM.from_pretrained(args.model_name, **kwargs)
 tokenizer = AutoTokenizer.from_pretrained(args.tokenizer_name or args.model_name)
 
 if args.gradient_checkpointing:
@@ -65,7 +66,6 @@ else:
     else:
         raise ValueError(f"Invalid train dataset: {args.train_dataset}")
 train_dataset.set_format(type='torch', columns=['input_ids', 'attention_mask', 'labels'])
-
 data_loader = DataLoader(train_dataset, batch_size=1)
 
 name_filter = ["att", "mlp"]
@@ -96,9 +96,10 @@ if args.grad_save_path is None or not os.path.exists(args.grad_save_path):
 
     # Specify modules to be tracked for logging
     run.watch(model, name_filter=name_filter, type_filter=[nn.Linear])
+    run.add_lora()
     # build scheduler
     scheduler = logix.LogIXScheduler(
-        run, lora="random", hessian="none", save="grad"
+        run, lora="none", hessian="none", save="grad"
     )
 
     # compute influences
@@ -168,7 +169,7 @@ for idx, batch in enumerate(tqdm(test_data_loader)):
     merged_test_logs.append(copy.deepcopy(test_log))
 
 merged_test_log = merge_logs(merged_test_logs)
-results = run.influence.compute_influence_all(merged_test_log, log_loader)
+results = run.influence.compute_influence_all(merged_test_log, log_loader, mode="cosine")
 
 influence_scores = results["influence"]
 # invert the influence score so lower is better, as with our other influences.
@@ -181,6 +182,12 @@ for test_index, influence in enumerate(influence_scores):
     influence_to_index.append(
         {ind: float(influence.item()) for ind, influence in enumerate(influence)}
     )
+# nan checks: replace nans with 0 influence, as they are likely due to no grad (no labels)
+# 0 is just saying we dont have any influence information here
+for i, influence in enumerate(influence_to_index):
+    for k, v in influence.items():
+        if math.isnan(influence[k]):
+            influence[k] = 0.0
 # save the influence to index pickle
 with open(args.instance_to_influences, "wb") as f:
     pickle.dump(influence_to_index, f)
