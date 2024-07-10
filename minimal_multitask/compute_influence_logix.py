@@ -82,7 +82,7 @@ logix_config = {
     },
     "lora": {
         "init": "random",
-        "rank": 8,
+        "rank": 6,
     }
 }
 os.makedirs("tmp_logix", exist_ok=True)
