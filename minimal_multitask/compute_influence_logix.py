@@ -45,7 +45,7 @@ if args.use_hf_auth_token is not None:
     kwargs['use_auth_token'] = os.environ.get('HF_TOKEN', None)
 
 # load model
-model = AutoModelForCausalLM.from_pretrained(args.model_name, **kwargs)
+model = AutoModelForCausalLM.from_pretrained(args.model_name)# **kwargs)
 tokenizer = AutoTokenizer.from_pretrained(args.tokenizer_name or args.model_name)
 
 if args.gradient_checkpointing:
@@ -78,7 +78,7 @@ logix_config = {
         "flush_threshold": 50000*8064, # if you never flush, buffer resets at 124007*8064 for some reason?  
         "num_workers": 1,
         "cpu_offload": True,
-        "log_dtype": "float16",
+        "log_dtype": "float32",
     },
     "lora": {
         "init": "random",
@@ -99,7 +99,7 @@ if args.grad_save_path is None or not os.path.exists(args.grad_save_path):
     run.add_lora()
     # build scheduler
     scheduler = logix.LogIXScheduler(
-        run, lora="none", hessian="none", save="grad"
+        run, lora="none", hessian="raw", save="grad"
     )
 
     # compute influences
@@ -154,7 +154,6 @@ for idx, batch in enumerate(tqdm(test_data_loader)):
     with run(data_id=data_id, mask=batch["attention_mask"]):
         model.zero_grad()
         logits = model(**batch).logits
-
         shift_logits = logits[..., :-1, :].contiguous()
         shift_labels = targets[..., 1:].contiguous()
         loss = F.cross_entropy(
