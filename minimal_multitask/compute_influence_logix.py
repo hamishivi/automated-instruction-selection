@@ -45,7 +45,7 @@ if args.use_hf_auth_token is not None:
     kwargs['use_auth_token'] = os.environ.get('HF_TOKEN', None)
 
 # load model
-model = AutoModelForCausalLM.from_pretrained(args.model_name)# **kwargs)
+model = AutoModelForCausalLM.from_pretrained(args.model_name, **kwargs)
 tokenizer = AutoTokenizer.from_pretrained(args.tokenizer_name or args.model_name)
 
 if args.gradient_checkpointing:
@@ -78,7 +78,7 @@ logix_config = {
         "flush_threshold": 50000*8064, # if you never flush, buffer resets at 124007*8064 for some reason?  
         "num_workers": 1,
         "cpu_offload": True,
-        "log_dtype": "float32",
+        "log_dtype": "float16",
     },
     "lora": {
         "init": "random",
