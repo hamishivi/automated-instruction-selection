@@ -35,6 +35,7 @@ parser.add_argument('--eval_dataset', type=str, default='gsm8k_shots')
 parser.add_argument('--instance_to_influences', type=str, required=True)
 parser.add_argument('--grad_save_path', type=str, default=None)  # if we have saved grads, we can use them
 parser.add_argument('--hessian_type', type=str, default='raw')  # options: none, raw
+parser.add_argument('--logra_rank', type=int, default=6)  # rank used for logra. 6 ~= 8k, 64 was paper default.
 args = parser.parse_args()
 
 accelerator = Accelerator()
@@ -83,7 +84,7 @@ logix_config = {
     },
     "lora": {
         "init": "random",
-        "rank": 6,
+        "rank": args.logra_rank,
     }
 }
 os.makedirs("tmp_logix", exist_ok=True)
