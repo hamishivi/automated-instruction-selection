@@ -36,6 +36,7 @@ parser.add_argument('--instance_to_influences', type=str, required=True)
 parser.add_argument('--grad_save_path', type=str, default=None)  # if we have saved grads, we can use them
 parser.add_argument('--hessian_type', type=str, default='raw')  # options: none, raw
 parser.add_argument('--logra_rank', type=int, default=6)  # rank used for logra. 6 ~= 8k, 64 was paper default.
+parser.add_argument('--beaker', action='store_true')  # if we are running on beaker
 args = parser.parse_args()
 
 accelerator = Accelerator()
@@ -91,6 +92,12 @@ os.makedirs("tmp_logix", exist_ok=True)
 with open("tmp_logix/logix_config.yaml", "w") as f:
     yaml.dump(logix_config, f)
 
+# quick beaker setup
+if args.beaker:
+    bar_format = '{l_bar}{bar}{r_bar}\n'
+else:
+    bar_format = '{l_bar}{bar}{r_bar}'
+
 if args.grad_save_path is None or not os.path.exists(args.grad_save_path):
     # we need to index train data, lets go ahead and do that
     # logix setup
@@ -103,12 +110,11 @@ if args.grad_save_path is None or not os.path.exists(args.grad_save_path):
     scheduler = logix.LogIXScheduler(
         run, lora="none", hessian=args.hessian_type, save="grad"
     )
-
     # compute influences
     model, data_loader = accelerator.prepare(model, data_loader)
     model.eval()
     for _ in scheduler:
-        for i, batch in tqdm(enumerate(data_loader), total=len(data_loader)):
+        for i, batch in tqdm(enumerate(data_loader), total=len(data_loader), bar_format=bar_format):
             # add dataset index to data_id to avoid collisions
             data_id = [tokenizer.decode(batch["input_ids"][0]) + f'_{i}']
             targets = batch.pop("labels")
@@ -150,7 +156,7 @@ test_data_loader = accelerator.prepare(test_data_loader)
 run.setup({"grad": ["log"]})
 run.eval()
 merged_test_logs = []
-for idx, batch in enumerate(tqdm(test_data_loader)):
+for idx, batch in enumerate(tqdm(test_data_loader, bar_format=bar_format)):
     data_id = tokenizer.batch_decode(batch["input_ids"], skip_special_tokens=True)
     targets = batch.pop("labels")
     with run(data_id=data_id, mask=batch["attention_mask"]):
