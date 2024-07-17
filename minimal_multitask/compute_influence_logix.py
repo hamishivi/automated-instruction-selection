@@ -34,6 +34,7 @@ parser.add_argument('--use_hf_auth_token', type=str, default=None)
 parser.add_argument('--eval_dataset', type=str, default='gsm8k_shots')
 parser.add_argument('--instance_to_influences', type=str, required=True)
 parser.add_argument('--grad_save_path', type=str, default=None)  # if we have saved grads, we can use them
+parser.add_argument('--hessian_type', type=str, default='raw')  # options: none, raw
 args = parser.parse_args()
 
 accelerator = Accelerator()
@@ -99,7 +100,7 @@ if args.grad_save_path is None or not os.path.exists(args.grad_save_path):
     run.add_lora()
     # build scheduler
     scheduler = logix.LogIXScheduler(
-        run, lora="none", hessian="raw", save="grad"
+        run, lora="none", hessian=args.hessian_type, save="grad"
     )
 
     # compute influences
