@@ -37,6 +37,7 @@ parser.add_argument('--grad_save_path', type=str, default=None)  # if we have sa
 parser.add_argument('--hessian_type', type=str, default='raw')  # options: none, raw
 parser.add_argument('--logra_rank', type=int, default=6)  # rank used for logra. 6 ~= 8k, 64 was paper default.
 parser.add_argument('--beaker', action='store_true')  # if we are running on beaker
+parser.add_argument('--logra_precision', type=str, default='float16')  # precision used for logra
 args = parser.parse_args()
 
 accelerator = Accelerator()
@@ -81,7 +82,7 @@ logix_config = {
         "flush_threshold": 50000*8064, # if you never flush, buffer resets at 124007*8064 for some reason?  
         "num_workers": 1,
         "cpu_offload": True,
-        "log_dtype": "float16",
+        "log_dtype": args.logra_precision,
     },
     "lora": {
         "init": "random",
