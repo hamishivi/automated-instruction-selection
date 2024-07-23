@@ -187,11 +187,15 @@ for idx, batch in enumerate(tqdm(test_data_loader, bar_format=bar_format)):
 
 merged_test_log = merge_logs(merged_test_logs)
 results = run.influence.compute_influence_all(merged_test_log, log_loader, mode="cosine")
-
-influence_scores = results["influence"]
-# invert the influence score so lower is better, as with our other influences.
-# TODO: double check inverting is the right move here.
-influence_scores = -influence_scores
+# we might have skipped all our data.
+if "influence" in results:
+    influence_scores = results["influence"]
+    # invert the influence score so lower is better, as with our other influences.
+    # TODO: double check inverting is the right move here.
+    influence_scores = -influence_scores
+else:
+    print("Warning: No influence scores found. Giving 0 for all values.")
+    influence_scores = [[] for _ in range(len(test_dataset))]
 
 # construct the influence to index pickle
 influence_to_index = []
