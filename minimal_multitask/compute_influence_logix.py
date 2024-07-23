@@ -114,11 +114,16 @@ if args.grad_save_path is None or not os.path.exists(args.grad_save_path):
     # compute influences
     model, data_loader = accelerator.prepare(model, data_loader)
     model.eval()
+    influence_index = 0
+    influence_index_to_data_id = {}
     for _ in scheduler:
         for i, batch in tqdm(enumerate(data_loader), total=len(data_loader), bar_format=bar_format):
             # add dataset index to data_id to avoid collisions
             data_id = [tokenizer.decode(batch["input_ids"][0]) + f'_{i}']
             targets = batch.pop("labels")
+            # check if the labels are all -100, if so, we skip this batch
+            if torch.all(targets == -100):
+                continue
             with run(data_id=data_id, mask=batch["attention_mask"]):
                 model.zero_grad()
                 lm_logits = model(**batch).logits
@@ -131,6 +136,10 @@ if args.grad_save_path is None or not os.path.exists(args.grad_save_path):
                     ignore_index=-100,
                 )
                 accelerator.backward(loss)
+            # store the data_id to influence index mapping
+            # this is to handle skipping.
+            influence_index_to_data_id[influence_index] = i
+            influence_index += 1
         run.finalize()
 else:
     # we can just initialize the logix run from the saved grads
@@ -188,14 +197,13 @@ influence_scores = -influence_scores
 influence_to_index = []
 for test_index, influence in enumerate(influence_scores):
     influence_to_index.append(
-        {ind: float(influence.item()) for ind, influence in enumerate(influence)}
+        {influence_index_to_data_id[ind]: float(influence.item()) for ind, influence in enumerate(influence)}
     )
-# nan checks: replace nans with 0 influence, as they are likely due to no grad (no labels)
-# 0 is just saying we dont have any influence information here
-for i, influence in enumerate(influence_to_index):
-    for k, v in influence.items():
-        if math.isnan(influence[k]):
-            influence[k] = 0.0
+    # add 0.0 for all the skipped indices
+    for i in range(len(train_dataset)):
+        if i not in influence_to_index[-1]:
+            influence_to_index[test_index][i] = 0.0
+
 # save the influence to index pickle
 with open(args.instance_to_influences, "wb") as f:
     pickle.dump(influence_to_index, f)
