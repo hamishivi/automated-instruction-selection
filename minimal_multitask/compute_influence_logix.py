@@ -143,7 +143,12 @@ if args.grad_save_path is None or not os.path.exists(args.grad_save_path):
         run.finalize()
 else:
     # we can just initialize the logix run from the saved grads
-    run = logix.init(args.grad_save_path, config='tmp_logix/logix_config.yaml')
+    # annoyingly, logix needs to load from a writeable place, so if on
+    # beaker, we need to copy the data over.
+    if args.beaker:
+        os.makedirs("tmp_logix", exist_ok=True)
+        os.system(f"cp -r {args.grad_save_path}/* tmp_logix/")
+    run = logix.init('tmp_logix', config='tmp_logix/logix_config.yaml')
     run.watch(model, name_filter=name_filter)
     run.initialize_from_log()
     # extra setup
