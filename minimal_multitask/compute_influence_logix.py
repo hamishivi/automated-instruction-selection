@@ -148,6 +148,18 @@ else:
     if args.beaker:
         os.makedirs("tmp_logix", exist_ok=True)
         os.system(f"cp -r {args.grad_save_path}/* tmp_logix/")
+    # we need to work out influence_index_to_data_id quickly
+    # recreate skipping logic
+    data_loader = accelerator.prepare(data_loader)
+    influence_index_to_data_id = {}
+    influence_index = 0
+    for i, batch in enumerate(data_loader):
+        targets = batch.pop("labels")
+        if torch.all(targets == -100):
+            continue
+        influence_index_to_data_id[influence_index] = i
+        influence_index += 1
+    # restore logix run
     run = logix.init('tmp_logix', config='tmp_logix/logix_config.yaml')
     run.watch(model, name_filter=name_filter)
     run.initialize_from_log()
