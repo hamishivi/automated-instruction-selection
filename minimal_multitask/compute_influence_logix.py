@@ -79,7 +79,7 @@ name_filter = ["att", "mlp"]
 logix_config = {
     "root_dir": ".",
     "logging": {
-        "flush_threshold": 50000*8064, # if you never flush, buffer resets at 124007*8064 for some reason?  
+        "flush_threshold": 5000*8064, # if you never flush, buffer resets at 124007*8064 for some reason?  
         "num_workers": 1,
         "cpu_offload": True,
         "log_dtype": args.logra_precision,
