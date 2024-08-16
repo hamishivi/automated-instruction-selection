@@ -91,6 +91,8 @@ else:
 for name, param in model.named_parameters():
     if 'lora' in name:
         param.requires_grad = True
+    else:
+        param.requires_grad = False
 
 # load and process train dataset
 if args.train_dataset == 'alpaca':
