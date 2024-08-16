@@ -104,7 +104,7 @@ elif args.train_dataset == 'tulu2':
 else:
     if os.path.exists(args.train_dataset):
         train_dataset = load_dataset('json', data_files=args.train_dataset)['train']
-        train_dataset = train_dataset.map(lambda x: encode_with_messages_format(x, tokenizer, 2048, True, False), num_proc=16)
+        train_dataset = train_dataset.map(lambda x: encode_with_messages_format(x, tokenizer, 1024, True, False), num_proc=16)
     else:
         raise ValueError(f"Invalid train dataset: {args.train_dataset}")
 train_dataset.set_format(type='torch', columns=['input_ids', 'attention_mask', 'labels'])

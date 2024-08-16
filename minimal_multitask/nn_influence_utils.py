@@ -99,7 +99,7 @@ def compute_vectorised_gradients(
     grads = []
     for name, param in model.named_parameters():
         if name not in params_filter:
-            grads.append(param.grad.view(-1).detach())
+            grads.append(param.grad.view(-1).detach().to('cuda:0'))
     return torch.cat(grads, dim=0)
 
 
@@ -466,7 +466,7 @@ def compute_influences_train_index(
     influences = {}
 
     # flatten s_test
-    s_test = torch.cat([g.reshape(-1) for g in s_test], axis=0).to(torch.float16)
+    s_test = torch.cat([g.reshape(-1).to('cuda:0') for g in s_test], axis=0).to(torch.float16)
     # if we are using a projector, project the s_test
     if projector is not None:
         s_test = projector.project(s_test.view(1, -1), model_id=0)
