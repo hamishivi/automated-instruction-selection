@@ -36,7 +36,7 @@ parser.add_argument('--per_test_token_influence', action='store_true')
 parser.add_argument('--normalise_influences', action='store_true')
 # create plots for debugging
 parser.add_argument('--create_plots', action='store_true')
-parser.add_argument('--s_test_num_samples', type=int, default=100)
+parser.add_argument('--s_test_num_samples', type=int, default=200)
 # from less- using random transform. -1 means no random transform
 parser.add_argument('--random_transform', type=int, default=-1)
 # how many grads to save before calling the projector.
@@ -159,7 +159,7 @@ def compute_length_vs_influence(topk_indices, influences, save_dir="figures", fi
     plt.clf()
 
 # construct dataloaders
-batch_train_data_loader = torch.utils.data.DataLoader(train_dataset, batch_size=2, shuffle=True, pin_memory=True, collate_fn=DataCollatorForSeq2Seq(tokenizer=tokenizer, model=model),)
+batch_train_data_loader = torch.utils.data.DataLoader(train_dataset, batch_size=1, shuffle=True, pin_memory=True, collate_fn=DataCollatorForSeq2Seq(tokenizer=tokenizer, model=model),)
 instance_train_data_loader = torch.utils.data.DataLoader(train_dataset, batch_size=1, shuffle=False)
 eval_data_loader = torch.utils.data.DataLoader(test_dataset, batch_size=1, shuffle=False)
 
