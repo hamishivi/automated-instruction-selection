@@ -179,7 +179,7 @@ else:
 # loss calcs
 model_split, model_recovered = None, None
 if args.use_loss:
-    from scripts.create_llama_encodings import encode_with_messages_format
+    from minimal_multitask.utils import encode_with_messages_format
 
     with torch.inference_mode():
         for f in prompts:

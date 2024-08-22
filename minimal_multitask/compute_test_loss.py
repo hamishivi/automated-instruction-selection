@@ -10,7 +10,7 @@ from tqdm import tqdm
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
-from scripts.create_llama_encodings import encode_with_messages_format
+from minimal_multitask.utils import encode_with_messages_format
 from minimal_multitask.data import DATASETS
 
 

@@ -7,7 +7,7 @@ from transformers import (
     DataCollatorForSeq2Seq,
     HfArgumentParser,
 )
-from scripts.create_llama_encodings import encode_with_messages_format
+from minimal_multitask.utils import encode_with_messages_format
 from typing import Optional
 import os
 import json

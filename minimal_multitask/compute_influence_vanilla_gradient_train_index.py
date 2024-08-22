@@ -1,6 +1,6 @@
 import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM
-from scripts.create_llama_encodings import encode_with_messages_format
+from minimal_multitask.utils import encode_with_messages_format
 from datasets import load_dataset
 import argparse
 import faiss

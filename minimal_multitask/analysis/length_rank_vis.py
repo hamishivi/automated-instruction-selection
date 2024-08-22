@@ -6,7 +6,7 @@ import os
 from transformers import AutoTokenizer
 from datasets import load_dataset
 
-from scripts.create_llama_encodings import encode_with_messages_format
+from minimal_multitask.utils import encode_with_messages_format
 from minimal_multitask.data import DATASETS
 
 

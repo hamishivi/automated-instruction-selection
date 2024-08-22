@@ -3,7 +3,7 @@ from transformers import AutoTokenizer, AutoModelForCausalLM
 from datasets import load_dataset
 
 from minimal_multitask.data import DATASETS
-from scripts.create_llama_encodings import encode_with_messages_format
+from minimal_multitask.utils import encode_with_messages_format
 
 from tqdm import tqdm
 import argparse

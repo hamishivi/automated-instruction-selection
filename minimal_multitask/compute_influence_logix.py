@@ -19,7 +19,7 @@ from logix.utils import merge_logs
 from accelerate import Accelerator
 from tqdm import tqdm
 
-from scripts.create_llama_encodings import encode_with_messages_format
+from minimal_multitask.utils import encode_with_messages_format
 from minimal_multitask.data import DATASETS
 
 

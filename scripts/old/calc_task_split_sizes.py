@@ -1,6 +1,6 @@
 from typing import Dict
 
-from split_sizes import DATA_SPLITS_SIZES
+from scripts.old.split_sizes import DATA_SPLITS_SIZES
 
 from minimal_multitask.dataset_mapping import TASK_TO_PROMPTS
 

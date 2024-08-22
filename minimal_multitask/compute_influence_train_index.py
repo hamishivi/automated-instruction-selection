@@ -10,7 +10,7 @@ from minimal_multitask.nn_influence_utils import (
     get_trak_projector,
     compute_vectorised_gradients,
 )
-from scripts.create_llama_encodings import encode_with_messages_format
+from minimal_multitask.utils import encode_with_messages_format
 from datasets import load_dataset
 from tqdm import tqdm
 import faiss

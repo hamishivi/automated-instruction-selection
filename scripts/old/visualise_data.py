@@ -12,7 +12,7 @@ from sklearn.manifold import TSNE
 from tqdm import tqdm
 from transformers import AutoTokenizer
 
-from scripts.create_llama_encodings import encode_with_messages_format
+from minimal_multitask.utils import encode_with_messages_format
 
 
 def main(args):

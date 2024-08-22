@@ -1,7 +1,7 @@
 import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM
 from minimal_multitask.nn_influence_utils import compute_influences_batched
-from scripts.create_llama_encodings import encode_with_messages_format
+from minimal_multitask.utils import encode_with_messages_format
 from datasets import load_dataset
 import argparse
 import pickle
