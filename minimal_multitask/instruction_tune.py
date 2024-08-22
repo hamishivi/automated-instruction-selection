@@ -64,6 +64,10 @@ class AdditionalTrainingArguments:
         default=False,
         metadata={"help": "Use the token stored in HF_TOKEN."}
     )
+    lora_ff_train: Optional[bool] = field(
+        default=False,
+        metadata={"help": "Whether to fully finetune the model along with the LoRA."}
+    )
 
 parser = HfArgumentParser((TrainingArguments, AdditionalTrainingArguments))
 if len(sys.argv) == 2 and sys.argv[1].endswith(".json"):
@@ -120,6 +124,10 @@ if additional_args.lora_rank > -1:
         target_modules=modules
     )
     model = get_peft_model(model, peft_config)
+    # if lora_ff_train is set, train all parameters, not just lora
+    if additional_args.lora_ff_train:
+        for name, param in model.named_parameters():
+            param.requires_grad = True
 
 # load and process train dataset
 if additional_args.train_dataset == 'alpaca':
