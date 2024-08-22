@@ -61,3 +61,8 @@ results/
 *.faiss
 tmp/
 quick*.sh
+wandb
+tmp_logix
+models
+muru_pickle_outputs
+selection_files

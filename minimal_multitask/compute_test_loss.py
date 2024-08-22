@@ -45,6 +45,7 @@ for dataset in args.eval_datasets:
     losses = []
     with torch.inference_mode():
         for index, train_inputs in enumerate(tqdm(eval_data_loader)):
+            train_inputs['labels'][:, -1] = -100  # mask eos token.
             loss = model(**{k: v.to('cuda') for k,v in train_inputs.items()}).loss
             losses.append(loss.item())
     print(f"Average loss for {dataset}: {sum(losses) / len(losses)}")

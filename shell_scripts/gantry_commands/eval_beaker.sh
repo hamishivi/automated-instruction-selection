@@ -3,27 +3,28 @@ set -ex
 
 MODEL_NAME=$1
 BEAKER_PATH=$2
+# SUBPATH=$3
 
 # command for gantry here
 # includes oai key and turning off alpaca eval 2 for alpaca eval stuff.
-GANTRY_CMD="gantry run --cluster ai2/allennlp-cirrascale --cluster ai2/general-cirrascale --cluster ai2/general-cirrascale-a100-80g-ib --cluster ai2/mosaic-cirrascale-a100 --cluster ai2/pluto-cirrascale --cluster ai2/s2-cirrascale-l40 --budget ai2/oe-adapt --allow-dirty --priority preemptible --workspace ai2/minimal-multitask-finetuning --gpus 1 --env-secret OPENAI_API_KEY=OPENAI_API_KEY --env IS_ALPACA_EVAL_2=False --dataset ${BEAKER_PATH}:/model"
+GANTRY_CMD="gantry run --cluster ai2/allennlp-cirrascale --cluster ai2/general-cirrascale --cluster ai2/mosaic-cirrascale-a100 --cluster ai2/pluto-cirrascale --cluster ai2/s2-cirrascale-l40 --budget ai2/oe-adapt --allow-dirty --priority preemptible --workspace ai2/minimal-multitask-finetuning --gpus 1 --env-secret OPENAI_API_KEY=OPENAI_API_KEY --env IS_ALPACA_EVAL_2=False --dataset ${BEAKER_PATH}:/model"
 
 # mmlu
 # 0shot eval
 # NB: bsz 1 due to a bug in the tokenizer for llama 2.
 $GANTRY_CMD --name ${MODEL_NAME}_mmlu_0shot -- python -m minimal_multitask.eval.mmlu.run_mmlu_eval \
     --ntrain 0 \
+    --data_dir /net/nfs.cirrascale/allennlp/yizhongw/open-instruct/data/eval/mmlu/ \
     --save_dir /results \
     --model_name_or_path /model \
     --eval_batch_size 1 \
-    --load_in_8bit \
     --use_chat_format \
     --chat_formatting_function minimal_multitask.eval.templates.create_prompt_with_tulu_chat_format
 
 # gsm8k
 # cot, 8 shot.
 $GANTRY_CMD --name ${MODEL_NAME}_gsm_cot -- python -m minimal_multitask.eval.gsm.run_eval \
-    --data_dir /net/nfs.cirrascale/allennlp/yizhongw/open-instruct/data/eval/gsm/ \
+    --data_dir /net/nfs.cirrascale/allennlp/hamishi/minimal-multitask-tuning/data/eval/gsm/ \
     --max_num_examples 200 \
     --save_dir /results \
     --model_name_or_path /model \
@@ -75,14 +76,16 @@ $GANTRY_CMD --name ${MODEL_NAME}_codex_pass10 -- python -m minimal_multitask.eva
 # squad
 # just eval as normal
 $GANTRY_CMD --name ${MODEL_NAME}_squad_context -- python -m minimal_multitask.eval.squad.run_squad_eval \
-    --model_name meta-llama/Llama-2-7b-hf \
-    --output_file "results/predictions.json" \
-    --metrics_file "results/metrics.json"
+    --model_name_or_path /model \
+    --output_file "/results/predictions.json" \
+    --metrics_file "/results/metrics.json" \
+    --generation_file "/results/generation.json"
 
 # alpaca eval
 # use my test split
 $GANTRY_CMD --name ${MODEL_NAME}_alpaca_eval -- python -m minimal_multitask.eval.alpaca_eval.run_alpaca_eval \
     --save_dir /results \
-    --model_name_or_path /model
+    --model_name_or_path /model \
+    --use_vllm
 
 echo "Done evaluation!"

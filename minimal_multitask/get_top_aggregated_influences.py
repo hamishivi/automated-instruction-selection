@@ -17,7 +17,7 @@ parser.add_argument('--output_file', type=str)
 parser.add_argument('--selection_method', type=str, default='min') # min, mean, max
 parser.add_argument('--output_size', type=int, default=10000) # number of instances total to select.
 parser.add_argument('--train_dataset', type=str, default='alpaca')
-parser.add_argument('--aggregation_method', type=str, default='minmax', choices=["mean", "minmax"]) # mean, minmax
+parser.add_argument('--aggregation_method', type=str, default='minmax') # mean, minmax, rank
 args = parser.parse_args()
 
 assert args.selection_method in ['min', 'max', 'mean_min', 'mean_max'], "Invalid selection method."
@@ -104,6 +104,7 @@ elif args.aggregation_method == 'minmax':
             # sort and pop min/max
             # sorted_scores = sorted(dataset_scores.items(), key=lambda x: x[1], reverse='max' in args.selection_method)
             idx, score = sorted_scores.pop(0)
+            print(f"Dataset: {ds_name}, idx: {idx}, score: {score}")
             per_dataset_influences[ds_name] = {k: v for k, v in sorted_scores}
             inter_dataset_scores[idx] = min(score, inter_dataset_scores.get(idx, math.inf))
             pbar.update(len(inter_dataset_scores) - last_size)
