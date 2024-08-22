@@ -31,9 +31,7 @@ def format_example(df, idx, include_answer=True):
 
 
 def gen_prompt(train_df, subject, k=-1):
-    prompt = "The following are multiple choice questions (with answers) about {}.\n\n".format(
-        format_subject(subject)
-    )
+    prompt = "The following are multiple choice questions (with answers) about {}.\n\n".format(format_subject(subject))
     if k == -1:
         k = train_df.shape[0]
     for i in range(k):
@@ -114,11 +112,7 @@ def main(args):
     model.parallelize(device_map)
     model.eval()
     subjects = sorted(
-        [
-            f.split("_test.csv")[0]
-            for f in os.listdir(os.path.join(args.data_dir, "test"))
-            if "_test.csv" in f
-        ]
+        [f.split("_test.csv")[0] for f in os.listdir(os.path.join(args.data_dir, "test")) if "_test.csv" in f]
     )
 
     if not os.path.exists(args.save_dir):
@@ -131,12 +125,8 @@ def main(args):
     cat_cors = {cat: [] for cat in categories}
 
     for subject in subjects:
-        dev_df = pd.read_csv(os.path.join(args.data_dir, "dev", subject + "_dev.csv"), header=None)[
-            : args.ntrain
-        ]
-        test_df = pd.read_csv(
-            os.path.join(args.data_dir, "test", subject + "_test.csv"), header=None
-        )
+        dev_df = pd.read_csv(os.path.join(args.data_dir, "dev", subject + "_dev.csv"), header=None)[: args.ntrain]
+        test_df = pd.read_csv(os.path.join(args.data_dir, "test", subject + "_test.csv"), header=None)
 
         cors, acc, probs = eval(args, subject, model, tokenizer, dev_df, test_df)
         subcats = subcategories[subject]

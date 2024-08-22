@@ -27,7 +27,7 @@ def encode_with_messages_format(example, tokenizer, max_seq_length, include_resp
     # change: just take the first two prompts.
     messages = messages[:2]
     if response_only:
-        msg = "<|assistant|>\n" + messages[1]['content'].strip()
+        msg = "<|assistant|>\n" + messages[1]["content"].strip()
         res = tokenizer(msg, return_tensors="pt", max_length=max_seq_length, truncation=True)
         return {
             "string": msg,
@@ -45,17 +45,13 @@ def encode_with_messages_format(example, tokenizer, max_seq_length, include_resp
             elif message["role"] == "user":
                 message_text += "<|user|>\n" + message["content"].strip() + "\n"
             elif message["role"] == "assistant":
-                message_text += (
-                    "<|assistant|>\n" + message["content"].strip() + tokenizer.eos_token + "\n"
-                )
+                message_text += "<|assistant|>\n" + message["content"].strip() + tokenizer.eos_token + "\n"
             else:
                 raise ValueError("Invalid role: {}".format(message["role"]))
         return message_text
 
     example_text = _concat_messages(messages).strip()
-    tokenized_example = tokenizer(
-        example_text, return_tensors="pt", max_length=max_seq_length, truncation=True
-    )
+    tokenized_example = tokenizer(example_text, return_tensors="pt", max_length=max_seq_length, truncation=True)
     input_ids = tokenized_example.input_ids
     labels = input_ids.clone()
 
@@ -89,17 +85,17 @@ def encode_with_messages_format(example, tokenizer, max_seq_length, include_resp
         "input_ids": input_ids.flatten(),
         "labels": labels.flatten(),
         "attention_mask": attention_mask.flatten(),
-        "string": messages_so_far
+        "string": messages_so_far,
     }
 
 
 def main(args):
-    #assert args.use_eos or args.use_sgpt or args.use_mean, "Must use either eos or sgpt or mean pool methods for encoding."
+    # assert args.use_eos or args.use_sgpt or args.use_mean, "Must use either eos or sgpt or mean pool methods for encoding."
 
-    if 'sentence-transformers' in args.model_name:
+    if "sentence-transformers" in args.model_name:
         from sentence_transformers import SentenceTransformer
 
-        model = SentenceTransformer('sentence-transformers/all-mpnet-base-v2').cuda().half()
+        model = SentenceTransformer("sentence-transformers/all-mpnet-base-v2").cuda().half()
         tokenizer = model.tokenizer
     else:
         model = AutoModelForCausalLM.from_pretrained(args.model_name).eval().cuda().half()
@@ -138,14 +134,10 @@ def main(args):
     camel_encoded_data = []
     model.zero_grad()
     with torch.no_grad():
-        for f in tqdm(['baize']):
+        for f in tqdm(["baize"]):
             for sample in tqdm(camels[f]):
-                res = encode_with_messages_format(
-                    sample, tokenizer, 2048, args.include_response, args.response_only
-                )
-                input_ids = res["input_ids"][
-                    None,
-                ]
+                res = encode_with_messages_format(sample, tokenizer, 2048, args.include_response, args.response_only)
+                input_ids = res["input_ids"][None,]
                 if args.use_eos:
                     # if we include the response, we also have the eos token already.
                     if tokenizer.eos_token_id not in input_ids[0]:
@@ -154,20 +146,16 @@ def main(args):
                             axis=-1,
                         )
                     else:
-                        input_ids = input_ids[:, :input_ids[0].tolist().index(tokenizer.eos_token_id) + 1]
+                        input_ids = input_ids[:, : input_ids[0].tolist().index(tokenizer.eos_token_id) + 1]
                     encoded = model(input_ids.long().cuda(), output_hidden_states=True)
                     camel_encoded_data.append(encoded.hidden_states[-1][0, -1].detach().cpu())
-                elif args.use_mean and 'sentence-transformers' in args.model_name:
-                    encoded = torch.tensor(model.encode(res['string']))
+                elif args.use_mean and "sentence-transformers" in args.model_name:
+                    encoded = torch.tensor(model.encode(res["string"]))
                     camel_encoded_data.append(encoded)
                 elif args.use_sgpt:
-                    position_weights = (
-                        torch.arange(input_ids.shape[1]) / torch.arange(input_ids.shape[1]).sum()
-                    )
+                    position_weights = torch.arange(input_ids.shape[1]) / torch.arange(input_ids.shape[1]).sum()
                     encoded = model(input_ids.long().cuda(), output_hidden_states=True)
-                    sentence_embedding = (
-                        position_weights[:, None].cuda() * encoded.hidden_states[-1][0]
-                    ).sum(0)
+                    sentence_embedding = (position_weights[:, None].cuda() * encoded.hidden_states[-1][0]).sum(0)
                     camel_encoded_data.append(sentence_embedding.detach().cpu())
                 elif args.use_gradient:
                     with torch.enable_grad():
@@ -176,18 +164,25 @@ def main(args):
                         for param in model.model.layers[-1].parameters():
                             param.requires_grad = True
                         for param in model.lm_head.parameters():
-                            param.requires_grad = True        
+                            param.requires_grad = True
                         output = model(input_ids=input_ids.long().cuda(), labels=res["labels"].cuda())
-                        loss = output.loss.backward()
+                        output.loss.backward()
                         # grab just last layer gradient
                         grads = []
                         for param in model.model.layers[-1].parameters():
                             grads.append(param.grad.detach().cpu().flatten())
                     grad = torch.cat(grads, axis=-1)
-                    import pdb; pdb.set_trace()
+                    import pdb
+
+                    pdb.set_trace()
                     # reduce with random projection
-                    random_proj = torch.normal(grad.shape[-1], 100, generator=torch.Generator(device=grad.device).manual_seed(2147483647), device=grad.device)
-                    reduced_grad = torch.matmul(grad.to(torch.float32), random_proj.to(torch.float32))
+                    random_proj = torch.normal(
+                        grad.shape[-1],
+                        100,
+                        generator=torch.Generator(device=grad.device).manual_seed(2147483647),
+                        device=grad.device,
+                    )
+                    torch.matmul(grad.to(torch.float32), random_proj.to(torch.float32))
                     camel_encoded_data.append(random_proj.detach().cpu())
                     model.zero_grad()
             break  # just baize rn.

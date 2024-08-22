@@ -2,10 +2,9 @@ import itertools
 import os
 from collections import Counter, defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
-import multiprocessing
 
 import numpy as np
-from .execution import check_correctness 
+from .execution import check_correctness
 
 # https://github.com/bigcode-project/bigcode-evaluation-harness/blob/main/bigcode_eval/tasks/custom_metrics/code_eval.py#L129
 
@@ -32,6 +31,7 @@ with:
 ################################################################################\
 """
 
+
 def compute_code_eval(predictions, k=[1, 10, 100], num_workers=4, timeout=3.0):
     """Returns the scores"""
 
@@ -48,11 +48,11 @@ def compute_code_eval(predictions, k=[1, 10, 100], num_workers=4, timeout=3.0):
         results = defaultdict(list)
 
         for sample in predictions:
-            test_program = sample['completion'] + "\n" + sample['test_cases']
-            args = (test_program, timeout, sample['task_id'], completion_id[sample['task_id']])
+            test_program = sample["completion"] + "\n" + sample["test_cases"]
+            args = (test_program, timeout, sample["task_id"], completion_id[sample["task_id"]])
             future = executor.submit(check_correctness, *args)
             futures.append(future)
-            completion_id[sample['task_id']] += 1
+            completion_id[sample["task_id"]] += 1
             n_samples += 1
 
         for future in as_completed(futures):

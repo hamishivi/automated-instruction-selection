@@ -69,7 +69,6 @@ try:
 except OSError as exc:
     if exc.errno != errno.EEXIST:
         raise
-    pass
 
 
 with open(os.path.join(args.output_folder, "predictions.json"), "w") as w:
@@ -85,6 +84,4 @@ with open("minimal_multitask/sni/test_references.jsonl") as fin:
             instance["track"] = "default"
         eval_instances[instance["id"]] = instance
 
-compute_all_metrics(
-    predictions, eval_instances, os.path.join(args.output_folder, "metrics.json"), loss_dict=loss
-)
+compute_all_metrics(predictions, eval_instances, os.path.join(args.output_folder, "metrics.json"), loss_dict=loss)

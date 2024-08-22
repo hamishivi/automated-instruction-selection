@@ -3,42 +3,25 @@ version of my test similarity script specifically for cross-encoders.
 """
 import json
 import os
-import pickle
 import random
-from functools import partial
-from multiprocessing import Pool
 from collections import defaultdict, Counter
 import argparse
-import faiss
 
 import numpy as np
 import scipy
 import torch
-from fastdist import fastdist
 from matplotlib import pyplot as plt
 from tqdm import tqdm
-from transformers import AutoModelForCausalLM, AutoTokenizer
 from sentence_transformers import CrossEncoder
-from matplotlib import pyplot as plt
 
 random_gen = random.Random(42)
 
 parser = argparse.ArgumentParser()
-parser.add_argument(
-    "--model_name", type=str  # cross-encoder/stsb-roberta-large is best
-)
-parser.add_argument(
-    "--subsample", type=int, default=0
-)
-parser.add_argument(
-    "--include_response", action="store_true"
-)
-parser.add_argument(
-    "--subsample_test_points", type=int, default=0
-)
-parser.add_argument(
-    "--bsz", type=int, default=128
-)
+parser.add_argument("--model_name", type=str)  # cross-encoder/stsb-roberta-large is best
+parser.add_argument("--subsample", type=int, default=0)
+parser.add_argument("--include_response", action="store_true")
+parser.add_argument("--subsample_test_points", type=int, default=0)
+parser.add_argument("--bsz", type=int, default=128)
 args = parser.parse_args()
 
 
@@ -69,7 +52,7 @@ if args.subsample_test_points > 0:
         completions[key] = [x for i, x in enumerate(completions[key]) if i in subsampled]
         correctness[key] = [x for i, x in enumerate(correctness[key]) if i in subsampled]
 
-model = CrossEncoder(args.model_name, device='cuda')
+model = CrossEncoder(args.model_name, device="cuda")
 tokenizer = model.tokenizer
 
 # load camel data
@@ -99,7 +82,7 @@ for filename in camel_datasets:
             camels[filename] = [f"<|user|>\n{x[0]}" for x in camels[filename]]
         else:
             camels[filename] = [f"<|user|>\n{x[0]}\n<|assistant|>\n{x[1]}" for x in camels[filename]]
-        
+
         camel_lengths[filename] = len(camels[filename])
 
 # load prompt data
@@ -120,7 +103,7 @@ all_corrects = []
 counter = 0
 for f in camel_lengths:
     print(f"-------------- {f} --------------")
-    df_data = camels[f][counter : counter + camel_lengths[f]]    
+    df_data = camels[f][counter: counter + camel_lengths[f]]
     counter += camel_lengths[f]
     all_corrects += correctness[f]
     # loop through all pairs and get predictions
@@ -136,12 +119,12 @@ for f in camel_lengths:
     all_scores = np.array(all_scores)
     print("calculating distances...")
     for i in range(1, 11):
-        cos_sixes = all_scores[:,:i].mean(1)
+        cos_sixes = all_scores[:, :i].mean(1)
         print(f"--- knn-{i} ---")
-        res = scipy.stats.binned_statistic(cos_sixes, correctness[f], statistic='mean', bins=10)
+        res = scipy.stats.binned_statistic(cos_sixes, correctness[f], statistic="mean", bins=10)
         print(f"Bin counts: {Counter(res.binnumber)}")
         binned_correctness = res.statistic
-        binned_distance = scipy.stats.binned_statistic(cos_sixes, cos_sixes, statistic='mean', bins=10).statistic
+        binned_distance = scipy.stats.binned_statistic(cos_sixes, cos_sixes, statistic="mean", bins=10).statistic
         # filter nans
         binned_distance = binned_distance[~np.isnan(binned_correctness)]
         binned_correctness = binned_correctness[~np.isnan(binned_correctness)]
@@ -153,7 +136,7 @@ for f in camel_lengths:
         plt.scatter(binned_distance, binned_correctness, label=f"knn-{i}")
     plt.legend()
     plt.savefig(f"plots/{args.model_name.replace('/', '_')}-cross-encoder-knn-{f}.png")
-    plt.close('all')
+    plt.close("all")
 
 print("-------------- all results --------------")
 for i in range(1, 11):
@@ -162,10 +145,10 @@ for i in range(1, 11):
     binned_correctness = scipy.stats.binned_statistic(
         all_mean_dists, all_corrects, statistic="mean", bins=25
     ).statistic
-    binned_distance = scipy.stats.binned_statistic(
-        all_mean_dists, all_mean_dists, statistic="mean", bins=25
-    ).statistic
-    print(f"Bin counts: {Counter(scipy.stats.binned_statistic(all_mean_dists, all_corrects, statistic='mean', bins=25).binnumber)}")
+    binned_distance = scipy.stats.binned_statistic(all_mean_dists, all_mean_dists, statistic="mean", bins=25).statistic
+    print(
+        f"Bin counts: {Counter(scipy.stats.binned_statistic(all_mean_dists, all_corrects, statistic='mean', bins=25).binnumber)}"
+    )
 
     # filter nans
     binned_distance = binned_distance[~np.isnan(binned_correctness)]
@@ -176,4 +159,4 @@ for i in range(1, 11):
     plt.scatter(binned_distance, binned_correctness, label=f"knn-{i}")
 plt.legend()
 plt.savefig(f"plots/{args.model_name.replace('/', '_')}-cross-encoder-knns-all.png")
-plt.close('all')
+plt.close("all")

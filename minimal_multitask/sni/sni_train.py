@@ -59,9 +59,7 @@ training_args, data_args = parser.parse_args_into_dataclasses()
 train_dataset = load_dataset("minimal_multitask/sni/sni_dataset.py", split="train")
 eval_dataset = load_dataset("minimal_multitask/sni/sni_dataset.py", split="test")
 
-tokenizer_name = (
-    data_args.tokenizer_name if data_args.tokenizer_name is not None else data_args.model_name
-)
+tokenizer_name = data_args.tokenizer_name if data_args.tokenizer_name is not None else data_args.model_name
 tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)
 model = AutoModelForSeq2SeqLM.from_pretrained(data_args.model_name)
 
@@ -116,8 +114,7 @@ if training_args.do_train:
 if training_args.do_eval:
     predictions, _, metrics = trainer.predict(eval_dataset)
     results = {
-        id: tokenizer.decode(pred, skip_special_tokens=True)
-        for id, pred in zip(eval_dataset["id"], predictions)
+        id: tokenizer.decode(pred, skip_special_tokens=True) for id, pred in zip(eval_dataset["id"], predictions)
     }
 
     eval_instances = {}

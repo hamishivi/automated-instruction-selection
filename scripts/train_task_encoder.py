@@ -20,10 +20,7 @@ model = SentenceTransformer(modules=[word_embedding_model, pooling_model], devic
 # prepare data - take the flan data, reduce down to ~100 examples per task
 print("creating training data")
 data = [
-    json.loads(x)
-    for x in open(
-        "/net/nfs.cirrascale/allennlp/hamishi/flan_data/flanv2-1M-v2.jsonl", "r"
-    ).readlines()
+    json.loads(x) for x in open("/net/nfs.cirrascale/allennlp/hamishi/flan_data/flanv2-1M-v2.jsonl", "r").readlines()
 ]
 tasks = list(set([json.loads(x["info"])["_task_name"] for x in data]))
 task_data: Dict[str, List] = {task: [] for task in tasks}
@@ -37,9 +34,7 @@ same_task_pairs = []
 for task in tqdm(tasks):
     for i in range(len(task_data[task])):
         for j in range(i + 1, len(task_data[task])):
-            same_task_pairs.append(
-                InputExample(texts=[task_data[task][i], task_data[task][j]], label=1.0)
-            )
+            same_task_pairs.append(InputExample(texts=[task_data[task][i], task_data[task][j]], label=1.0))
 # now create diff-task pairs
 # rather than enumerate, just randomly sample from the product of all tasks to avoid enumerating over all pairs
 diff_task_pairs: List[Any] = []
@@ -49,9 +44,7 @@ while len(diff_task_pairs) < len(same_task_pairs):
     if task1 == task2:
         continue
     diff_task_pairs.append(
-        InputExample(
-            texts=[random.choice(task_data[task1]), random.choice(task_data[task2])], label=-1.0
-        )
+        InputExample(texts=[random.choice(task_data[task1]), random.choice(task_data[task2])], label=-1.0)
     )
 
 # shuffle both, downsample diff task to same size as same task

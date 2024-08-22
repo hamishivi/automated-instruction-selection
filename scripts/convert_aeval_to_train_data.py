@@ -11,13 +11,15 @@ with open(args.input_file, "r") as f:
 
 dataset = []
 for item in data:
-    dataset.append({
-        "messages": [
-            {"role": "user", "content": item["instruction"]},
-            {"role": "assistant", "content": item["output"]}
-        ],
-        "dataset": "alpacaeval",
-    })
+    dataset.append(
+        {
+            "messages": [
+                {"role": "user", "content": item["instruction"]},
+                {"role": "assistant", "content": item["output"]},
+            ],
+            "dataset": "alpacaeval",
+        }
+    )
 
 with open(args.output_file, "w") as f:
     for item in dataset:

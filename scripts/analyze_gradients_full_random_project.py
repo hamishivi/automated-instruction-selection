@@ -50,16 +50,10 @@ parser.add_argument(
 )
 parser.add_argument("--run_pca", action="store_true")
 parser.add_argument("--num_pca_components", type=int, default=100)
-parser.add_argument(
-    "--computed_gradients", type=str, help="Pickle file to store computed gradients"
-)
-parser.add_argument(
-    "--computed_distances", type=str, help="Pickle file to store computed pairwise distances"
-)
+parser.add_argument("--computed_gradients", type=str, help="Pickle file to store computed gradients")
+parser.add_argument("--computed_distances", type=str, help="Pickle file to store computed pairwise distances")
 parser.add_argument("--print_intra_dataset_distances", action="store_true")
-parser.add_argument(
-    "--output", type=str, help="TSV file where intra and inter dataset distances will be written"
-)
+parser.add_argument("--output", type=str, help="TSV file where intra and inter dataset distances will be written")
 parser.add_argument(
     "--project_gradient",
     action="store_true",
@@ -158,19 +152,13 @@ if args.computed_distances is None or not os.path.exists(args.computed_distances
             instances = text_data[mapped_dataset_name]
             dataset_index_ranges[mapped_dataset_name] = [index_counter, None]
             for instance in tqdm(instances, position=1):
-                inputs = tokenizer.encode(
-                    instance["input"], truncation=True, return_tensors="pt"
-                ).cuda()
-                targets = tokenizer.encode(
-                    instance["target"], truncation=True, return_tensors="pt"
-                ).cuda()
+                inputs = tokenizer.encode(instance["input"], truncation=True, return_tensors="pt").cuda()
+                targets = tokenizer.encode(instance["target"], truncation=True, return_tensors="pt").cuda()
                 model_outputs = model(input_ids=inputs, labels=targets, return_dict=True)
                 loss = model_outputs["loss"]
                 loss.backward(inputs=[p for _, p in parameters_of_interest])
 
-                gradients = torch.cat(
-                    [p.grad.flatten() for _, p in parameters_of_interest]
-                ).detach()
+                gradients = torch.cat([p.grad.flatten() for _, p in parameters_of_interest]).detach()
                 model.zero_grad()
                 # project gradient down
                 gen = torch.Generator(device="cuda")
@@ -196,9 +184,7 @@ if args.computed_distances is None or not os.path.exists(args.computed_distances
                                     for i in range(0, gradients.shape[0], max_size):
                                         end = min(i + max_size, gradients.shape[0])
                                         result_projs.append(gradients[i:end] @ rand_proj[i:end])
-                                    projected_gradients.append(
-                                        torch.stack(result_projs, axis=0).sum(axis=0)
-                                    )
+                                    projected_gradients.append(torch.stack(result_projs, axis=0).sum(axis=0))
                                 else:
                                     projected_gradients.append(gradients @ rand_proj)
                             gradients = torch.cat(projected_gradients, axis=0).cpu().numpy()

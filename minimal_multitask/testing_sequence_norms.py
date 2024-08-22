@@ -1,8 +1,6 @@
 from transformers import AutoModelForCausalLM, AutoTokenizer
 import torch
 from matplotlib import pyplot as plt
-from scipy.stats import pearsonr
-import random
 
 model = AutoModelForCausalLM.from_pretrained("EleutherAI/pythia-70m")
 tokenizer = AutoTokenizer.from_pretrained("EleutherAI/pythia-70m")
@@ -24,7 +22,7 @@ per_dim_values_token = []
 dim_ranks = []
 for i in range(len(tokenized_sequence[0])):
     model.zero_grad()
-    input_up_to = tokenized_sequence[:, :i+1]
+    input_up_to = tokenized_sequence[:, : i + 1]
     outputs_all = model(input_up_to, labels=input_up_to)
     outputs_all.loss.backward()
     grads = torch.cat([p.grad.flatten().detach() for p in model.parameters()])
@@ -50,7 +48,6 @@ for i in range(len(tokenized_sequence[0])):
     token_norms.append(grads.norm(p=2).item())
     token_maxes.append(grads.abs().max().item())
     # dim_ranks.append(grads)
-
 
 
 fig, axes = plt.subplots(3, 2, figsize=(10, 10))

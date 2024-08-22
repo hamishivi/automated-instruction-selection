@@ -25,20 +25,14 @@ class DataArguments:
 
     train_tasks: List[str] = field(
         default_factory=list,
-        metadata={
-            "help": f"List of the tasks to train on. Tasks must be from {TASK_TO_PROMPTS.keys()}."
-        },
+        metadata={"help": f"List of the tasks to train on. Tasks must be from {TASK_TO_PROMPTS.keys()}."},
     )
     eval_tasks: List[str] = field(
         default_factory=list,
-        metadata={
-            "help": f"List of the tasks to evaluate on. Tasks must be from {TASK_TO_PROMPTS.keys()}."
-        },
+        metadata={"help": f"List of the tasks to evaluate on. Tasks must be from {TASK_TO_PROMPTS.keys()}."},
     )
     sample_file: Optional[str] = field(
-        metadata={
-            "help": "Path to file containing samples to train on. If given, overrides train_tasks."
-        },
+        metadata={"help": "Path to file containing samples to train on. If given, overrides train_tasks."},
         default=None,
     )
     eval_bbh: bool = field(
@@ -82,24 +76,16 @@ train_tasks = data_args.train_tasks
 eval_tasks = data_args.eval_tasks
 
 if data_args.sample_file is not None:
-    train_datasets = [
-        load_dataset("json", data_files=data_args.sample_file).shuffle(seed=training_args.seed)[
-            "train"
-        ]
-    ]
+    train_datasets = [load_dataset("json", data_files=data_args.sample_file).shuffle(seed=training_args.seed)["train"]]
 else:
     train_datasets = []
     for task in train_tasks:
         if task not in TASK_TO_PROMPTS:
-            raise ValueError(
-                f"train task {task} not valid. Tasks must be from {TASK_TO_PROMPTS.keys()}"
-            )
+            raise ValueError(f"train task {task} not valid. Tasks must be from {TASK_TO_PROMPTS.keys()}")
         subprompts = TASK_TO_PROMPTS[task]
         subdatasets = []
         for prompt in subprompts:
-            ds = load_dataset("bigscience/P3", prompt, split="train").shuffle(
-                seed=training_args.seed
-            )
+            ds = load_dataset("bigscience/P3", prompt, split="train").shuffle(seed=training_args.seed)
             subdatasets.append(ds)
         # concatenate = size-proportional mixing.
         train_datasets.append(concatenate_datasets(subdatasets).shuffle(seed=training_args.seed))
@@ -108,24 +94,17 @@ else:
             data_args.max_samples_per_train_dataset > 0
             and len(train_datasets[-1]) > data_args.max_samples_per_train_dataset
         ):
-            train_datasets[-1] = train_datasets[-1].select(
-                range(data_args.max_samples_per_train_dataset)
-            )
+            train_datasets[-1] = train_datasets[-1].select(range(data_args.max_samples_per_train_dataset))
 
 
-tokenizer_name = (
-    data_args.tokenizer_name if data_args.tokenizer_name is not None else data_args.model_name
-)
+tokenizer_name = data_args.tokenizer_name if data_args.tokenizer_name is not None else data_args.model_name
 tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)
 model = AutoModelForSeq2SeqLM.from_pretrained(data_args.model_name)
 
 
 if data_args.eval_bbh:
     subsets = BBH_SUBSETS
-    prompts = [
-        open(f"data/direct_bbh_prompts/{subset}.txt").read().split("-----")[-1]
-        for subset in subsets
-    ]
+    prompts = [open(f"data/direct_bbh_prompts/{subset}.txt").read().split("-----")[-1] for subset in subsets]
     eval_datasets = []
     eval_dataset_names = []
     # transform eval datasets to include prompts.
@@ -139,11 +118,7 @@ if data_args.eval_bbh:
             for i, inp in enumerate(inputs):
                 few_shot_idx = 1
                 while (
-                    len(
-                        tokenizer(prompt[0] + inp)["input_ids"]
-                        + tokenizer(prompt[few_shot_idx])["input_ids"]
-                    )
-                    < 2048
+                    len(tokenizer(prompt[0] + inp)["input_ids"] + tokenizer(prompt[few_shot_idx])["input_ids"]) < 2048
                 ):
                     inp = f"\n{prompt[few_shot_idx]}" + inp
                     few_shot_idx += 1
@@ -164,9 +139,7 @@ else:
     eval_dataset_names = []
     for task in eval_tasks:
         if task not in TASK_TO_PROMPTS:
-            raise ValueError(
-                f"eval task {task} not valid. Tasks must be from {TASK_TO_PROMPTS.keys()}"
-            )
+            raise ValueError(f"eval task {task} not valid. Tasks must be from {TASK_TO_PROMPTS.keys()}")
         subprompts = TASK_TO_PROMPTS[task]
         for prompt in subprompts:
             ds = load_dataset("bigscience/P3", prompt)
@@ -180,10 +153,7 @@ else:
                 ds = ds["train"]
                 print(f"{prompt} is using the train set for eval.")
             ds = ds.shuffle(seed=training_args.seed)
-            if (
-                data_args.max_samples_per_eval_dataset > 0
-                and len(ds) > data_args.max_samples_per_train_dataset
-            ):
+            if data_args.max_samples_per_eval_dataset > 0 and len(ds) > data_args.max_samples_per_train_dataset:
                 ds = ds.select(range(data_args.max_samples_per_eval_dataset))
             eval_datasets.append(ds)
             eval_dataset_names.append(prompt)
@@ -254,18 +224,14 @@ def compute_metrics(eval_preds):
 
     # some light postprocessing for BBH.
     if data_args.eval_bbh:
-        decoded_preds = [
-            pred.strip()[: len(decoded_labels[i])] for i, pred in enumerate(decoded_preds)
-        ]
+        decoded_preds = [pred.strip()[: len(decoded_labels[i])] for i, pred in enumerate(decoded_preds)]
     exact_match_score = exact_match.compute(predictions=decoded_preds, references=decoded_labels)
 
     # rougeLSum expects newline after each sentence
     decoded_preds = ["\n".join(nltk.sent_tokenize(pred.strip())) for pred in decoded_preds]
     decoded_labels = ["\n".join(nltk.sent_tokenize(label.strip())) for label in decoded_labels]
 
-    rouge_score = rouge.compute(
-        predictions=decoded_preds, references=decoded_labels, use_stemmer=True
-    )
+    rouge_score = rouge.compute(predictions=decoded_preds, references=decoded_labels, use_stemmer=True)
     return {**rouge_score, **exact_match_score}
 
 

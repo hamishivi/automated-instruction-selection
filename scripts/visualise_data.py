@@ -37,8 +37,7 @@ def main(args):
         labels += [f] * camel_lengths[f]
         metadata = camels[f]
         tooltip_data = [
-            tokenizer.decode(encode_with_messages_format(x, tokenizer, 1024)["input_ids"])
-            for x in metadata
+            tokenizer.decode(encode_with_messages_format(x, tokenizer, 1024)["input_ids"]) for x in metadata
         ]
         tooltip_data = [" ".join(x.split())[:200] for x in tooltip_data]
         all_tooltip_data += tooltip_data
@@ -55,13 +54,11 @@ def main(args):
     )
     plots.append(chart)
     for f in tqdm(camel_lengths):
-        df_data = transformed_data[counter : counter + camel_lengths[f]]
+        df_data = transformed_data[counter: counter + camel_lengths[f]]
         metadata = camels[f]
         counter += camel_lengths[f]
         tooltip_data = [
-            tokenizer.decode(
-                encode_with_messages_format(x, tokenizer, 200, args.include_reponse)["input_ids"]
-            )
+            tokenizer.decode(encode_with_messages_format(x, tokenizer, 200, args.include_reponse)["input_ids"])
             for x in metadata
         ]
         # remove unnecessary spaces and truncate
@@ -69,13 +66,7 @@ def main(args):
 
         df = pd.DataFrame(df_data, columns=["x", "y"])
         df["inputs"] = tooltip_data
-        plot = (
-            alt.Chart(df)
-            .mark_circle()
-            .encode(x="x", y="y", tooltip=["inputs"])
-            .properties(title=f)
-            .interactive()
-        )
+        plot = alt.Chart(df).mark_circle().encode(x="x", y="y", tooltip=["inputs"]).properties(title=f).interactive()
         plots.append(plot)
     alt.concat(*plots, columns=2).save("camel_visualisation.html")
 

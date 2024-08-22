@@ -47,16 +47,10 @@ parser.add_argument(
 )
 parser.add_argument("--run_pca", action="store_true")
 parser.add_argument("--num_pca_components", type=int, default=100)
-parser.add_argument(
-    "--computed_gradients", type=str, help="Pickle file to store computed gradients"
-)
-parser.add_argument(
-    "--computed_distances", type=str, help="Pickle file to store computed pairwise distances"
-)
+parser.add_argument("--computed_gradients", type=str, help="Pickle file to store computed gradients")
+parser.add_argument("--computed_distances", type=str, help="Pickle file to store computed pairwise distances")
 parser.add_argument("--print_intra_dataset_distances", action="store_true")
-parser.add_argument(
-    "--output", type=str, help="TSV file where intra and inter dataset distances will be written"
-)
+parser.add_argument("--output", type=str, help="TSV file where intra and inter dataset distances will be written")
 args = parser.parse_args()
 
 
@@ -149,22 +143,13 @@ if args.computed_distances is None or not os.path.exists(args.computed_distances
             index_counter += len(text_data[mapped_dataset_name])
             instances = text_data[mapped_dataset_name]
             for instance in tqdm(instances):
-                inputs = tokenizer.encode(
-                    instance["input"], truncation=True, return_tensors="pt"
-                ).cuda()
-                targets = tokenizer.encode(
-                    instance["target"], truncation=True, return_tensors="pt"
-                ).cuda()
+                inputs = tokenizer.encode(instance["input"], truncation=True, return_tensors="pt").cuda()
+                targets = tokenizer.encode(instance["target"], truncation=True, return_tensors="pt").cuda()
                 model_outputs = model(input_ids=inputs, labels=targets, return_dict=True)
                 loss = model_outputs["loss"]
                 loss.backward(inputs=[p for _, p in parameters_of_interest])
 
-                gradients = (
-                    torch.cat([p.grad.flatten() for _, p in parameters_of_interest])
-                    .detach()
-                    .cpu()
-                    .numpy()
-                )
+                gradients = torch.cat([p.grad.flatten() for _, p in parameters_of_interest]).detach().cpu().numpy()
                 all_dataset_gradients.append(gradients)
                 model.zero_grad()
 

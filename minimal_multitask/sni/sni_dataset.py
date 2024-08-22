@@ -62,9 +62,7 @@ class NIConfig(datasets.BuilderConfig):
         self.task_subdir: str = task_subdir
         self.seed: int = seed
         self.max_num_instances_per_task: int = max_num_instances_per_task
-        self.max_num_instances_per_eval_task: int = (
-            max_num_instances_per_eval_task or max_num_instances_per_task
-        )
+        self.max_num_instances_per_eval_task: int = max_num_instances_per_eval_task or max_num_instances_per_task
 
 
 class NaturalInstructions(datasets.GeneratorBasedBuilder):
@@ -72,9 +70,7 @@ class NaturalInstructions(datasets.GeneratorBasedBuilder):
 
     VERSION = datasets.Version(_VERSION + ".0")
     BUILDER_CONFIG_CLASS = NIConfig
-    BUILDER_CONFIGS = [
-        NIConfig(name="default", description="Default config for NaturalInstructions V2")
-    ]
+    BUILDER_CONFIGS = [NIConfig(name="default", description="Default config for NaturalInstructions V2")]
     DEFAULT_CONFIG_NAME = "default"
 
     def _info(self):
@@ -124,9 +120,7 @@ class NaturalInstructions(datasets.GeneratorBasedBuilder):
         """Returns SplitGenerators."""
         if self.config.data_dir is None:
             dl_path = dl_manager.download_and_extract(_RELEASE_URL)
-            self.config.data_dir = os.path.join(
-                dl_path, os.listdir(dl_path)[0]
-            )  # get the extracted directory
+            self.config.data_dir = os.path.join(dl_path, os.listdir(dl_path)[0])  # get the extracted directory
         split_dir = os.path.join(self.config.data_dir, self.config.split_subdir)
         task_dir = os.path.join(self.config.data_dir, self.config.task_subdir)
         return [
@@ -150,9 +144,7 @@ class NaturalInstructions(datasets.GeneratorBasedBuilder):
             ),
         ]
 
-    def _generate_examples(
-        self, path=None, task_dir=None, max_num_instances_per_task=None, split=None
-    ):
+    def _generate_examples(self, path=None, task_dir=None, max_num_instances_per_task=None, split=None):
         """Yields examples."""
         logger.info(f"Reading {split} tasks from {path}")
         with open(path, encoding="utf-8") as split_f:

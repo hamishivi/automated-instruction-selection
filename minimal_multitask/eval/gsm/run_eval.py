@@ -11,9 +11,8 @@ from minimal_multitask.eval.utils import (
     load_hf_lm,
     query_openai_chat_model,
     dynamic_import_function,
-    load_hf_tokenizer
+    load_hf_tokenizer,
 )
-from minimal_multitask.eval.gsm.examplars import EXAMPLARS as GSM_EXAMPLARS
 
 
 exact_match = evaluate.load("exact_match")
@@ -24,14 +23,11 @@ def main(args):
 
     print("Loading data...")
     test_data = []
-    with open(os.path.join(args.data_dir, f"test.jsonl")) as fin:
+    with open(os.path.join(args.data_dir, "test.jsonl")) as fin:
         for line in fin:
             example = json.loads(line)
-            test_data.append({
-                "question": example["question"],
-                "answer": example["answer"].split("####")[1].strip()
-            })
-        
+            test_data.append({"question": example["question"], "answer": example["answer"].split("####")[1].strip()})
+
     # some numbers are in the `x,xxx` format, and we want to remove the comma
     for example in test_data:
         example["answer"] = re.sub(r"(\d),(\d)", r"\1\2", example["answer"])
@@ -39,7 +35,6 @@ def main(args):
 
     if args.max_num_examples and len(test_data) > args.max_num_examples:
         test_data = random.sample(test_data, args.max_num_examples)
-        
 
     if not os.path.exists(args.save_dir):
         os.makedirs(args.save_dir, exist_ok=True)
@@ -51,19 +46,16 @@ def main(args):
         demonstrations = []
         for example in GSM_EXAMPLARS:
             if args.no_cot:
-                demonstrations.append(
-                    "Quesion: " + example["question"] + "\n" + "Answer: " + example["short_answer"]
-                )
+                demonstrations.append("Quesion: " + example["question"] + "\n" + "Answer: " + example["short_answer"])
             else:
-                demonstrations.append(
-                    "Question: " + example["question"] + "\n" + "Answer: " + example["cot_answer"]
-                )
+                demonstrations.append("Question: " + example["question"] + "\n" + "Answer: " + example["cot_answer"])
         prompt_prefix = "Answer the following questions.\n\n" + "\n\n".join(demonstrations) + "\n\n"
     else:
         prompt_prefix = "Answer the following question.\n\n"
 
     if args.use_chat_format:
         chat_formatting_function = dynamic_import_function(args.chat_formatting_function)
+
         def apply_chat_format(example, tokenizer):
             messages = [{"role": "user", "content": prompt_prefix + "Question: " + example["question"].strip()}]
             prompt = chat_formatting_function(messages, tokenizer, add_bos=False)
@@ -87,41 +79,51 @@ def main(args):
             sampling_params = vllm.SamplingParams(
                 temperature=0,
                 max_tokens=512,
-                stop=["\n"] if not args.use_chat_format else None, # we only use stop token for non-chat format (usually applied to vanilla pretrained language models). For chat format, we will rely on the model knows when to stop.
+                # we only use stop token for non-chat format (usually applied to vanilla pretrained language models). For chat format, we will rely on the model knows when to stop.
+                stop=["\n"] if not args.use_chat_format else None,
             )
             if args.use_chat_format:
                 prompts = [apply_chat_format(example, tokenizer) for example in test_data]
             else:
-                prompts = [prompt_prefix + "Question: " + example["question"].strip() + "\nAnswer:" for example in test_data]
+                prompts = [
+                    prompt_prefix + "Question: " + example["question"].strip() + "\nAnswer:" for example in test_data
+                ]
             # We need to remap the outputs to the prompts because vllm might not return outputs for some prompts (e.g., if the prompt is too long)
             generations = model.generate(prompts, sampling_params)
-            prompt_to_output = {
-                g.prompt: g.outputs[0].text for g in generations
-            }
+            prompt_to_output = {g.prompt: g.outputs[0].text for g in generations}
             outputs = [prompt_to_output[prompt] if prompt in prompt_to_output else "" for prompt in prompts]
         else:
             model = load_hf_lm(
-                model_name_or_path=args.model_name_or_path, 
-                load_in_8bit=args.load_in_8bit, 
+                model_name_or_path=args.model_name_or_path,
+                load_in_8bit=args.load_in_8bit,
                 device_map="balanced_low_0" if torch.cuda.device_count() > 1 else "auto",
                 gptq_model=args.gptq,
             )
             from transformers import GPTNeoXForCausalLM, OPTForCausalLM
+
             if isinstance(model, GPTNeoXForCausalLM) or isinstance(model, OPTForCausalLM):
                 tokenizer.model_max_length = model.config.max_position_embeddings
-                print("Set tokenizer.model_max_length to model.config.max_position_embeddings: {}".format(model.config.max_position_embeddings))
+                print(
+                    "Set tokenizer.model_max_length to model.config.max_position_embeddings: {}".format(
+                        model.config.max_position_embeddings
+                    )
+                )
             if args.use_chat_format:
                 prompts = [apply_chat_format(example, tokenizer) for example in test_data]
             else:
-                prompts = [prompt_prefix + "Question: " + example["question"].strip() + "\nAnswer:" for example in test_data]            
-            new_line_token = tokenizer.encode("\n", add_special_tokens=False)[-1] # get the last token because the tokenizer may add space tokens at the start.
+                prompts = [
+                    prompt_prefix + "Question: " + example["question"].strip() + "\nAnswer:" for example in test_data
+                ]
+            # get the last token because the tokenizer may add space tokens at the start.
+            new_line_token = tokenizer.encode("\n", add_special_tokens=False)[-1]
             outputs = generate_completions(
                 model=model,
                 tokenizer=tokenizer,
                 prompts=prompts,
                 max_new_tokens=512,
                 batch_size=args.eval_batch_size,
-                stop_id_sequences=[[new_line_token]] if not args.use_chat_format else None,  # we only use stop token for non-chat format (usually applied to vanilla pretrained language models). For chat format, we will rely on the model knows when to stop.
+                # we only use stop token for non-chat format (usually applied to vanilla pretrained language models). For chat format, we will rely on the model knows when to stop.
+                stop_id_sequences=[[new_line_token]] if not args.use_chat_format else None,
                 do_sample=False,
             )
     else:
@@ -130,7 +132,7 @@ def main(args):
             engine=args.openai_engine,
             instances=instances,
             batch_size=args.eval_batch_size if args.eval_batch_size else 10,
-            output_path=os.path.join(args.save_dir, f"openai_results.jsonl"),
+            output_path=os.path.join(args.save_dir, "openai_results.jsonl"),
         )
         outputs = [result["output"] for result in results]
 
@@ -143,115 +145,78 @@ def main(args):
             predictions.append(numbers[-1])
         else:
             predictions.append(output)
-        
+
     print("Calculating accuracy...")
     targets = [example["answer"] for example in test_data]
 
-    em_score = exact_match.compute(predictions=predictions, references=targets, ignore_case=True, ignore_punctuation=True)["exact_match"]
+    em_score = exact_match.compute(
+        predictions=predictions, references=targets, ignore_case=True, ignore_punctuation=True
+    )["exact_match"]
     print(f"Exact match : {em_score}")
 
-    predictions = [{
-        "question": example["question"],
-        "answer": example["answer"],
-        "model_output": output,
-        "prediction": pred
-    } for example, output, pred in zip(test_data, outputs, predictions)]
+    predictions = [
+        {"question": example["question"], "answer": example["answer"], "model_output": output, "prediction": pred}
+        for example, output, pred in zip(test_data, outputs, predictions)
+    ]
 
-    with open(os.path.join(args.save_dir, f"predictions.jsonl"), "w") as fout:
+    with open(os.path.join(args.save_dir, "predictions.jsonl"), "w") as fout:
         for prediction in predictions:
-            fout.write(json.dumps(prediction) + "\n") 
-    
+            fout.write(json.dumps(prediction) + "\n")
+
     with open(os.path.join(args.save_dir, "metrics.json"), "w") as fout:
-        json.dump({
-            "exact_match": em_score
-        }, fout, indent=4)
+        json.dump({"exact_match": em_score}, fout, indent=4)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
+    parser.add_argument("--data_dir", type=str, default="data/gsm")
+    parser.add_argument("--max_num_examples", type=int, default=None, help="maximum number of examples to evaluate.")
+    parser.add_argument("--save_dir", type=str, default="results/gsm")
     parser.add_argument(
-        "--data_dir", 
-        type=str, 
-        default="data/gsm"
+        "--model_name_or_path",
+        type=str,
+        default=None,
+        help="if specified, we will load the model to generate the predictions.",
     )
     parser.add_argument(
-        "--max_num_examples", 
-        type=int, 
-        default=None, 
-        help="maximum number of examples to evaluate."
+        "--tokenizer_name_or_path", type=str, default=None, help="if specified, we will load the tokenizer from here."
     )
+    parser.add_argument("--use_slow_tokenizer", action="store_true", help="If given, we will use the slow tokenizer.")
     parser.add_argument(
-        "--save_dir", 
-        type=str, 
-        default="results/gsm"
+        "--openai_engine",
+        type=str,
+        default=None,
+        help="if specified, we will use the OpenAI API to generate the predictions.",
     )
+    parser.add_argument("--n_shot", type=int, default=8, help="max number of examples to use for demonstration.")
     parser.add_argument(
-        "--model_name_or_path", 
-        type=str, 
-        default=None, 
-        help="if specified, we will load the model to generate the predictions."
+        "--no_cot", action="store_true", help="If given, we're evaluating a model without chain-of-thought."
     )
+    parser.add_argument("--eval_batch_size", type=int, default=1, help="batch size for evaluation.")
     parser.add_argument(
-        "--tokenizer_name_or_path", 
-        type=str, 
-        default=None, 
-        help="if specified, we will load the tokenizer from here."
-    )
-    parser.add_argument(
-        "--use_slow_tokenizer",
+        "--load_in_8bit",
         action="store_true",
-        help="If given, we will use the slow tokenizer."
+        help="load model in 8bit mode, which will reduce memory and speed up inference.",
     )
-    parser.add_argument(
-        "--openai_engine", 
-        type=str, 
-        default=None, help="if specified, we will use the OpenAI API to generate the predictions."
-    )
-    parser.add_argument(
-        "--n_shot", 
-        type=int, 
-        default=8, 
-        help="max number of examples to use for demonstration."
-    )
-    parser.add_argument(
-        "--no_cot", 
-        action="store_true", 
-        help="If given, we're evaluating a model without chain-of-thought."
-    )
-    parser.add_argument(
-        "--eval_batch_size", 
-        type=int, 
-        default=1, 
-        help="batch size for evaluation."
-    )
-    parser.add_argument(
-        "--load_in_8bit", 
-        action="store_true", 
-        help="load model in 8bit mode, which will reduce memory and speed up inference."
-    )
-    parser.add_argument(
-        "--gptq", 
-        action="store_true", 
-        help="If given, we're evaluating a 4-bit quantized GPTQ model."
-    )
+    parser.add_argument("--gptq", action="store_true", help="If given, we're evaluating a 4-bit quantized GPTQ model.")
     parser.add_argument(
         "--use_vllm",
-        action="store_true", 
-        help="If given, we will use the vllm library, which will likely increase the inference throughput."
+        action="store_true",
+        help="If given, we will use the vllm library, which will likely increase the inference throughput.",
     )
     parser.add_argument(
-        "--use_chat_format", 
-        action="store_true", 
-        help="If given, we will use the chat format for the prompts."
+        "--use_chat_format", action="store_true", help="If given, we will use the chat format for the prompts."
     )
     parser.add_argument(
-        "--chat_formatting_function", 
-        type=str, 
-        default="eval.templates.create_prompt_with_tulu_chat_format", 
-        help="The function to use to create the chat format. This function will be dynamically imported. Please see examples in `eval/templates.py`."
+        "--chat_formatting_function",
+        type=str,
+        default="eval.templates.create_prompt_with_tulu_chat_format",
+        help="The function to use to create the chat format. This function will be dynamically imported. Please see examples in `eval/templates.py`.",
     )
     args = parser.parse_args()
 
     # model_name_or_path and openai_engine cannot be both None or both not None.
-    assert (args.model_name_or_path is None) != (args.openai_engine is None), "Either model_name_or_path or openai_engine should be specified."
+    assert (args.model_name_or_path is None) != (
+        args.openai_engine is None
+    ), "Either model_name_or_path or openai_engine should be specified."
     main(args)

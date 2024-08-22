@@ -20,9 +20,7 @@ class MultiEvalSeq2SeqTrainer(Seq2SeqTrainer):
         self.eval_datasets = eval_datasets
         self.eval_dataset_names = eval_dataset_names
 
-    def get_eval_dataloaders(
-        self, eval_datasets: Optional[List[Dataset]] = None
-    ) -> List[DataLoader]:
+    def get_eval_dataloaders(self, eval_datasets: Optional[List[Dataset]] = None) -> List[DataLoader]:
         """
         Returns a list of evaluation [`~torch.utils.data.DataLoader`].
 
@@ -41,8 +39,7 @@ class MultiEvalSeq2SeqTrainer(Seq2SeqTrainer):
 
         if is_datasets_available() and isinstance(eval_datasets[0], datasets.Dataset):
             eval_datasets = [
-                self._remove_unused_columns(dataset, description="evaluation")
-                for dataset in eval_datasets
+                self._remove_unused_columns(dataset, description="evaluation") for dataset in eval_datasets
             ]
         else:
             raise ValueError("Trainer: evaluation requires a list of eval_datasets")
@@ -107,15 +104,11 @@ class MultiEvalSeq2SeqTrainer(Seq2SeqTrainer):
         if _gen_kwargs.get("max_length") is None and _gen_kwargs.get("max_new_tokens") is None:
             _gen_kwargs["max_length"] = self.args.generation_max_length
         _gen_kwargs["num_beams"] = (
-            _gen_kwargs["num_beams"]
-            if _gen_kwargs.get("num_beams") is not None
-            else self.args.generation_num_beams
+            _gen_kwargs["num_beams"] if _gen_kwargs.get("num_beams") is not None else self.args.generation_num_beams
         )
         self._gen_kwargs = _gen_kwargs
 
-        assert (
-            self.eval_dataset_names is not None
-        ), "Must have eval dataset names to do proper eval."
+        assert self.eval_dataset_names is not None, "Must have eval dataset names to do proper eval."
 
         eval_dataloaders = self.get_eval_dataloaders(eval_datasets)
         start_time = time.time()
@@ -123,11 +116,7 @@ class MultiEvalSeq2SeqTrainer(Seq2SeqTrainer):
         output_metrics = {}
         for dataset_name, eval_dataloader in zip(self.eval_dataset_names, eval_dataloaders):
             alt_metric_key_prefix = dataset_name + "." + metric_key_prefix
-            eval_loop = (
-                self.prediction_loop
-                if self.args.use_legacy_prediction_loop
-                else self.evaluation_loop
-            )
+            eval_loop = self.prediction_loop if self.args.use_legacy_prediction_loop else self.evaluation_loop
             output = eval_loop(
                 eval_dataloader,
                 description="Evaluation",

@@ -13,7 +13,7 @@ from minimal_multitask.eval.utils import (
     generate_completions,
     query_openai_chat_model,
     dynamic_import_function,
-    load_hf_tokenizer
+    load_hf_tokenizer,
 )
 
 
@@ -43,7 +43,9 @@ def main(args):
                 new_prompt_fields = []
                 for prompt_field in prompt_fields:
                     if prompt_field.startswith("Q:"):
-                        assert "So the answer is" in prompt_field, f"`So the answer is` not found in prompt field of {task_name}.txt."
+                        assert (
+                            "So the answer is" in prompt_field
+                        ), f"`So the answer is` not found in prompt field of {task_name}.txt."
                         assert "\nA:" in prompt_field, "`\nA:` not found in prompt field."
                         answer = prompt_field.split("So the answer is")[-1].strip()
                         question = prompt_field.split("\nA:")[0].strip()
@@ -53,7 +55,9 @@ def main(args):
                 task_prompt = "\n\n".join(new_prompt_fields)
             all_prompts[task_name] = task_prompt
 
-    assert set(all_tasks.keys()) == set(all_prompts.keys()), "task names in task data and task prompts are not the same."
+    assert set(all_tasks.keys()) == set(
+        all_prompts.keys()
+    ), "task names in task data and task prompts are not the same."
 
     os.makedirs(args.save_dir, exist_ok=True)
     os.makedirs(os.path.join(args.save_dir, "predictions"), exist_ok=True)
@@ -76,23 +80,28 @@ def main(args):
         else:
             print("Loading model and tokenizer with huggingface...")
             model = load_hf_lm(
-                model_name_or_path=args.model_name_or_path, 
-                load_in_8bit=args.load_in_8bit, 
+                model_name_or_path=args.model_name_or_path,
+                load_in_8bit=args.load_in_8bit,
                 device_map="balanced_low_0" if torch.cuda.device_count() > 1 else "auto",
                 gptq_model=args.gptq,
             )
             # modify tokenizer if required
             from transformers import GPTNeoXForCausalLM, OPTForCausalLM
+
             if isinstance(model, GPTNeoXForCausalLM) or isinstance(model, OPTForCausalLM):
                 tokenizer.model_max_length = model.config.max_position_embeddings
-                print("Set tokenizer.model_max_length to model.config.max_position_embeddings: {}".format(model.config.max_position_embeddings))
+                print(
+                    "Set tokenizer.model_max_length to model.config.max_position_embeddings: {}".format(
+                        model.config.max_position_embeddings
+                    )
+                )
 
     performance = {}
     for task_name in tqdm.tqdm(all_tasks.keys(), desc="Evaluating"):
         task_examples = all_tasks[task_name]
         task_prompt = all_prompts[task_name]
         if args.model_name_or_path:
-            # prepare prompts    
+            # prepare prompts
             if args.use_chat_format:
                 prompts = []
                 chat_formatting_function = dynamic_import_function(args.chat_formatting_function)
@@ -110,17 +119,17 @@ def main(args):
                 sampling_params = vllm.SamplingParams(
                     temperature=0,
                     max_tokens=512,
-                    stop=["\n\n"] if not args.use_chat_format else None,  # we only use stop token for non-chat format (usually applied to vanilla pretrained language models). For chat format, we will rely on the model knows when to stop.
+                    # we only use stop token for non-chat format (usually applied to vanilla pretrained language models). For chat format, we will rely on the model knows when to stop.
+                    stop=["\n\n"] if not args.use_chat_format else None,
                 )
                 # We need to remap the outputs to the prompts because vllm might not return outputs for some prompts (e.g., if the prompt is too long)
                 generations = model.generate(prompts, sampling_params)
-                prompt_to_output = {
-                    g.prompt: g.outputs[0].text for g in generations
-                }
+                prompt_to_output = {g.prompt: g.outputs[0].text for g in generations}
                 outputs = [prompt_to_output[prompt] if prompt in prompt_to_output else "" for prompt in prompts]
             # generate with hf model
             else:
-                stop_sequence = tokenizer.encode("\n\n", add_special_tokens=False)[-2:] # get the last token because the tokenizer may add space tokens at the start.
+                # get the last token because the tokenizer may add space tokens at the start.
+                stop_sequence = tokenizer.encode("\n\n", add_special_tokens=False)[-2:]
                 outputs = generate_completions(
                     model=model,
                     tokenizer=tokenizer,
@@ -128,16 +137,19 @@ def main(args):
                     max_new_tokens=512,
                     temperature=0,
                     batch_size=args.eval_batch_size if args.eval_batch_size else 1,
-                    stop_id_sequences=[[stop_sequence]] if not args.use_chat_format else None,  # we only use stop token for non-chat format (usually applied to vanilla pretrained language models). For chat format, we will rely on the model knows when to stop.
+                    # we only use stop token for non-chat format (usually applied to vanilla pretrained language models). For chat format, we will rely on the model knows when to stop.
+                    stop_id_sequences=[[stop_sequence]] if not args.use_chat_format else None,
                 )
         else:
             instances = []
             for i, example in enumerate(task_examples):
                 prompt = task_prompt.strip() + "\n\nQ: " + example["input"] + "\nA:"
-                instances.append({
-                    "id": example["id"] if "id" in example else i,
-                    "prompt": prompt,
-                })
+                instances.append(
+                    {
+                        "id": example["id"] if "id" in example else i,
+                        "prompt": prompt,
+                    }
+                )
             results = query_openai_chat_model(
                 engine=args.openai_engine,
                 instances=instances,
@@ -150,7 +162,7 @@ def main(args):
         predictions = []
         for example, output in zip(task_examples, outputs):
             example["raw_output"] = output
-            
+
             # extract the first answer after `the answer is` and before the next period.
             # if there is no such answer, we will just use the raw output.
             extracted_answer = re.search(r"[t|T]he answer is (.*?)\.", output)
@@ -159,13 +171,15 @@ def main(args):
             else:
                 example["prediction"] = output.strip()
             predictions.append(example["prediction"])
-        
+
         with open(os.path.join(args.save_dir, "predictions", f"{task_name}.jsonl"), "w") as fout:
             for example in task_examples:
-                fout.write(json.dumps(example) + "\n")        
+                fout.write(json.dumps(example) + "\n")
 
         assert len(predictions) == len(targets), "number of predictions and targets are not the same."
-        performance[task_name] = exact_match.compute(predictions=predictions, references=targets, ignore_case=True, ignore_punctuation=True)["exact_match"]
+        performance[task_name] = exact_match.compute(
+            predictions=predictions, references=targets, ignore_case=True, ignore_punctuation=True
+        )["exact_match"]
 
         print(f"Task {task_name} - EM: {performance[task_name]}")
 
@@ -178,84 +192,55 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
+    parser.add_argument("--data_dir", type=str, default="data/bbh")
+    parser.add_argument("--save_dir", type=str, default="results/bbh")
     parser.add_argument(
-        "--data_dir", 
-        type=str, 
-        default="data/bbh"
+        "--model_name_or_path",
+        type=str,
+        default=None,
+        help="if specified, we will load the model to generate the predictions.",
     )
     parser.add_argument(
-        "--save_dir", 
-        type=str, 
-        default="results/bbh"
+        "--tokenizer_name_or_path", type=str, default=None, help="if specified, we will load the tokenizer from here."
+    )
+    parser.add_argument("--use_slow_tokenizer", action="store_true", help="If given, we will use the slow tokenizer.")
+    parser.add_argument(
+        "--openai_engine",
+        type=str,
+        default=None,
+        help="if specified, we will use the OpenAI API to generate the predictions.",
     )
     parser.add_argument(
-        "--model_name_or_path", 
-        type=str, 
-        default=None, 
-        help="if specified, we will load the model to generate the predictions."
+        "--no_cot", action="store_true", help="if specified, chain of thoughts will be removed from the prompts."
     )
     parser.add_argument(
-        "--tokenizer_name_or_path", 
-        type=str, 
-        default=None, 
-        help="if specified, we will load the tokenizer from here."
+        "--max_num_examples_per_task", type=int, default=None, help="maximum number of examples to evaluate per task."
     )
+    parser.add_argument("--eval_batch_size", type=int, default=1, help="batch size for evaluation.")
     parser.add_argument(
-        "--use_slow_tokenizer",
+        "--load_in_8bit",
         action="store_true",
-        help="If given, we will use the slow tokenizer."
+        help="load model in 8bit mode, which will reduce memory and speed up inference.",
     )
-    parser.add_argument(
-        "--openai_engine", 
-        type=str, 
-        default=None, 
-        help="if specified, we will use the OpenAI API to generate the predictions."
-    )
-    parser.add_argument(
-        "--no_cot", 
-        action="store_true", 
-        help="if specified, chain of thoughts will be removed from the prompts."
-    )
-    parser.add_argument(
-        "--max_num_examples_per_task", 
-        type=int, 
-        default=None, 
-        help="maximum number of examples to evaluate per task."
-    )
-    parser.add_argument(
-        "--eval_batch_size", 
-        type=int, 
-        default=1, 
-        help="batch size for evaluation."
-    )
-    parser.add_argument(
-        "--load_in_8bit", 
-        action="store_true", 
-        help="load model in 8bit mode, which will reduce memory and speed up inference."
-    )
-    parser.add_argument(
-        "--gptq", 
-        action="store_true", 
-        help="If given, we're evaluating a 4-bit quantized GPTQ model."
-    )
+    parser.add_argument("--gptq", action="store_true", help="If given, we're evaluating a 4-bit quantized GPTQ model.")
     parser.add_argument(
         "--use_vllm",
-        action="store_true", 
-        help="If given, we will use the vllm library, which will likely increase the inference throughput."
+        action="store_true",
+        help="If given, we will use the vllm library, which will likely increase the inference throughput.",
     )
     parser.add_argument(
-        "--use_chat_format", 
-        action="store_true", 
-        help="If given, we will use the chat format for the prompts."
+        "--use_chat_format", action="store_true", help="If given, we will use the chat format for the prompts."
     )
     parser.add_argument(
-        "--chat_formatting_function", 
-        type=str, 
-        default="eval.templates.create_prompt_with_tulu_chat_format", 
-        help="The function to use to create the chat format. This function will be dynamically imported. Please see examples in `eval/templates.py`."
+        "--chat_formatting_function",
+        type=str,
+        default="eval.templates.create_prompt_with_tulu_chat_format",
+        help="The function to use to create the chat format. This function will be dynamically imported. Please see examples in `eval/templates.py`.",
     )
     args = parser.parse_args()
 
     # model_name_or_path and openai_engine cannot be both None or both not None.
-    assert (args.model_name_or_path is None) != (args.openai_engine is None), "Either model_name_or_path or openai_engine should be specified."
+    assert (args.model_name_or_path is None) != (
+        args.openai_engine is None
+    ), "Either model_name_or_path or openai_engine should be specified."
     main(args)

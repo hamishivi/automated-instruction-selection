@@ -138,9 +138,7 @@ class DataCollatorForNI:
                 pos_example_str += "\n"
                 if (
                     len(
-                        self.tokenizer(
-                            definition + " ".join(pos_examples) + pos_example_str + task_input
-                        )["input_ids"]
+                        self.tokenizer(definition + " ".join(pos_examples) + pos_example_str + task_input)["input_ids"]
                     )
                     <= self.max_source_length
                 ):
@@ -169,11 +167,7 @@ class DataCollatorForNI:
                 if (
                     len(
                         self.tokenizer(
-                            definition
-                            + " ".join(pos_examples)
-                            + " ".join(neg_examples)
-                            + neg_example_str
-                            + task_input
+                            definition + " ".join(pos_examples) + " ".join(neg_examples) + neg_example_str + task_input
                         )["input_ids"]
                     )
                     <= self.max_source_length
@@ -182,17 +176,13 @@ class DataCollatorForNI:
                 else:
                     break
 
-            source = (
-                task_name + definition + "".join(pos_examples) + "".join(neg_examples) + task_input
-            )
+            source = task_name + definition + "".join(pos_examples) + "".join(neg_examples) + task_input
             tokenized_source = self.tokenizer(source)["input_ids"]
             if len(tokenized_source) <= self.max_source_length:
                 sources.append(source)
             else:
                 sources.append(
-                    self.tokenizer.decode(
-                        tokenized_source[: self.max_source_length], skip_special_tokens=True
-                    )
+                    self.tokenizer.decode(tokenized_source[: self.max_source_length], skip_special_tokens=True)
                 )
 
         if self.text_only:
@@ -223,9 +213,7 @@ class DataCollatorForNI:
                         pad_to_multiple_of=self.pad_to_multiple_of,
                     )
                 label_mask = labels["attention_mask"].bool()
-                model_inputs["labels"] = labels["input_ids"].masked_fill(
-                    ~label_mask, self.label_pad_token_id
-                )
+                model_inputs["labels"] = labels["input_ids"].masked_fill(~label_mask, self.label_pad_token_id)
         else:
             model_inputs["labels"] = None
 
@@ -235,9 +223,7 @@ class DataCollatorForNI:
             and hasattr(self.model, "prepare_decoder_input_ids_from_labels")
             and not self.text_only
         ):
-            decoder_input_ids = self.model.prepare_decoder_input_ids_from_labels(
-                labels=model_inputs["labels"]
-            )
+            decoder_input_ids = self.model.prepare_decoder_input_ids_from_labels(labels=model_inputs["labels"])
             model_inputs["decoder_input_ids"] = decoder_input_ids
 
         return model_inputs

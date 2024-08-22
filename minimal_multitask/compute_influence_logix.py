@@ -1,13 +1,12 @@
-'''
+"""
 Compute influence using logix package.
 Wip.
-'''
+"""
 import os
 import argparse
 import copy
 import pickle
 import yaml
-import math
 
 import torch
 from torch import nn
@@ -25,19 +24,19 @@ from minimal_multitask.data import DATASETS
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--model_name', type=str, default='meta-llama/Llama-2-7b-hf')
-parser.add_argument('--tokenizer_name', type=str, default=None)
-parser.add_argument('--train_dataset', type=str, default='tulu2')
-parser.add_argument('--gradient_checkpointing', action='store_true')
-parser.add_argument('--use_flash_attention_2', action='store_true')
-parser.add_argument('--use_hf_auth_token', type=str, default=None)
-parser.add_argument('--eval_dataset', type=str, default='gsm8k_shots')
-parser.add_argument('--instance_to_influences', type=str, required=True)
-parser.add_argument('--grad_save_path', type=str, default=None)  # if we have saved grads, we can use them
-parser.add_argument('--hessian_type', type=str, default='raw')  # options: none, raw
-parser.add_argument('--logra_rank', type=int, default=6)  # rank used for logra. 6 ~= 8k, 64 was paper default.
-parser.add_argument('--beaker', action='store_true')  # if we are running on beaker
-parser.add_argument('--logra_precision', type=str, default='float16')  # precision used for logra
+parser.add_argument("--model_name", type=str, default="meta-llama/Llama-2-7b-hf")
+parser.add_argument("--tokenizer_name", type=str, default=None)
+parser.add_argument("--train_dataset", type=str, default="tulu2")
+parser.add_argument("--gradient_checkpointing", action="store_true")
+parser.add_argument("--use_flash_attention_2", action="store_true")
+parser.add_argument("--use_hf_auth_token", type=str, default=None)
+parser.add_argument("--eval_dataset", type=str, default="gsm8k_shots")
+parser.add_argument("--instance_to_influences", type=str, required=True)
+parser.add_argument("--grad_save_path", type=str, default=None)  # if we have saved grads, we can use them
+parser.add_argument("--hessian_type", type=str, default="raw")  # options: none, raw
+parser.add_argument("--logra_rank", type=int, default=6)  # rank used for logra. 6 ~= 8k, 64 was paper default.
+parser.add_argument("--beaker", action="store_true")  # if we are running on beaker
+parser.add_argument("--logra_precision", type=str, default="float16")  # precision used for logra
 args = parser.parse_args()
 
 accelerator = Accelerator()
@@ -46,7 +45,7 @@ kwargs = {}
 if args.use_flash_attention_2:
     kwargs["use_flash_attention_2"] = True
 if args.use_hf_auth_token is not None:
-    kwargs['use_auth_token'] = os.environ.get('HF_TOKEN', None)
+    kwargs["use_auth_token"] = os.environ.get("HF_TOKEN", None)
 
 # load model
 model = AutoModelForCausalLM.from_pretrained(args.model_name, **kwargs)
@@ -57,19 +56,27 @@ if args.gradient_checkpointing:
 
 # load and process train dataset
 # TODO: fix openorca system message bug
-if args.train_dataset == 'alpaca':
-    train_dataset = load_dataset('json', data_files='data/camel_datasets/stanford_alpaca/stanford_alpaca_data.jsonl')['train']
-    train_dataset = train_dataset.map(lambda x: encode_with_messages_format(x, tokenizer, 512, True, False), num_proc=16)
-elif args.train_dataset == 'tulu2':
-    train_dataset = load_dataset('allenai/tulu-v2-sft-mixture', split='train')
-    train_dataset = train_dataset.map(lambda x: encode_with_messages_format(x, tokenizer, 512, True, False), num_proc=16)
+if args.train_dataset == "alpaca":
+    train_dataset = load_dataset("json", data_files="data/camel_datasets/stanford_alpaca/stanford_alpaca_data.jsonl")[
+        "train"
+    ]
+    train_dataset = train_dataset.map(
+        lambda x: encode_with_messages_format(x, tokenizer, 512, True, False), num_proc=16
+    )
+elif args.train_dataset == "tulu2":
+    train_dataset = load_dataset("allenai/tulu-v2-sft-mixture", split="train")
+    train_dataset = train_dataset.map(
+        lambda x: encode_with_messages_format(x, tokenizer, 512, True, False), num_proc=16
+    )
 else:
     if os.path.exists(args.train_dataset):
-        train_dataset = load_dataset('json', data_files=args.train_dataset)['train']
-        train_dataset = train_dataset.map(lambda x: encode_with_messages_format(x, tokenizer, 2048, True, False), num_proc=16)
+        train_dataset = load_dataset("json", data_files=args.train_dataset)["train"]
+        train_dataset = train_dataset.map(
+            lambda x: encode_with_messages_format(x, tokenizer, 2048, True, False), num_proc=16
+        )
     else:
         raise ValueError(f"Invalid train dataset: {args.train_dataset}")
-train_dataset.set_format(type='torch', columns=['input_ids', 'attention_mask', 'labels'])
+train_dataset.set_format(type="torch", columns=["input_ids", "attention_mask", "labels"])
 data_loader = DataLoader(train_dataset, batch_size=1)
 
 name_filter = ["att", "mlp"]
@@ -79,7 +86,7 @@ name_filter = ["att", "mlp"]
 logix_config = {
     "root_dir": ".",
     "logging": {
-        "flush_threshold": 50000*8064, # if you never flush, buffer resets at 124007*8064 for some reason?  
+        "flush_threshold": 50000 * 8064,  # if you never flush, buffer resets at 124007*8064 for some reason?
         "num_workers": 1,
         "cpu_offload": True,
         "log_dtype": args.logra_precision,
@@ -87,7 +94,7 @@ logix_config = {
     "lora": {
         "init": "random",
         "rank": args.logra_rank,
-    }
+    },
 }
 os.makedirs("tmp_logix", exist_ok=True)
 with open("tmp_logix/logix_config.yaml", "w") as f:
@@ -95,22 +102,20 @@ with open("tmp_logix/logix_config.yaml", "w") as f:
 
 # quick beaker setup
 if args.beaker:
-    bar_format = '{l_bar}{bar}{r_bar}\n'
+    bar_format = "{l_bar}{bar}{r_bar}\n"
 else:
-    bar_format = '{l_bar}{bar}{r_bar}'
+    bar_format = "{l_bar}{bar}{r_bar}"
 
 if args.grad_save_path is None or not os.path.exists(args.grad_save_path):
     # we need to index train data, lets go ahead and do that
     # logix setup
-    run = logix.init(project=args.grad_save_path, config='tmp_logix/logix_config.yaml')
+    run = logix.init(project=args.grad_save_path, config="tmp_logix/logix_config.yaml")
 
     # Specify modules to be tracked for logging
     run.watch(model, name_filter=name_filter, type_filter=[nn.Linear])
     run.add_lora()
     # build scheduler
-    scheduler = logix.LogIXScheduler(
-        run, lora="none", hessian=args.hessian_type, save="grad"
-    )
+    scheduler = logix.LogIXScheduler(run, lora="none", hessian=args.hessian_type, save="grad")
     # compute influences
     model, data_loader = accelerator.prepare(model, data_loader)
     model.eval()
@@ -119,7 +124,7 @@ if args.grad_save_path is None or not os.path.exists(args.grad_save_path):
     for _ in scheduler:
         for i, batch in tqdm(enumerate(data_loader), total=len(data_loader), bar_format=bar_format):
             # add dataset index to data_id to avoid collisions
-            data_id = [tokenizer.decode(batch["input_ids"][0]) + f'_{i}']
+            data_id = [tokenizer.decode(batch["input_ids"][0]) + f"_{i}"]
             targets = batch.pop("labels")
             # check if the labels are all -100, if so, we skip this batch
             if torch.all(targets == -100):
@@ -160,7 +165,7 @@ else:
         influence_index_to_data_id[influence_index] = i
         influence_index += 1
     # restore logix run
-    run = logix.init('tmp_logix', config='tmp_logix/logix_config.yaml')
+    run = logix.init("tmp_logix", config="tmp_logix/logix_config.yaml")
     run.watch(model, name_filter=name_filter)
     run.initialize_from_log()
     # extra setup
@@ -176,7 +181,7 @@ if args.eval_dataset in DATASETS:
     test_dataset = DATASETS[args.eval_dataset](tokenizer).get_all_test_prompts()
 else:
     raise ValueError(f"Invalid dataset: {args.dataset}")
-test_dataset.set_format(type='torch', columns=['input_ids', 'attention_mask', 'labels'])
+test_dataset.set_format(type="torch", columns=["input_ids", "attention_mask", "labels"])
 test_data_loader = DataLoader(test_dataset, batch_size=1)
 test_data_loader = accelerator.prepare(test_data_loader)
 

@@ -3,13 +3,11 @@ import os
 import torch
 import numpy as np
 import pandas as pd
-import time
 import json
 from tqdm import tqdm
-import time
-import random
 from transformers import AutoModelForCausalLM, AutoTokenizer, AutoConfig
 from minimal_multitask.eval.eval_utils import get_next_word_predictions
+
 
 def create_prompt_with_tulu_chat_format(messages, tokenizer, add_bos=True):
     formatted_text = ""
@@ -22,11 +20,13 @@ def create_prompt_with_tulu_chat_format(messages, tokenizer, add_bos=True):
             formatted_text += "<|assistant|>\n" + message["content"].strip() + tokenizer.eos_token + "\n"
         else:
             raise ValueError(
-                "Tulu chat template only supports 'system', 'user' and 'assistant' roles. Invalid role: {}.".format(message["role"])
+                "Tulu chat template only supports 'system', 'user' and 'assistant' roles. Invalid role: {}.".format(
+                    message["role"]
                 )
+            )
     formatted_text += "<|assistant|>\n"
-    formatted_text = bos + formatted_text if add_bos else formatted_text
     return formatted_text
+
 
 subcategories = {
     "abstract_algebra": ["math"],
@@ -99,9 +99,9 @@ choices = ["A", "B", "C", "D"]
 
 
 def format_subject(subject):
-    l = subject.split("_")
+    subject_list = subject.split("_")
     s = ""
-    for entry in l:
+    for entry in subject_list:
         s += " " + entry
     return s
 
@@ -118,9 +118,7 @@ def format_example(df, idx, include_answer=True):
 
 
 def gen_prompt(train_df, subject, k=-1):
-    prompt = "The following are multiple choice questions (with answers) about {}.\n\n".format(
-        format_subject(subject)
-    )
+    prompt = "The following are multiple choice questions (with answers) about {}.\n\n".format(format_subject(subject))
     if k == -1:
         k = train_df.shape[0]
     for i in range(k):
@@ -131,38 +129,29 @@ def gen_prompt(train_df, subject, k=-1):
 def construct_prompts(
     tokenizer,
     use_chat_format=True,
-    data_dir='/net/nfs.cirrascale/allennlp/hamishi/minimal-multitask-tuning/data/mmlu',
+    data_dir="/net/nfs.cirrascale/allennlp/hamishi/minimal-multitask-tuning/data/mmlu",
     ntrain=0,
-    use_dev_samples=False
+    use_dev_samples=False,
 ):
     subjects = sorted(
-        [
-            f.split("_test.csv")[0]
-            for f in os.listdir(os.path.join(data_dir, "test"))
-            if "_test.csv" in f
-        ]
+        [f.split("_test.csv")[0] for f in os.listdir(os.path.join(data_dir, "test")) if "_test.csv" in f]
     )
-    prompts = []
-    labels = []
-
-    all_cors = []
-    subcat_cors = {
-        subcat: [] for subcat_lists in subcategories.values() for subcat in subcat_lists
-    }
-    cat_cors = {cat: [] for cat in categories}
 
     prompts_per_subject = {}
 
-    for subject in tqdm(subjects, desc=f"Evaluating subjects: "):
+    for subject in tqdm(subjects, desc="Evaluating subjects: "):
         subject_prompts, subject_labels = [], []
-        dev_df = pd.read_csv(
-            os.path.join(data_dir, "dev", subject + "_dev.csv"), header=None
-        )[: ntrain]
+        dev_df = pd.read_csv(os.path.join(data_dir, "dev", subject + "_dev.csv"), header=None)[:ntrain]
         # if use dev samples, we will use the dev samples for testing.
         test_df = pd.read_csv(
-            os.path.join(data_dir, "test" if not use_dev_samples else "dev", subject + ("_test.csv" if not use_dev_samples else "_dev.csv")), header=None
+            os.path.join(
+                data_dir,
+                "test" if not use_dev_samples else "dev",
+                subject + ("_test.csv" if not use_dev_samples else "_dev.csv"),
+            ),
+            header=None,
         )
-    
+
         chat_formatting_function = create_prompt_with_tulu_chat_format if use_chat_format else None
         for i in range(0, test_df.shape[0]):
             k = ntrain
@@ -197,7 +186,6 @@ def construct_prompts(
             subject_labels.append(test_df.iloc[i, -1])
             prompts_per_subject[subject] = list(zip(subject_prompts, subject_labels))
     return prompts_per_subject
-
 
 
 @torch.no_grad()
@@ -239,7 +227,12 @@ def eval_hf_model(args, subject, model, tokenizer, dev_df, test_df, batch_size=1
     # note: here we cannot directly use convert_tokens_to_ids because the some tokenizers will automatically add space prefix.
     answer_choice_ids = [tokenizer.encode(answer_choice, add_special_tokens=False)[0] for answer_choice in choices]
     pred_indices, all_probs = get_next_word_predictions(
-        model, tokenizer, prompts, candidate_token_ids=answer_choice_ids, return_token_predictions=False, batch_size=batch_size
+        model,
+        tokenizer,
+        prompts,
+        candidate_token_ids=answer_choice_ids,
+        return_token_predictions=False,
+        batch_size=batch_size,
     )
 
     # get the metrics
@@ -249,7 +242,7 @@ def eval_hf_model(args, subject, model, tokenizer, dev_df, test_df, batch_size=1
         prediction = choices[pred_indices[i]]
         ground_truth = groud_truths[i]
         cors.append(prediction == ground_truth)
-        
+
     acc = np.mean(cors)
     cors = np.array(cors)
 
@@ -257,57 +250,47 @@ def eval_hf_model(args, subject, model, tokenizer, dev_df, test_df, batch_size=1
     print("Average accuracy {:.3f} - {}".format(acc, subject))
     return cors, acc, all_probs
 
-def main(args):
 
+def main(args):
     if args.model_name_or_path:
         print("Loading model and tokenizer...")
         config = AutoConfig.from_pretrained(args.model_name_or_path, cache_dir=None, trust_remote_code=True)
         print("Config: {}".format(config))
-        model = AutoModelForCausalLM.from_pretrained(args.model_name_or_path, config=config, trust_remote_code=True, load_in_8bit=args.load_in_8bit).cuda()
+        model = AutoModelForCausalLM.from_pretrained(
+            args.model_name_or_path, config=config, trust_remote_code=True, load_in_8bit=args.load_in_8bit
+        ).cuda()
         # from peft import PeftModel
         # model = PeftModel.from_pretrained(model, args.model_name_or_path)
         tokenizer = AutoTokenizer.from_pretrained(args.model_name_or_path, use_fast=True)
-        tokenizer.add_special_tokens({'pad_token': '[PAD]'})
+        tokenizer.add_special_tokens({"pad_token": "[PAD]"})
         # give move the pad token to the end of the vocabulary
         model.resize_token_embeddings(len(tokenizer))
-    
+
     subjects = sorted(
-        [
-            f.split("_test.csv")[0]
-            for f in os.listdir(os.path.join(args.data_dir, "test"))
-            if "_test.csv" in f
-        ]
+        [f.split("_test.csv")[0] for f in os.listdir(os.path.join(args.data_dir, "test")) if "_test.csv" in f]
     )
 
     if args.subjects:
-        assert all(subj in subjects for subj in args.subjects), f"Some of the subjects you specified are not valid: {args.subjects}"
+        assert all(
+            subj in subjects for subj in args.subjects
+        ), f"Some of the subjects you specified are not valid: {args.subjects}"
         subjects = args.subjects
 
     if not os.path.exists(args.save_dir):
         os.makedirs(args.save_dir)
 
     all_cors = []
-    subcat_cors = {
-        subcat: [] for subcat_lists in subcategories.values() for subcat in subcat_lists
-    }
+    subcat_cors = {subcat: [] for subcat_lists in subcategories.values() for subcat in subcat_lists}
     cat_cors = {cat: [] for cat in categories}
 
-    for subject in tqdm(subjects, desc=f"Evaluating subjects: "):
-        
-        dev_df = pd.read_csv(
-            os.path.join(args.data_dir, "dev", subject + "_dev.csv"), header=None
-        )[: args.ntrain]
-        test_df = pd.read_csv(
-            os.path.join(args.data_dir, "test", subject + "_test.csv"), header=None
-        )
+    for subject in tqdm(subjects, desc="Evaluating subjects: "):
+        dev_df = pd.read_csv(os.path.join(args.data_dir, "dev", subject + "_dev.csv"), header=None)[: args.ntrain]
+        test_df = pd.read_csv(os.path.join(args.data_dir, "test", subject + "_test.csv"), header=None)
         if args.n_instances and args.n_instances < test_df.shape[0]:
             test_df = test_df.sample(args.n_instances, random_state=42)
 
-        if args.model_name_or_path:
-            cors, acc, probs = eval_hf_model(args, subject, model, tokenizer, dev_df, test_df, args.eval_batch_size)
-        else:
-            cors, acc, probs = eval_openai_chat_engine(args, subject, args.openai_engine, dev_df, test_df, args.eval_batch_size)
-            
+        cors, _, probs = eval_hf_model(args, subject, model, tokenizer, dev_df, test_df, args.eval_batch_size)
+
         subcats = subcategories[subject]
         for subcat in subcats:
             subcat_cors[subcat].append(cors)
@@ -321,9 +304,7 @@ def main(args):
             choice = choices[j]
             test_df["choice{}_probs".format(choice)] = probs[:, j]
         test_df.to_csv(
-            os.path.join(
-                args.save_dir, "{}.csv".format(subject)
-            ),
+            os.path.join(args.save_dir, "{}.csv".format(subject)),
             index=None,
         )
 
@@ -342,14 +323,8 @@ def main(args):
         json.dump(
             {
                 "average_acc": weighted_acc,
-                "subcat_acc": {
-                    subcat: np.mean(np.concatenate(subcat_cors[subcat]))
-                    for subcat in subcat_cors
-                },
-                "cat_acc": {
-                    cat: np.mean(np.concatenate(cat_cors[cat]))
-                    for cat in cat_cors
-                },
+                "subcat_acc": {subcat: np.mean(np.concatenate(subcat_cors[subcat])) for subcat in subcat_cors},
+                "cat_acc": {cat: np.mean(np.concatenate(cat_cors[cat])) for cat in cat_cors},
             },
             f,
         )
@@ -357,78 +332,54 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--ntrain",
-        type=int,
-        default=0
-    )
-    parser.add_argument(
-        "--data_dir",
-        type=str,
-        default="data/eval/mmlu"
-    )
-    parser.add_argument(
-        "--save_dir",
-        type=str,
-        default="results/mmlu/llama-7B/"
-    )
+    parser.add_argument("--ntrain", type=int, default=0)
+    parser.add_argument("--data_dir", type=str, default="data/eval/mmlu")
+    parser.add_argument("--save_dir", type=str, default="results/mmlu/llama-7B/")
     parser.add_argument(
         "--model_name_or_path",
         type=str,
         default=None,
-        help="if specified, we will load the model to generate the predictions."
+        help="if specified, we will load the model to generate the predictions.",
     )
     parser.add_argument(
-        "--tokenizer_name_or_path",
-        type=str,
-        default=None,
-        help="if specified, we will load the tokenizer from here."
+        "--tokenizer_name_or_path", type=str, default=None, help="if specified, we will load the tokenizer from here."
     )
     parser.add_argument(
         "--openai_engine",
         type=str,
         default=None,
-        help="if specified, we will use the OpenAI API to generate the predictions."
+        help="if specified, we will use the OpenAI API to generate the predictions.",
     )
     parser.add_argument(
         "--subjects",
         nargs="*",
-        help="which subjects to evaluate. If not specified, all the 57 subjects will be evaluated."
+        help="which subjects to evaluate. If not specified, all the 57 subjects will be evaluated.",
     )
     parser.add_argument(
         "--n_instances",
         type=int,
-        help="if specified, a maximum of n_instances per subject will be used for the evaluation."
+        help="if specified, a maximum of n_instances per subject will be used for the evaluation.",
     )
-    parser.add_argument(
-        "--eval_batch_size",
-        type=int,
-        default=1,
-        help="batch size for evaluation."
-    )
+    parser.add_argument("--eval_batch_size", type=int, default=1, help="batch size for evaluation.")
     parser.add_argument(
         "--load_in_8bit",
         action="store_true",
-        help="load model in 8bit mode, which will reduce memory and speed up inference."
+        help="load model in 8bit mode, which will reduce memory and speed up inference.",
+    )
+    parser.add_argument("--gptq", action="store_true", help="If given, we're evaluating a 4-bit quantized GPTQ model.")
+    parser.add_argument(
+        "--use_chat_format", action="store_true", help="If given, we will use the chat format for the prompts."
     )
     parser.add_argument(
-        "--gptq",
-        action="store_true",
-        help="If given, we're evaluating a 4-bit quantized GPTQ model."
-    )
-    parser.add_argument(
-        "--use_chat_format", 
-        action="store_true", 
-        help="If given, we will use the chat format for the prompts."
-    )
-    parser.add_argument(
-        "--chat_formatting_function", 
-        type=str, 
-        default="eval.templates.create_prompt_with_tulu_chat_format", 
-        help="The function to use to create the chat format. This function will be dynamically imported. Please see examples in `eval/templates.py`."
+        "--chat_formatting_function",
+        type=str,
+        default="eval.templates.create_prompt_with_tulu_chat_format",
+        help="The function to use to create the chat format. This function will be dynamically imported. Please see examples in `eval/templates.py`.",
     )
     args = parser.parse_args()
 
     # model_name_or_path and openai_engine cannot be both None or both not None.
-    assert (args.model_name_or_path is None) != (args.openai_engine is None), "Either model_name_or_path or openai_engine should be specified."
+    assert (args.model_name_or_path is None) != (
+        args.openai_engine is None
+    ), "Either model_name_or_path or openai_engine should be specified."
     main(args)

@@ -38,10 +38,7 @@ else:
     task_list = [line.strip() for line in open(args.task_list, "r")]
 
 eval_task_list = set(
-    [
-        line.strip().replace("_score_eval", "")
-        for line in open("data/eval_tasks.txt", "r").readlines()
-    ]
+    [line.strip().replace("_score_eval", "") for line in open("data/eval_tasks.txt", "r").readlines()]
 )
 
 task_list = sorted(task_list)

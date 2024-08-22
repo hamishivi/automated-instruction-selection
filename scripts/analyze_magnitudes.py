@@ -41,9 +41,7 @@ parser.add_argument(
 )
 parser.add_argument("--run_pca", action="store_true")
 parser.add_argument("--num_pca_components", type=int, default=100)
-parser.add_argument(
-    "--computed_distances", type=str, help="Pickle file to store computed pairwise distances"
-)
+parser.add_argument("--computed_distances", type=str, help="Pickle file to store computed pairwise distances")
 parser.add_argument("--mag_output", type=str, help="Pickle file to store computed norms")
 args = parser.parse_args()
 
@@ -91,20 +89,13 @@ if args.computed_distances is None or not os.path.exists(args.computed_distances
         for prompt_name in tqdm(TASK_TO_PROMPTS[task]):
             instances = text_data[prompt_name]
             for instance in tqdm(instances):
-                inputs = tokenizer.encode(
-                    instance["input"], return_tensors="pt", truncation=True
-                ).cuda()
+                inputs = tokenizer.encode(instance["input"], return_tensors="pt", truncation=True).cuda()
                 targets = tokenizer.encode(instance["target"], return_tensors="pt").cuda()
                 model_outputs = model(input_ids=inputs, labels=targets, return_dict=True)
                 loss = model_outputs["loss"]
                 loss.backward(inputs=[p for n, p in parameters_of_interest])
 
-                gradients = (
-                    torch.cat([p.grad.flatten() for _, p in parameters_of_interest])
-                    .detach()
-                    .cpu()
-                    .numpy()
-                )
+                gradients = torch.cat([p.grad.flatten() for _, p in parameters_of_interest]).detach().cpu().numpy()
                 all_prompt_gradients.append(gradients)
                 # if all_task_gradients[dataset_prefix] is None:
                 #     all_task_gradients[dataset_prefix] = gradients

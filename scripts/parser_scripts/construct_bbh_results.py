@@ -11,9 +11,7 @@ args = parser.parse_args()
 samples = []
 for file in os.listdir(args.input_folder):
     if file.endswith(".jsonl"):
-        prompt = (
-            open(f'data/direct_bbh_prompts/{file.replace(".jsonl", "")}.txt').read().split("-----")[1]
-        )
+        prompt = open(f'data/direct_bbh_prompts/{file.replace(".jsonl", "")}.txt').read().split("-----")[1]
         with open(os.path.join(args.input_folder, file), "r") as f:
             for line in f:
                 data = json.loads(line)

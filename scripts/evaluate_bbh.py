@@ -59,12 +59,8 @@ data_subsets = [
 
 model = AutoModelForSeq2SeqLM.from_pretrained(args.model_name)
 if args.allennlp_weight is not None:
-    model.load_state_dict(
-        {k.replace("transformer.", ""): v for k, v in torch.load(args.allennlp_weight).items()}
-    )
-tokenizer = AutoTokenizer.from_pretrained(
-    args.tokenizer_name if args.tokenizer_name else args.model_name
-)
+    model.load_state_dict({k.replace("transformer.", ""): v for k, v in torch.load(args.allennlp_weight).items()})
+tokenizer = AutoTokenizer.from_pretrained(args.tokenizer_name if args.tokenizer_name else args.model_name)
 metric = evaluate.load("exact_match")
 # tokenize inputs
 
@@ -73,20 +69,14 @@ model = model.cuda()
 
 def evaluate_samples(examples, prompt):
     with torch.inference_mode():
-        dataloader = torch.utils.data.DataLoader(
-            examples, batch_size=args.batch_size, shuffle=False
-        )
+        dataloader = torch.utils.data.DataLoader(examples, batch_size=args.batch_size, shuffle=False)
         for batch in tqdm(dataloader):
             inputs = [f"\n{inp}\nAnswer: " for inp in batch["input"]]
             # dynamic adding of few-shot examples
             for i, inp in enumerate(inputs):
                 few_shot_idx = 1
                 while (
-                    len(
-                        tokenizer(prompt[0] + inp)["input_ids"]
-                        + tokenizer(prompt[few_shot_idx])["input_ids"]
-                    )
-                    < 2048
+                    len(tokenizer(prompt[0] + inp)["input_ids"] + tokenizer(prompt[few_shot_idx])["input_ids"]) < 2048
                 ):
                     inp = f"\n{prompt[few_shot_idx]}" + inp
                     few_shot_idx += 1
@@ -109,9 +99,7 @@ def evaluate_samples(examples, prompt):
             )
             batch["pred"] = tokenizer.batch_decode(outputs, skip_special_tokens=True)
             # print(batch["pred"])
-            batch["pred"] = [
-                pred.strip()[: len(batch["target"][i])] for i, pred in enumerate(batch["pred"])
-            ]
+            batch["pred"] = [pred.strip()[: len(batch["target"][i])] for i, pred in enumerate(batch["pred"])]
 
             metric.add_batch(predictions=batch["pred"], references=batch["target"])
     return metric.compute()

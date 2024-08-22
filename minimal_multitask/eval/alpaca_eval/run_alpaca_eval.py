@@ -1,6 +1,6 @@
-'''
+"""
 Stripped-down version of the open-instruct evaluation script.
-'''
+"""
 import os
 import json
 import argparse
@@ -14,7 +14,6 @@ import vllm
 from alpaca_eval.main import evaluate as alpaca_farm_evaluate
 from transformers import AutoTokenizer, AutoModelForCausalLM
 
-import torch.distributed._shard.checkpoint as dist_cp
 from torch.utils.data import DataLoader
 
 
@@ -29,10 +28,11 @@ def create_prompt_with_tulu_chat_format(messages, tokenizer, add_bos=False):
             formatted_text += "<|assistant|>\n" + message["content"].strip() + tokenizer.eos_token + "\n"
         else:
             raise ValueError(
-                "Tulu chat template only supports 'system', 'user' and 'assistant' roles. Invalid role: {}.".format(message["role"])
+                "Tulu chat template only supports 'system', 'user' and 'assistant' roles. Invalid role: {}.".format(
+                    message["role"]
                 )
+            )
     formatted_text += "<|assistant|>\n"
-    formatted_text = bos + formatted_text if add_bos else formatted_text
     return formatted_text
 
 
@@ -42,6 +42,11 @@ def main(args):
 
     logging.info("loading data and model...")
     alpaca_eval_data = load_dataset("tatsu-lab/alpaca_eval", "alpaca_eval")["eval"]
+    # alpaca_eval_data = load_dataset(
+    #     "json",
+    #     data_files="/net/nfs.cirrascale/allennlp/hamishi/minimal-multitask-tuning/data/eval/alpacaeval/alpaca_eval_dev.json",
+    # )["train"]
+
     prompts = []
     chat_formatting_function = create_prompt_with_tulu_chat_format
     tokenizer = AutoTokenizer.from_pretrained("huggyllama/llama-7b")
@@ -53,26 +58,22 @@ def main(args):
         prompts.append(prompt)
     print("Length of the datasets: ", len(prompts))
 
-    model_name = os.path.basename(os.path.normpath(args.model_name_or_path)) if args.model_name_or_path is not None else args.openai_engine
+    model_name = (
+        os.path.basename(os.path.normpath(args.model_name_or_path))
+        if args.model_name_or_path is not None
+        else args.openai_engine
+    )
     model_results = []
     result_file = os.path.join(args.save_dir, f"{model_name}-greedy-long-output.jsonl")
     if args.results_file is not None:
         result_file = args.results_file
     if not os.path.exists(result_file):
         if args.use_vllm:
-            # state_dict = {
-            #     "model": model.state_dict()
-            # }
-            # dist_cp.load_state_dict(
-            #                 state_dict=state_dict,
-            #                 storage_reader= dist_cp.FileSystemReader(args.model_name_or_path),
-            #                 no_dist=True,
-            #             )
-            # model.load_state_dict(state_dict["model"])
-            # model.cuda()
             model = vllm.LLM(
                 model=args.model_name_or_path,
-                tokenizer=args.tokenizer_name_or_path if args.tokenizer_name_or_path is not None else args.model_name_or_path,
+                tokenizer=args.tokenizer_name_or_path
+                if args.tokenizer_name_or_path is not None
+                else args.model_name_or_path,
                 # tokenizer_mode="slow",
                 tensor_parallel_size=torch.cuda.device_count(),
             )
@@ -83,24 +84,27 @@ def main(args):
             outputs = model.generate(prompts, sampling_params)
             generations = [it.outputs[0].text for it in outputs]
         else:
-            model = AutoModelForCausalLM.from_pretrained(args.model_name_or_path, torch_dtype=torch.bfloat16, device_map="auto")
-            tokenizer.padding_side = 'left'
+            model = AutoModelForCausalLM.from_pretrained(
+                args.model_name_or_path, torch_dtype=torch.bfloat16, device_map="auto"
+            )
+            tokenizer.padding_side = "left"
             tokenizer.pad_token = tokenizer.unk_token
-            prompts = tokenizer(prompts, return_tensors='pt', padding=True)
+            prompts = tokenizer(prompts, return_tensors="pt", padding=True)
             ds = Dataset.from_dict(prompts)
-            ds.set_format(type='torch', columns=['input_ids', 'attention_mask'])
+            ds.set_format(type="torch", columns=["input_ids", "attention_mask"])
             ds_loader = DataLoader(ds, batch_size=args.batch_size)
 
             model.generation_config.max_length = 2000
-            model.generation_config.eos_token_id = [2, 21106, 829] # Temporariy fix to stop when generating ".</", although it's weird that the model generate this instead of eos token
+            # Temporariy fix to stop when generating ".</", although it's weird that the model generate this instead of eos token
+            model.generation_config.eos_token_id = [2, 21106, 829]
             if args.decoding_algo == "greedy":
-                model.generation_config.temperature=0.0
+                model.generation_config.temperature = 0.0
             elif args.decoding_algo == "sampling":
-                model.generation_config.temperature=args.temperature
+                model.generation_config.temperature = args.temperature
             outputs = []
             for batch in tqdm.tqdm(ds_loader):
-                output = model.generate(batch['input_ids'].cuda(), attention_mask=batch['attention_mask'].cuda())
-                generation = output[:, batch['input_ids'].shape[1]:]
+                output = model.generate(batch["input_ids"].cuda(), attention_mask=batch["attention_mask"].cuda())
+                generation = output[:, batch["input_ids"].shape[1]:]
                 outputs.extend(generation)
             generations = tokenizer.batch_decode(outputs, skip_special_tokens=True)
         os.makedirs(os.path.dirname(result_file), exist_ok=True)
@@ -108,7 +112,7 @@ def main(args):
             for example, output in zip(alpaca_eval_data, generations):
                 if output.endswith("</"):
                     output = (output.strip())[:-2]
-                example["output"] = (output.strip()) # get the rid of the </ at the end
+                example["output"] = output.strip()  # get the rid of the </ at the end
                 example["generator"] = f"{model_name}-greedy-long"
                 fout.write(json.dumps(example) + "\n")
                 model_results.append(example)
@@ -123,22 +127,19 @@ def main(args):
         annotators_config="alpaca_eval_gpt4",
         output_path=args.save_dir,
         is_return_instead_of_print=True,
-        is_overwrite_leaderboard=True
+        is_overwrite_leaderboard=True,
     )
 
     print(df_leaderboard.to_string(float_format="%.2f"))
 
     # save to json
-    with open(os.path.join(args.save_dir, f"metrics.json"), "w") as fout:
+    with open(os.path.join(args.save_dir, "metrics.json"), "w") as fout:
         json.dump(df_leaderboard.to_dict(), fout)
-        
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--save_dir",
-        type=str, 
-        default="results/alpaca_farm")
+    parser.add_argument("--save_dir", type=str, default="results/alpaca_farm")
     parser.add_argument(
         "--model_name_or_path",
         type=str,
@@ -156,7 +157,7 @@ if __name__ == "__main__":
         type=int,
         default=1,
     )
-    parser.add_argument("--use_vllm", action='store_true')
+    parser.add_argument("--use_vllm", action="store_true")
     parser.add_argument("--results_file", type=str)
     parser.add_argument("--decoding_algo", type=str, default="greedy", choices=["greedy", "sampling"])
     parser.add_argument("--temperature", type=float, default=0.0)

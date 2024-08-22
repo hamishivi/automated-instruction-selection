@@ -6,6 +6,7 @@ from datasets import load_dataset
 
 from evaluation import compute_code_eval
 
+
 class Task(ABC):
     """A task represents an entire benchmark including its dataset, problems,
     answers, generation settings and evaluation methods.
@@ -41,7 +42,6 @@ class Task(ABC):
 
     def fewshot_examples(self):
         """Loads and returns the few-shot examples for the task if they exist."""
-        pass
 
     @abstractmethod
     def get_prompt(self, doc):
@@ -49,7 +49,6 @@ class Task(ABC):
         :param doc: dict[str: str]
             sample from the test dataset
         """
-        pass
 
     @abstractmethod
     def get_reference(self, doc):
@@ -57,7 +56,6 @@ class Task(ABC):
         :param doc: dict[str: str]
             sample from the test dataset
         """
-        pass
 
     @abstractmethod
     def postprocess_generation(self, generation, idx):
@@ -67,7 +65,6 @@ class Task(ABC):
         :param idx: int
             index of doc in the dataset to which the generation belongs
         """
-        pass
 
     @abstractmethod
     def process_results(self, generations, references):
@@ -79,7 +76,6 @@ class Task(ABC):
             list of str containing refrences
         :return: dict[str: float]
         """
-        pass
 
     @staticmethod
     def _stop_at_stop_token(decoded_string, stop_tokens):
@@ -133,7 +129,6 @@ class MBPP(Task):
         """Builds the reference solution for the doc (sample from the test dataset)."""
         return "\n".join(doc["test_list"])
 
-
     def postprocess_generation(self, generation, idx):
         """Defines the postprocessing for a LM generation.
         :param generation: str
@@ -142,7 +137,7 @@ class MBPP(Task):
             index of doc in the dataset to which the generation belongs
         """
         prompt = self.get_prompt(self.dataset["test"][idx])
-        generation = generation[len(prompt) :]
+        generation = generation[len(prompt):]
         return prompt + self._stop_at_stop_token(generation, self.stop_words)
 
     def process_results(self, generations, references):
@@ -190,9 +185,7 @@ class MBPPPlus(MBPP):
     def get_dataset(self):
         """Returns dataset for the task or an iterable of any object, that get_prompt can handle"""
         dataset = self.dataset["test"]
-        assert (
-            len(dataset) == 399
-        ), "MBPP+ only has 399 problems. Please retry by deleting its old cache"
+        assert len(dataset) == 399, "MBPP+ only has 399 problems. Please retry by deleting its old cache"
         return dataset
 
     def process_results(self, generations, references):

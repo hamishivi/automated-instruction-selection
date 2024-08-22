@@ -1,6 +1,6 @@
 from collections import defaultdict, Counter
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import List, Union, Iterable, Dict
+from typing import List, Union
 import itertools
 
 import numpy as np
@@ -11,9 +11,7 @@ from minimal_multitask.eval.codex_humaneval.execution import check_correctness
 
 
 def estimate_pass_at_k(
-    num_samples: Union[int, List[int], np.ndarray],
-    num_correct: Union[List[int], np.ndarray],
-    k: int
+    num_samples: Union[int, List[int], np.ndarray], num_correct: Union[List[int], np.ndarray], k: int
 ) -> np.ndarray:
     """
     Estimates pass@k of each problem and returns them in an array.
@@ -41,7 +39,7 @@ def evaluate_functional_correctness(
     k: List[int] = [1, 10, 100],
     n_workers: int = 4,
     timeout: float = 3.0,
-    problems = None,
+    problems=None,
     problem_file: str = HUMAN_EVAL,
 ):
     """
@@ -54,7 +52,6 @@ def evaluate_functional_correctness(
 
     # Check the generated samples against test suites.
     with ThreadPoolExecutor(max_workers=n_workers) as executor:
-
         futures = []
         completion_id = Counter()
         n_samples = 0
@@ -88,8 +85,7 @@ def evaluate_functional_correctness(
     correct = np.array(correct)
 
     ks = k
-    pass_at_k = {f"pass@{k}": estimate_pass_at_k(total, correct, k).mean()
-                 for k in ks if (total >= k).all()}
+    pass_at_k = {f"pass@{k}": estimate_pass_at_k(total, correct, k).mean() for k in ks if (total >= k).all()}
 
     # Finally, save the results in one file:
     def combine_results():

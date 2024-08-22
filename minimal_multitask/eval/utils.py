@@ -6,7 +6,10 @@ import asyncio
 import os
 from importlib import import_module
 from transformers import StoppingCriteria
-from minimal_multitask.eval.dispatch_openai_requests import dispatch_openai_chat_requesets, dispatch_openai_prompt_requesets
+from minimal_multitask.eval.dispatch_openai_requests import (
+    dispatch_openai_chat_requesets,
+    dispatch_openai_prompt_requesets,
+)
 
 
 class KeyWordsCriteria(StoppingCriteria):
@@ -24,18 +27,29 @@ class KeyWordsCriteria(StoppingCriteria):
                     break
             sequences_should_be_stopped.append(sequence_should_be_stopped)
         return all(sequences_should_be_stopped)
-    
-    
+
+
 @torch.no_grad()
-def generate_completions(model, tokenizer, prompts, batch_size=1, stop_id_sequences=None, add_special_tokens=True, disable_tqdm=False, **generation_kwargs):
+def generate_completions(
+    model,
+    tokenizer,
+    prompts,
+    batch_size=1,
+    stop_id_sequences=None,
+    add_special_tokens=True,
+    disable_tqdm=False,
+    **generation_kwargs,
+):
     generations = []
     if not disable_tqdm:
         progress = tqdm.tqdm(total=len(prompts), desc="Generating Completions")
 
     num_return_sequences = generation_kwargs.get("num_return_sequences", 1)
     for i in range(0, len(prompts), batch_size):
-        batch_prompts = prompts[i:i+batch_size]
-        tokenized_prompts = tokenizer(batch_prompts, padding="longest", return_tensors="pt", add_special_tokens=add_special_tokens)
+        batch_prompts = prompts[i: i + batch_size]
+        tokenized_prompts = tokenizer(
+            batch_prompts, padding="longest", return_tensors="pt", add_special_tokens=add_special_tokens
+        )
         batch_input_ids = tokenized_prompts.input_ids
         attention_mask = tokenized_prompts.attention_mask
 
@@ -49,15 +63,19 @@ def generate_completions(model, tokenizer, prompts, batch_size=1, stop_id_sequen
                 attention_mask=attention_mask,
                 eos_token_id=tokenizer.eos_token_id,
                 stopping_criteria=[KeyWordsCriteria(stop_id_sequences)] if stop_id_sequences else None,
-                **generation_kwargs
+                **generation_kwargs,
             )
-        
+
             # the stopping criteria is applied at batch level, so if other examples are not stopped, the entire batch will continue to generate.
             # so some outputs still have the stop sequence, which we need to remove.
             if stop_id_sequences:
                 for output_idx in range(batch_outputs.shape[0]):
                     for token_idx in range(batch_input_ids.shape[1], batch_outputs.shape[1]):
-                        if any(batch_outputs[output_idx, token_idx: token_idx+len(stop_sequence)].tolist() == stop_sequence for stop_sequence in stop_id_sequences):
+                        if any(
+                            batch_outputs[output_idx, token_idx: token_idx + len(stop_sequence)].tolist()
+                            == stop_sequence
+                            for stop_sequence in stop_id_sequences
+                        ):
                             batch_outputs[output_idx, token_idx:] = tokenizer.pad_token_id
                             break
 
@@ -69,9 +87,7 @@ def generate_completions(model, tokenizer, prompts, batch_size=1, stop_id_sequen
             batch_prompts = tokenizer.batch_decode(batch_input_ids, skip_special_tokens=True)
             # duplicate the prompts to match the number of return sequences
             batch_prompts = [prompt for prompt in batch_prompts for _ in range(num_return_sequences)]
-            batch_generations = [
-                output[len(prompt):] for prompt, output in zip(batch_prompts, batch_outputs)
-            ]
+            batch_generations = [output[len(prompt):] for prompt, output in zip(batch_prompts, batch_outputs)]
         except Exception as e:
             print("Error when generating completions for batch:")
             print(batch_prompts)
@@ -89,21 +105,34 @@ def generate_completions(model, tokenizer, prompts, batch_size=1, stop_id_sequen
         #     print(generation)
 
         if not disable_tqdm:
-            progress.update(len(batch_prompts)//num_return_sequences)
+            progress.update(len(batch_prompts) // num_return_sequences)
 
-    assert len(generations) == len(prompts) * num_return_sequences, "number of generations should be equal to number of prompts * num_return_sequences"
+    assert (
+        len(generations) == len(prompts) * num_return_sequences
+    ), "number of generations should be equal to number of prompts * num_return_sequences"
     return generations
 
 
 @torch.no_grad()
-def get_next_word_predictions(model, tokenizer, prompts, candidate_token_ids=None, batch_size=1, return_token_predictions=False, add_special_tokens=True, disable_tqdm=False):
+def get_next_word_predictions(
+    model,
+    tokenizer,
+    prompts,
+    candidate_token_ids=None,
+    batch_size=1,
+    return_token_predictions=False,
+    add_special_tokens=True,
+    disable_tqdm=False,
+):
     predictions, probs = [], []
     if not disable_tqdm:
         progress = tqdm.tqdm(total=len(prompts), desc="Getting Predictions")
 
     for i in range(0, len(prompts), batch_size):
-        batch_prompts = prompts[i: i+batch_size]
-        tokenized_prompts = tokenizer(batch_prompts, padding="longest", return_tensors="pt", add_special_tokens=add_special_tokens)
+        batch_prompts = prompts[i: i + batch_size]
+        tokenized_prompts = tokenizer(
+            batch_prompts, padding="longest", return_tensors="pt", add_special_tokens=add_special_tokens
+        )
         batch_input_ids = tokenized_prompts.input_ids
         attention_mask = tokenized_prompts.attention_mask
 
@@ -136,37 +165,33 @@ def get_next_word_predictions(model, tokenizer, prompts, candidate_token_ids=Non
 
 @torch.no_grad()
 def score_completions(model, tokenizer, scoring_examples, batch_size=1, aggregation="sum", disable_tqdm=False):
-    '''
+    """
     Each scoring example is a dict, which contains the following keys:
     - prompt: the prompt to score
     - completions: a list of completions to score
-    '''
-    
+    """
+
     # unroll the scoring examples
     unrolled_examples = []
     for scoring_example in scoring_examples:
         prompt = scoring_example["prompt"]
         for completion in scoring_example["completions"]:
-            unrolled_examples.append({
-                "prompt": prompt,
-                "completion": completion
-            })
-    
+            unrolled_examples.append({"prompt": prompt, "completion": completion})
+
     if not disable_tqdm:
         progress = tqdm.tqdm(total=len(unrolled_examples), desc="Scoring Completions")
 
     scores = []
     for i in range(0, len(unrolled_examples), batch_size):
-        batch_prompts = [example["prompt"] for example in unrolled_examples[i:i+batch_size]]
+        batch_prompts = [example["prompt"] for example in unrolled_examples[i: i + batch_size]]
         batch_examples = [
             (example["prompt"] if example["prompt"][-1] in ["\n", " "] else example["prompt"] + " ")
-            + example["completion"] for example in unrolled_examples[i:i+batch_size]
+            + example["completion"]
+            for example in unrolled_examples[i: i + batch_size]
         ]
         tokenized_batch = tokenizer(batch_examples, padding="longest", return_tensors="pt")
         if model.device.type == "cuda":
-            tokenized_batch = {
-                key: value.cuda() for key, value in tokenized_batch.items()
-            }
+            tokenized_batch = {key: value.cuda() for key, value in tokenized_batch.items()}
         tokenized_batch.pop("token_type_ids", None)
         outputs = model(**tokenized_batch)
 
@@ -174,16 +199,18 @@ def score_completions(model, tokenizer, scoring_examples, batch_size=1, aggregat
             tokenized_prompt = tokenizer(prompt, padding=False, return_tensors="pt").input_ids.squeeze(0)
             tokenized_example = tokenizer(example, padding=False, return_tensors="pt").input_ids.squeeze(0)
             completion_ids = tokenized_example[len(tokenized_prompt):]
-            
+
             # get the logits for the entire example, removing the padding logits
             if tokenizer.padding_side == "right":
-                example_logits = outputs.logits[example_idx, :len(tokenized_example), :]
-            else:            
+                example_logits = outputs.logits[example_idx, : len(tokenized_example), :]
+            else:
                 example_logits = outputs.logits[example_idx, -len(tokenized_example):, :]
 
             # get the logits for the completion portion - note we need to shift the index left by 1 because logits are computed for the next token
-            completion_logits = example_logits[len(tokenized_prompt)-1:len(tokenized_example)-1, :]
-            completion_log_probs = torch.log_softmax(completion_logits, dim=-1)[range(len(completion_ids)), completion_ids]
+            completion_logits = example_logits[len(tokenized_prompt) - 1: len(tokenized_example) - 1, :]
+            completion_log_probs = torch.log_softmax(completion_logits, dim=-1)[
+                range(len(completion_ids)), completion_ids
+            ]
 
             if aggregation == "sum":
                 score = completion_log_probs.sum().item()
@@ -210,17 +237,15 @@ def score_completions(model, tokenizer, scoring_examples, batch_size=1, aggregat
     return rolled_up_scores
 
 
-
 def load_hf_lm(
-        model_name_or_path, 
-        device_map="auto", 
-        torch_dtype="auto",
-        load_in_8bit=False, 
-        convert_to_half=False,
-        gptq_model=False,
-        token=os.getenv("HF_TOKEN", None),
-    ):
-
+    model_name_or_path,
+    device_map="auto",
+    torch_dtype="auto",
+    load_in_8bit=False,
+    convert_to_half=False,
+    gptq_model=False,
+    token=os.getenv("HF_TOKEN", None),
+):
     # Loading OLMo models from HF requires `trust_remote_code=True`.
     # TODO: Implement this via command-line flag rather than hardcoded list.
     trusted_models = ["allenai/OLMo-7B", "allenai/OLMo-7B-Twin-2T", "allenai/OLMo-1B"]
@@ -229,20 +254,22 @@ def load_hf_lm(
     else:
         trust_remote_code = False
 
-    from transformers import AutoModelForCausalLM, AutoTokenizer, OPTForCausalLM, GPTNeoXForCausalLM
+    from transformers import AutoModelForCausalLM
+
     if gptq_model:
         from auto_gptq import AutoGPTQForCausalLM
+
         model_wrapper = AutoGPTQForCausalLM.from_quantized(
             model_name_or_path, device="cuda:0", use_triton=True, trust_remote_code=trust_remote_code
         )
-        model = model_wrapper.model  
+        model = model_wrapper.model
     elif load_in_8bit:
         model = AutoModelForCausalLM.from_pretrained(
-            model_name_or_path, 
-            device_map=device_map, 
+            model_name_or_path,
+            device_map=device_map,
             load_in_8bit=True,
             token=token,
-            trust_remote_code=trust_remote_code
+            trust_remote_code=trust_remote_code,
         )
     else:
         if device_map:
@@ -267,69 +294,79 @@ def load_hf_lm(
     model.eval()
     return model
 
+
 def load_hf_tokenizer(
-        model_name_or_path, 
-        tokenizer_name_or_path=None, 
-        use_fast_tokenizer=True,
-        padding_side="left",
-        token=os.getenv("HF_TOKEN", None),
-    ):
-        from transformers import AutoTokenizer
-        if not tokenizer_name_or_path:
-            tokenizer_name_or_path = model_name_or_path
-        try:
-            tokenizer = AutoTokenizer.from_pretrained(tokenizer_name_or_path, use_fast=use_fast_tokenizer, token=token)
-        except:
-            # some tokenizers (e.g., GPTNeoXTokenizer) don't have the slow or fast version, so we just roll back to the default one
-            tokenizer = AutoTokenizer.from_pretrained(tokenizer_name_or_path, token=token)
-        # set padding side to left for batch generation
-        tokenizer.padding_side = padding_side
-        # set pad token to eos token if pad token is not set (as is the case for llama models)
-        if tokenizer.pad_token is None:
-            tokenizer.pad_token = tokenizer.eos_token
-            tokenizer.pad_token_id = tokenizer.eos_token_id
-        return tokenizer
+    model_name_or_path,
+    tokenizer_name_or_path=None,
+    use_fast_tokenizer=True,
+    padding_side="left",
+    token=os.getenv("HF_TOKEN", None),
+):
+    from transformers import AutoTokenizer
+
+    if not tokenizer_name_or_path:
+        tokenizer_name_or_path = model_name_or_path
+    try:
+        tokenizer = AutoTokenizer.from_pretrained(tokenizer_name_or_path, use_fast=use_fast_tokenizer, token=token)
+    except:  # noqa: E722
+        # some tokenizers (e.g., GPTNeoXTokenizer) don't have the slow or fast version, so we just roll back to the default one
+        tokenizer = AutoTokenizer.from_pretrained(tokenizer_name_or_path, token=token)
+    # set padding side to left for batch generation
+    tokenizer.padding_side = padding_side
+    # set pad token to eos token if pad token is not set (as is the case for llama models)
+    if tokenizer.pad_token is None:
+        tokenizer.pad_token = tokenizer.eos_token
+        tokenizer.pad_token_id = tokenizer.eos_token_id
+    return tokenizer
+
 
 def load_hf_lm_and_tokenizer(
-        model_name_or_path, 
-        tokenizer_name_or_path=None,
-        device_map="auto", 
-        torch_dtype="auto",
-        load_in_8bit=False, 
-        convert_to_half=False,
-        gptq_model=False,
-        padding_side="left",
-        use_fast_tokenizer=True,
-        token=os.getenv("HF_TOKEN", None),
-    ):
-        tokenizer = load_hf_tokenizer(
-            model_name_or_path=model_name_or_path,
-            tokenizer_name_or_path=tokenizer_name_or_path,
-            use_fast_tokenizer=use_fast_tokenizer,
-            padding_side=padding_side,
-            token=token,
+    model_name_or_path,
+    tokenizer_name_or_path=None,
+    device_map="auto",
+    torch_dtype="auto",
+    load_in_8bit=False,
+    convert_to_half=False,
+    gptq_model=False,
+    padding_side="left",
+    use_fast_tokenizer=True,
+    token=os.getenv("HF_TOKEN", None),
+):
+    tokenizer = load_hf_tokenizer(
+        model_name_or_path=model_name_or_path,
+        tokenizer_name_or_path=tokenizer_name_or_path,
+        use_fast_tokenizer=use_fast_tokenizer,
+        padding_side=padding_side,
+        token=token,
+    )
+    model = load_hf_lm(
+        model_name_or_path=model_name_or_path,
+        device_map=device_map,
+        torch_dtype=torch_dtype,
+        load_in_8bit=load_in_8bit,
+        convert_to_half=convert_to_half,
+        gptq_model=gptq_model,
+        token=token,
+    )
+    from transformers import GPTNeoXForCausalLM, OPTForCausalLM
+
+    if isinstance(model, GPTNeoXForCausalLM) or isinstance(model, OPTForCausalLM):
+        tokenizer.model_max_length = model.config.max_position_embeddings
+        print(
+            "Set tokenizer.model_max_length to model.config.max_position_embeddings: {}".format(
+                model.config.max_position_embeddings
+            )
         )
-        model = load_hf_lm(
-            model_name_or_path=model_name_or_path,
-            device_map=device_map,
-            torch_dtype=torch_dtype,
-            load_in_8bit=load_in_8bit,
-            convert_to_half=convert_to_half,
-            gptq_model=gptq_model,
-            token=token,
-        )
-        from transformers import GPTNeoXForCausalLM, OPTForCausalLM
-        if isinstance(model, GPTNeoXForCausalLM) or isinstance(model, OPTForCausalLM):
-            tokenizer.model_max_length = model.config.max_position_embeddings
-            print("Set tokenizer.model_max_length to model.config.max_position_embeddings: {}".format(model.config.max_position_embeddings))
-        return model, tokenizer
+    return model, tokenizer
 
 
-def query_openai_chat_model(engine, instances, output_path=None, batch_size=10, retry_limit=5, reuse_existing_outputs=True, **completion_kwargs):
-    '''
+def query_openai_chat_model(
+    engine, instances, output_path=None, batch_size=10, retry_limit=5, reuse_existing_outputs=True, **completion_kwargs
+):
+    """
     Query OpenAI chat model and save the results to output_path.
     `instances` is a list of dictionaries, each dictionary contains a key "prompt" and a key "id".
-    '''
+    """
     existing_data = {}
     if reuse_existing_outputs and output_path is not None and os.path.exists(output_path):
         with open(output_path, "r") as f:
@@ -348,7 +385,7 @@ def query_openai_chat_model(engine, instances, output_path=None, batch_size=10, 
     retry_count = 0
     progress_bar = tqdm.tqdm(total=len(instances))
     for i in range(0, len(instances), batch_size):
-        batch = instances[i:i+batch_size]
+        batch = instances[i: i + batch_size]
         if all([x["id"] in existing_data for x in batch]):
             results.extend([existing_data[x["id"]] for x in batch])
             if output_path is not None:
@@ -365,24 +402,25 @@ def query_openai_chat_model(engine, instances, output_path=None, batch_size=10, 
             try:
                 outputs = asyncio.run(
                     dispatch_openai_chat_requesets(
-                    messages_list=messages_list,
-                    model=engine,
-                    **completion_kwargs,
-                ))
+                        messages_list=messages_list,
+                        model=engine,
+                        **completion_kwargs,
+                    )
+                )
                 retry_count = 0
                 break
             except Exception as e:
                 retry_count += 1
-                print(f"Error while requesting OpenAI API.")
+                print("Error while requesting OpenAI API.")
                 print(e)
                 print(f"Sleep for {30*retry_count} seconds.")
-                time.sleep(30*retry_count)
+                time.sleep(30 * retry_count)
                 print(f"Retry for the {retry_count} time.")
         if retry_count == retry_limit:
             raise RuntimeError(f"Failed to get response from OpenAI API after {retry_limit} retries.")
         assert len(outputs) == len(batch)
         for instance, output in zip(batch, outputs):
-            instance[f"output"] = output["choices"][0]["message"]["content"]
+            instance["output"] = output["choices"][0]["message"]["content"]
             instance["response_metadata"] = output
             results.append(instance)
             if output_path is not None:
@@ -390,13 +428,15 @@ def query_openai_chat_model(engine, instances, output_path=None, batch_size=10, 
                 fout.flush()
         progress_bar.update(batch_size)
     return results
- 
 
-def query_openai_model(engine, instances, output_path=None, batch_size=10, retry_limit=5, reuse_existing_outputs=True, **completion_kwargs):
-    '''
+
+def query_openai_model(
+    engine, instances, output_path=None, batch_size=10, retry_limit=5, reuse_existing_outputs=True, **completion_kwargs
+):
+    """
     Query OpenAI chat model and save the results to output_path.
     `instances` is a list of dictionaries, each dictionary contains a key "prompt" and a key "id".
-    '''
+    """
     existing_data = {}
     if reuse_existing_outputs and output_path is not None and os.path.exists(output_path):
         with open(output_path, "r") as f:
@@ -415,7 +455,7 @@ def query_openai_model(engine, instances, output_path=None, batch_size=10, retry
     retry_count = 0
     progress_bar = tqdm.tqdm(total=len(instances))
     for i in range(0, len(instances), batch_size):
-        batch = instances[i:i+batch_size]
+        batch = instances[i: i + batch_size]
         if all([x["id"] in existing_data for x in batch]):
             results.extend([existing_data[x["id"]] for x in batch])
             if output_path is not None:
@@ -432,24 +472,25 @@ def query_openai_model(engine, instances, output_path=None, batch_size=10, retry
             try:
                 outputs = asyncio.run(
                     dispatch_openai_prompt_requesets(
-                    prompt_list=messages_list,
-                    model=engine,
-                    **completion_kwargs,
-                ))
+                        prompt_list=messages_list,
+                        model=engine,
+                        **completion_kwargs,
+                    )
+                )
                 retry_count = 0
                 break
             except Exception as e:
                 retry_count += 1
-                print(f"Error while requesting OpenAI API.")
+                print("Error while requesting OpenAI API.")
                 print(e)
                 print(f"Sleep for {30*retry_count} seconds.")
-                time.sleep(30*retry_count)
+                time.sleep(30 * retry_count)
                 print(f"Retry for the {retry_count} time.")
         if retry_count == retry_limit:
             raise RuntimeError(f"Failed to get response from OpenAI API after {retry_limit} retries.")
         assert len(outputs) == len(batch)
         for instance, output in zip(batch, outputs):
-            instance[f"output"] = output["choices"][0]["text"]
+            instance["output"] = output["choices"][0]["text"]
             instance["response_metadata"] = output
             results.append(instance)
             if output_path is not None:
@@ -460,11 +501,10 @@ def query_openai_model(engine, instances, output_path=None, batch_size=10, retry
 
 
 def dynamic_import_function(function_path):
-    '''
+    """
     Dynamically import a function from a path string (e.g., "module.submodule.my_function")
-    '''
+    """
     module_path, function_name = function_path.rsplit(".", 1)
     module = import_module(module_path)
     function = getattr(module, function_name)
     return function
- 

@@ -68,12 +68,8 @@ def compute_metrics(predictions, references, xlingual=False):
     em, rougeL = 0, 0
     for pred, gold in zip(predictions, references):
         assert isinstance(gold, list)
-        em += metric_max_over_ground_truths(
-            exact_match, prediction=pred, ground_truths=gold, xlingual=xlingual
-        )
-        rougeL += metric_max_over_ground_truths(
-            rouge, prediction=pred, ground_truths=gold, xlingual=xlingual
-        )
+        em += metric_max_over_ground_truths(exact_match, prediction=pred, ground_truths=gold, xlingual=xlingual)
+        rougeL += metric_max_over_ground_truths(rouge, prediction=pred, ground_truths=gold, xlingual=xlingual)
     em = 100.0 * em / len(references)
     rougeL = 100.0 * rougeL / len(references)
     metrics = {"exact_match": em, "rougeL": rougeL}
@@ -152,9 +148,7 @@ def compute_all_metrics(all_predictions, eval_instances, output_file=None, loss_
                 missing_predictions.append(id)
                 predictions.append("")
         if missing_predictions:
-            print(
-                f"No prediction for {len(missing_predictions)} instances. Use empty string as prediction."
-            )
+            print(f"No prediction for {len(missing_predictions)} instances. Use empty string as prediction.")
 
         results = compute_metrics(predictions, references, xlingual=(track == "xlingual"))
         print("======== Overall Metrics ========")
@@ -165,9 +159,7 @@ def compute_all_metrics(all_predictions, eval_instances, output_file=None, loss_
             all_results[f"loss_{track}_track"] = sum(losses) / len(losses)
 
         if "task_category" in eval_instances[instance_ids[0]]:
-            categories = [
-                "_".join(eval_instances[id]["task_category"].lower().split()) for id in instance_ids
-            ]
+            categories = ["_".join(eval_instances[id]["task_category"].lower().split()) for id in instance_ids]
             results_per_category = compute_grouped_metrics(
                 predictions, references, categories, xlingual=(track == "xlingual")
             )
@@ -182,9 +174,7 @@ def compute_all_metrics(all_predictions, eval_instances, output_file=None, loss_
 
         if "task_id" in eval_instances[instance_ids[0]]:
             tasks = [eval_instances[id]["task_id"] for id in instance_ids]
-            results_per_task = compute_grouped_metrics(
-                predictions, references, tasks, xlingual=(track == "xlingual")
-            )
+            results_per_task = compute_grouped_metrics(predictions, references, tasks, xlingual=(track == "xlingual"))
             if losses:
                 loss_per_task = compute_grouped_loss(losses, tasks)
                 for metric, value in loss_per_task.items():

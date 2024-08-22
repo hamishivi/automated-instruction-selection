@@ -38,15 +38,9 @@ column_heads = data[0].split(",")
 col_to_index = {}
 for task in task_list:
     for i, col in enumerate(column_heads):
-        if (
-            task == col.replace(".eval_loss", "").replace("metrics_", "")
-            and "eval_loss" == col.split(".")[-1]
-        ):
+        if task == col.replace(".eval_loss", "").replace("metrics_", "") and "eval_loss" == col.split(".")[-1]:
             col_to_index[f"{task}\teval_loss"] = i
-        if (
-            task == col.replace(".eval_rougeL", "").replace("metrics_", "")
-            and "eval_rougeL" == col.split(".")[-1]
-        ):
+        if task == col.replace(".eval_rougeL", "").replace("metrics_", "") and "eval_rougeL" == col.split(".")[-1]:
             col_to_index[f"{task}\trougeL"] = i
 
 task_results: Dict[Any, Any] = defaultdict(dict)
@@ -59,12 +53,7 @@ for line in data[1:]:
             for task1, task2 in itertools.product(task_list, repeat=2):
                 if task1 == task2 and "only" in experiment_name and task1 == task:
                     task_results[task1][task2] = float(data[col_i])
-                elif (
-                    task1 in experiment_name
-                    and task2 in experiment_name
-                    and task1 != task2
-                    and task2 == task
-                ):
+                elif task1 in experiment_name and task2 in experiment_name and task1 != task2 and task2 == task:
                     task_results[task1][task2] = float(data[col_i])
 
 for task1 in task_list:

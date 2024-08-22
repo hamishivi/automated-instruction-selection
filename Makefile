@@ -1,9 +1,8 @@
 .PHONY: style quality
 
 # make sure to test the local checkout in scripts and not the pre-installed one (don't use quotes!)
-export PYTHONPATH = open_instruct
 
-check_dirs := open_instruct 
+check_dirs := minimal_multitask scripts 
 
 style:
 	python -m black --line-length 119 --target-version py310 $(check_dirs)
