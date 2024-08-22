@@ -104,7 +104,7 @@ elif args.train_dataset == 'tulu2':
 else:
     if os.path.exists(args.train_dataset):
         train_dataset = load_dataset('json', data_files=args.train_dataset)['train']
-        train_dataset = train_dataset.map(lambda x: encode_with_messages_format(x, tokenizer, 1024, True, False), num_proc=16)
+        train_dataset = train_dataset.map(lambda x: encode_with_messages_format(x, tokenizer, 2048, True, False), num_proc=16)
     else:
         raise ValueError(f"Invalid train dataset: {args.train_dataset}")
 train_dataset.set_format(type='torch', columns=['input_ids', 'attention_mask', 'labels'])
@@ -219,7 +219,12 @@ accum_grads = []
 samples = []
 counter = 0
 if not os.path.exists(args.index_path):
+    influence_index = 0
+    influence_index_to_data_id = {}
     for index, train_inputs in enumerate(tqdm(instance_train_data_loader)):
+        # skip sample if no labels
+        if torch.all(train_inputs['labels'] == -100):
+            continue
         grad_z = compute_vectorised_gradients(
             n_gpu=1,
             device=torch.device("cuda:0"),
@@ -230,6 +235,10 @@ if not os.path.exists(args.index_path):
             weight_decay_ignores=weight_decay_ignores
         ).to(torch.float16)
         accum_grads.append(grad_z.flatten())
+        # store the data_id to influence index mapping
+        # this is to handle skipping.
+        influence_index_to_data_id[influence_index] = index
+        influence_index += 1
         # project down.
         if index % grad_batch == 0:
             with torch.no_grad():
@@ -269,6 +278,14 @@ if not os.path.exists(args.index_path):
 
 if os.path.exists(args.index_path):
     grad_index = faiss.read_index(args.index_path, faiss.IO_FLAG_MMAP)
+    # build up skip list again
+    influence_index_to_data_id = {}
+    influence_index = 0
+    for index, train_inputs in enumerate(tqdm(instance_train_data_loader)):
+        if torch.all(train_inputs['labels'] == -100):
+            continue
+        influence_index_to_data_id[influence_index] = index
+        influence_index += 1
 
 s_test = None
 stored_grads = None
@@ -354,6 +371,13 @@ for index, instance in tqdm(enumerate(eval_data_loader), total=len(eval_data_loa
             with open(args.instance_to_influences, "wb") as f:
                 pickle.dump(instance_to_influences, f)
             print(f"Saved to {args.instance_to_influences} at step {index}")
+
+# add in any skipped instances - we set their influence to 0
+influence_to_index = []
+for test_index in range(len(eval_data_loader)):
+    for train_index in range(len(instance_train_data_loader)):
+        if train_index not in instance_to_influences[test_index]:
+            instance_to_influences[test_index][train_index] = 0.0
 
 # final dump.
 with open(args.instance_to_influences, "wb") as f:
