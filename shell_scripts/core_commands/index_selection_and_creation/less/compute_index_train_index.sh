@@ -19,6 +19,7 @@ for file in /net/nfs.cirrascale/allennlp/hamishi/minimal-multitask-tuning/data/t
                 --index_path /results/tulu_unfiltered_tulu_unfiltered_${shard}.faiss \
                 --instance_to_influences /results/alpacafarm_tulu_unfiltered_tulu_unfiltered_${shard}.pkl \
                 --save_index \
+                --vanilla_gradients \
                 --normalise_influences \
                 --random_transform 8192 \
                 --grad_batch 12 \
@@ -26,19 +27,20 @@ for file in /net/nfs.cirrascale/allennlp/hamishi/minimal-multitask-tuning/data/t
     fi
 done
 
-export LD_LIBRARY_PATH=/net/nfs.cirrascale/allennlp/hamishi/conda-envs/mmft/lib:$LD_LIBRARY_PATH
+# export LD_LIBRARY_PATH=/net/nfs.cirrascale/allennlp/hamishi/conda-envs/mmft/lib:$LD_LIBRARY_PATH
 
-python -m minimal_multitask.compute_influence_train_index \
-    --model_name ff_random_10k_rand_lora \
-    --tokenizer ff_random_10k \
-    --top_k 326154 \
-    --seed 42 \
-    --train_dataset /net/nfs.cirrascale/allennlp/hamishi/minimal-multitask-tuning/data/tulu_splits/tulu_v2_unfiltered/tulu_v2_unfiltered_data_1k_sample.jsonl \
-    --eval_dataset alpacafarm \
-    --index_path tmp/index.faiss \
-    --instance_to_influences tmp/results.pkl \
-    --save_index \
-    --normalise_influences \
-    --random_transform 8192 \
-    --grad_batch 12 \
-    --llama_model
+# python -m minimal_multitask.compute_influence_train_index \
+#     --model_name ff_random_10k_rand_lora \
+#     --tokenizer ff_random_10k \
+#     --top_k 326154 \
+#     --seed 42 \
+#     --train_dataset /net/nfs.cirrascale/allennlp/hamishi/minimal-multitask-tuning/data/tulu_splits/tulu_v2_unfiltered/tulu_v2_unfiltered_data_1k_sample.jsonl \
+#     --eval_dataset alpacafarm \
+#     --index_path tmp/index.faiss \
+#     --instance_to_influences tmp/results.pkl \
+#     --save_index \
+#     --vanilla_gradients \
+#     --normalise_influences \
+#     --random_transform 8192 \
+#     --grad_batch 12 \
+#     --llama_model

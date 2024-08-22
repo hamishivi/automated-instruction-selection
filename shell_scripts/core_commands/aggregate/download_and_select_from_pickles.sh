@@ -1,3 +1,7 @@
+# script for downloading and selecting from pickles
+# point it to a text file with the dataset names and ids, it downloads
+# and then loads them all up.
+
 set -ex
 
 mkdir -p $1
@@ -10,9 +14,13 @@ cp ../../../$2 .
 
 train_datasets=()
 while IFS=$'\t' read -r name id; do
-  # Call the beaker command with the ID
+  # Call the beaker command with the ID, with an optional prefix
   echo "Fetching $name with ID $id"
-  beaker dataset fetch "$id"
+  if [ -z "$3" ]; then
+    beaker dataset fetch "$id"
+  else
+    beaker dataset fetch "$id" --prefix $3
+  fi
   train_datasets+=($name)
 done < $file_basename
 

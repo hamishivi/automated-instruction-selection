@@ -1,9 +1,9 @@
 # eval command for a given model
+# runs evaluation on beaker. each eval script is run in a separate job.
 set -ex
 
 MODEL_NAME=$1
 BEAKER_PATH=$2
-# SUBPATH=$3
 
 # command for gantry here
 # includes oai key and turning off alpaca eval 2 for alpaca eval stuff.
