@@ -30,18 +30,6 @@ if len(args.input_files) > 1:
     assert args.output_dataset, "Must save output dataset for multiple input files."
 assert args.output_file, "Must specify output file."
 
-# for cot data
-flan_mapping = {}
-flan_filename = "/net/nfs.cirrascale/allennlp/hamishi/minimal-multitask-tuning/flanv2-10M-v2.jsonl"
-for line in tqdm(open(flan_filename, "r")):
-    data = json.loads(line)
-    info = json.loads(data["info"])
-    prompt = data["inputs"]
-    # match formatting step we did
-    if not prompt.endswith("\n") and not prompt.rstrip().endswith(":"):
-        prompt += "\n"
-    flan_mapping[data["inputs"]] = info["_task_name"]
-
 # load instance info
 instance_to_influences_list = []
 for input_file in args.input_files:
@@ -150,8 +138,6 @@ elif "min" in args.selection_method:
                 inst_text = train_datasets[inst_0][inst_1]["messages"][0]["content"].strip()
                 if "science" in domain:
                     domain = "science"
-                elif "cot" in flan_mapping.get(inst_text, "") and domain != "open_orca":
-                    domain = "cot"
                 if domain_max_size:
                     # pop until we get a domain we can use, or we run out of data.
                     while domain_sizes[domain] >= get_domain_values(domain):
@@ -162,9 +148,7 @@ elif "min" in args.selection_method:
                         inst_1 = inst[1] if type(inst[1]) is int else inst[1].item()
                         domain = train_datasets[inst_0][inst_1]["dataset"]
                         inst_text = train_datasets[inst_0][inst_1]["messages"][0]["content"].strip()
-                        if "cot" in flan_mapping.get(inst_text, "") and domain != "open_orca":
-                            domain = "cot"
-                        elif "science" in domain:
+                        if "science" in domain:
                             domain = "science"
                     domain_sizes[domain] += 1
 
