@@ -157,10 +157,13 @@ if additional_args.random_select > 0:
     train_dataset = train_dataset.shuffle(seed=trainer_args.seed)
     if type(train_dataset) is IterableDataset:
         train_dataset = train_dataset.take(additional_args.random_select)
-        train_dataset = Dataset.from_generator(lambda: (yield from train_dataset), features=train_dataset.features)
     else:
         train_dataset = train_dataset.select(range(additional_args.random_select))
     print(f"Randomly selected {additional_args.random_select} train instances")
+
+# convert back to regular dataset, because trainer needs this.
+if type(train_dataset) is IterableDataset:
+    train_dataset = Dataset.from_generator(lambda: (yield from train_dataset), features=train_dataset.features)
 
 # train on mix of train and test data
 if additional_args.leak_test_data:
