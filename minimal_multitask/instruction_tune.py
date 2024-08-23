@@ -186,3 +186,7 @@ if trainer.is_fsdp_enabled:
     trainer.accelerator.state.fsdp_plugin.set_state_dict_type("FULL_STATE_DICT")
 trainer.train()
 trainer.save_model(trainer_args.output_dir)
+# if we are doing lora and ff training, then save the underlying model as well
+if additional_args.lora_ff_train:
+    underlying_model = model.get_base_model()
+    underlying_model.save_pretrained(os.path.join(trainer_args.output_dir), "underlying_model")
