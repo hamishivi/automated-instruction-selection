@@ -13,7 +13,7 @@ from minimal_multitask.eval.utils import (
     dynamic_import_function,
     load_hf_tokenizer,
 )
-from minimal_multitask.eval.gsm.gsm_exemplars import EXAMPLARS as GSM_EXAMPLARS
+from minimal_multitask.eval.gsm.examplars import EXAMPLARS as GSM_EXAMPLARS
 
 
 exact_match = evaluate.load("exact_match")
