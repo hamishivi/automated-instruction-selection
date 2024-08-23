@@ -113,13 +113,28 @@ if additional_args.lora_rank > -1:
         for name, param in model.named_parameters():
             param.requires_grad = True
 
+def subselect_data(train_dataset):
+    if additional_args.saved_instances != "":
+        train_indices = json.load(open(additional_args.saved_instances, "r"))
+        train_dataset = train_dataset.select(train_indices)
+    # for training, filter out empty instances
+    # do this after selection to ensure indices are consistent
+    train_dataset = train_dataset.filter(lambda x: (x["labels"] != -100).any())
+    if additional_args.random_select > 0:
+        train_dataset = train_dataset.shuffle(seed=trainer_args.seed).select(range(additional_args.random_select))
+        print(f"Randomly selected {additional_args.random_select} train instances")
+    return train_dataset
+
+
 # load and process train dataset
 if additional_args.train_dataset == "alpaca":
     train_dataset = load_dataset("json", data_files="data/camel_datasets/stanford_alpaca/stanford_alpaca_data.jsonl")
     train_dataset = train_dataset["train"]
+    train_dataset = subselect_data(train_dataset)
     train_dataset = train_dataset.map(lambda x: encode_with_messages_format(x, tokenizer, 1024, True, False))
 elif additional_args.train_dataset == "lima":
     train_dataset = load_dataset("GAIR/lima", use_auth_token=True, split="train")
+    train_dataset = subselect_data(train_dataset)
 
     def convert_lima(example):
         messages = [
@@ -132,25 +147,18 @@ elif additional_args.train_dataset == "lima":
     train_dataset = train_dataset.map(lambda x: encode_with_messages_format(x, tokenizer, 1024, True, False))
 elif additional_args.train_dataset == "tulu2":
     train_dataset = load_dataset("allenai/tulu-v2-sft-mixture", split="train")
+    train_dataset = subselect_data(train_dataset)
     train_dataset = train_dataset.map(lambda x: encode_with_messages_format(x, tokenizer, 2048, True, False))
 else:
     if os.path.exists(additional_args.train_dataset):
         train_dataset = load_dataset("json", data_files=additional_args.train_dataset)
         train_dataset = train_dataset["train"]
+        train_dataset = subselect_data(train_dataset)
         train_dataset = train_dataset.map(lambda x: encode_with_messages_format(x, tokenizer, 2048, True, False))
     else:
         raise ValueError(f"Unknown dataset {additional_args.train_dataset}")
 
 train_dataset.set_format(type="torch", columns=["input_ids", "attention_mask", "labels"])
-if additional_args.saved_instances != "":
-    train_indices = json.load(open(additional_args.saved_instances, "r"))
-    train_dataset = train_dataset.select(train_indices)
-# for training, filter out empty instances
-# do this after selection to ensure indices are consistent
-train_dataset = train_dataset.filter(lambda x: (x["labels"] != -100).any())
-if additional_args.random_select > 0:
-    train_dataset = train_dataset.shuffle(seed=trainer_args.seed).select(range(additional_args.random_select))
-    print(f"Randomly selected {additional_args.random_select} train instances")
 
 # train on mix of train and test data
 if additional_args.leak_test_data:
