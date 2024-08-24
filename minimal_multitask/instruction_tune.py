@@ -188,5 +188,6 @@ trainer.train()
 trainer.save_model(trainer_args.output_dir)
 # if we are doing lora and ff training, then save the underlying model as well
 if additional_args.lora_ff_train:
-    underlying_model = model.get_base_model()
-    underlying_model.save_pretrained(os.path.join(trainer_args.output_dir), "underlying_model")
+    # we have to unload to get the non-lora model (just getting the base doesnt work)
+    underlying_model = model.unload()
+    underlying_model.save_pretrained(os.path.join(trainer_args.output_dir, "underlying_model"))

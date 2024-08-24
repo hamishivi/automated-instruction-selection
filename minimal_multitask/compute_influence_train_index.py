@@ -24,6 +24,7 @@ from transformers import DataCollatorForSeq2Seq
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--model_name", type=str, default="EleutherAI/pythia-70m")
+parser.add_argument("--underlying_model_name", type=str, default=None)
 parser.add_argument("--tokenizer", type=str, default=None)
 parser.add_argument("--top_k", type=int, default=100)
 parser.add_argument("--instance_to_influences", type=str, default=None)
@@ -76,7 +77,19 @@ if args.tokenizer is not None:
 else:
     tokenizer = AutoTokenizer.from_pretrained(args.model_name)
 
-if args.add_pad_before_load:
+# if we provide an underlying model, load it and then wrap
+# in the peft model on top.
+if args.underlying_model_name:
+    model = AutoModelForCausalLM.from_pretrained(
+        args.underlying_model_name,
+        **kwargs,
+        device_map="auto",  # use multiple gpus if you can
+    )
+    if args.add_pad_before_load:
+        tokenizer.add_special_tokens({"pad_token": "[PAD]"})
+        model.resize_token_embeddings(len(tokenizer))
+    model = PeftModel.from_pretrained(model, args.model_name)
+elif args.add_pad_before_load:
     model = AutoModelForCausalLM.from_pretrained(
         args.add_pad_before_load,
         **kwargs,
