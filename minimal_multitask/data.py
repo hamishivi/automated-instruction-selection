@@ -13,6 +13,7 @@ import json
 from datasets import load_dataset, Dataset
 from minimal_multitask.eval.mmlu.run_mmlu_eval import construct_prompts
 from minimal_multitask.eval.alpaca_eval.run_alpaca_eval import create_prompt_with_tulu_chat_format
+from minimal_multitask.eval.gsm.examplars import EXAMPLARS as GSM_EXAMPLARS
 import glob
 import os
 import tqdm
