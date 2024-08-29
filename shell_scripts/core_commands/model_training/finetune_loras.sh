@@ -2,7 +2,7 @@ TRAIN_FILE=$1
 EXP_NAME=$2
 BEAKER_MODEL_ID=$3
 
-gantry run --workspace hamishivi --cluster ai2/allennlp-cirrascale --budget ai2/oe-adapt --allow-dirty --priority normal --dataset '${BEAKER_MODEL_ID}:/model' --workspace ai2/minimal-multitask-finetuning --gpus 1 --env-secret HF_TOKEN=HF_TOKEN --name $EXP_NAME --task-name $EXP_NAME -- python -m minimal_multitask.instruction_tune \
+gantry run --workspace hamishivi --cluster ai2/allennlp-cirrascale --budget ai2/oe-adapt --allow-dirty --priority normal --dataset "${BEAKER_MODEL_ID}:/model" --workspace ai2/minimal-multitask-finetuning --gpus 1 --env-secret HF_TOKEN=HF_TOKEN --name $EXP_NAME --task-name $EXP_NAME -- python -m minimal_multitask.instruction_tune \
         --model_name /model \
         --output_dir /results \
         --per_device_train_batch_size 1 \

@@ -13,17 +13,23 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--input_files", type=str, nargs="+")  # we can pass in multiple pickles!
 parser.add_argument("--output_file", type=str)  # where to save the graph to. uses save_fig
 parser.add_argument("--selection_method", type=str, default="min")  # min, mean, max, random
-parser.add_argument("--color_idxes", type=str)  # json file with idxes of datapoints to color.
+parser.add_argument("--color_idxes", type=str, nargs="+")  # json file with idxes of datapoints to color.
+parser.add_argument("--colour_top_k", type=int)  # colour the higher k values in the scatter plot.
+parser.add_argument("--subsample", type=int)  # subsample the data to make the scatter plot more readable and faster.
 args = parser.parse_args()
 
 assert args.selection_method in ["min", "max", "mean", "random"], "Invalid selection method."
 
 # load the pickles
-influences = [pickle.load(open(f, "rb")) for f in args.input_files]
+influences = [pickle.load(open(f, "rb")) for f in tqdm(args.input_files)]
 
 # color idxes
 if args.color_idxes:
-    color_idxes = json.load(open(args.color_idxes, "rb"))
+    color_idxes = []
+    for idx, color_idx in enumerate(args.color_idxes):
+        color_idxes.append([int(line) for line in open(color_idx)])
+else:
+    color_idxes = []
 
 # compute aggregate score per-dataset based on selection method.
 
@@ -46,11 +52,17 @@ def compute_dataset_influences(influence_dict):
 
 
 scores = [compute_dataset_influences(influence) for influence in tqdm(influences)]
-pdb.set_trace()
+# subsample if needed. Prefer to subsample from color_idxes.
+if args.subsample:
+    print(f"Subsampling to {args.subsample} datapoints.")
+    index_range = range(len(scores[0]))
+    random_idxes = random.sample(index_range, args.subsample)
+    for i in tqdm(range(len(scores))):
+        scores[i] = {idx: scores[i][idx] for idx in random_idxes}
+
 # now, pairwise scatter plots.
 fig, axs = plt.subplots(len(scores), len(scores), figsize=(25, 25))
 for i in range(len(scores)):
-    labels = ["blue" if k not in color_idxes else "red" for k in scores[i].keys()]
     for j in range(len(scores)):
         if i == 0:
             axs[i, j].set_title(os.path.basename(args.input_files[j]).replace(".pkl", ""))
@@ -59,6 +71,14 @@ for i in range(len(scores)):
         if i == j:
             axs[i, j].hist(list(scores[i].values()), bins=20)
         else:
+            labels = []
+            for k in scores[i].keys():
+                if k in color_idxes[i]:
+                    labels.append("red")
+                elif k in color_idxes[j]:
+                    labels.append("green")
+                else:
+                    labels.append("blue")
             axs[i, j].scatter(list(scores[i].values()), list(scores[j].values()), c=labels, cmap="coolwarm")
             # plot lines at 0 to show quadrants.
             axs[i, j].axhline(y=0, color="r", linestyle="--")
