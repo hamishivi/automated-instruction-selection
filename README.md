@@ -122,6 +122,10 @@ python minimal_multitask/get_shard_file.py --prefix <beaker_prefix> --outfile <o
 
 This will put a file called `top_10k.json` at `<previous_output_path>`, and then you can train on it! You can also use the pickle files for analysing files.
 
+### Evaluation
+
+To evaluate internally at Ai2, just run `./shell_scripts/eval/eval_beaker.sh <model_name> <beaker dataset id>`. To run evaluations on their own, just take a look at the same script, and run the same commands without the gantry stuff.
+
 ### Analysis
 
 Generally, analysis scripts live in `scripts`. These are undocumented unless Hamish decides to write more about them. I also have a tonne of old scripts from a previous version of this project in `scripts/old`.
