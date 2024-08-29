@@ -30,11 +30,11 @@ for influence in tqdm(influences):
             if train_idx == -1:
                 skip = True
                 continue
-            if not type(score) == float:
+            if not type(score) is float:
                 score = float(score.item())
-            if not type(test_idx) == int:
+            if not type(test_idx) is int:
                 test_idx = int(test_idx.item())
-            if not type(train_idx) == int:
+            if not type(train_idx) is int:
                 train_idx = int(train_idx.item())
             combined_influence[test_idx][train_idx + ongoing_counter] = score
     # adjust for the fact we skipped one if we did.
