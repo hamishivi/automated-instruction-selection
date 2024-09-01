@@ -1,10 +1,9 @@
-import pdb
 import argparse
 from matplotlib import pyplot as plt
 import pickle
 import os
-import json
 import random
+import json
 from tqdm import tqdm
 
 random.seed(0)
@@ -20,8 +19,16 @@ args = parser.parse_args()
 
 assert args.selection_method in ["min", "max", "mean", "random"], "Invalid selection method."
 
+
+def open_file(filename):
+    if filename.endswith(".json"):
+        return json.load(open(filename))
+    elif filename.endswith(".pkl"):
+        return pickle.load(open(filename, "rb"))
+
+
 # load the pickles
-influences = [pickle.load(open(f, "rb")) for f in tqdm(args.input_files)]
+influences = [open_file(f) for f in tqdm(args.input_files)]
 
 # color idxes
 if args.color_idxes:
@@ -53,12 +60,21 @@ def compute_dataset_influences(influence_dict):
 
 scores = [compute_dataset_influences(influence) for influence in tqdm(influences)]
 # subsample if needed. Prefer to subsample from color_idxes.
+new_scores = {}
 if args.subsample:
     print(f"Subsampling to {args.subsample} datapoints.")
     index_range = range(len(scores[0]))
     random_idxes = random.sample(index_range, args.subsample)
     for i in tqdm(range(len(scores))):
-        scores[i] = {idx: scores[i][idx] for idx in random_idxes}
+        new_scores[i] = {}
+        for idx in random_idxes:
+            if idx in scores[i]:
+                new_scores[i][idx] = scores[i][idx]
+            elif str(idx) in scores[i]:
+                new_scores[i][idx] = scores[i][str(idx)]
+            else:
+                print(f"Index {idx} not found in dataset {i}.")
+                raise ValueError
 
 # now, pairwise scatter plots.
 fig, axs = plt.subplots(len(scores), len(scores), figsize=(25, 25))

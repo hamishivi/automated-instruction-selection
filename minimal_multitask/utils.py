@@ -1,8 +1,29 @@
 import torch
+import os
+
+
+# convert, but just return text.
+def create_prompt_with_tulu_chat_format(messages, tokenizer, add_bos=False):
+    formatted_text = ""
+    for message in messages:
+        if message["role"] == "system":
+            formatted_text += "<|system|>\n" + message["content"] + "\n"
+        elif message["role"] == "user":
+            formatted_text += "<|user|>\n" + message["content"] + "\n"
+        elif message["role"] == "assistant":
+            formatted_text += "<|assistant|>\n" + message["content"].strip() + tokenizer.eos_token + "\n"
+        else:
+            raise ValueError(
+                "Tulu chat template only supports 'system', 'user' and 'assistant' roles. Invalid role: {}.".format(
+                    message["role"]
+                )
+            )
+    formatted_text += "<|assistant|>\n"
+    return formatted_text
 
 
 # needed for open-instruct: convert msg format.
-def encode_with_messages_format(example, tokenizer, max_seq_length, include_response=True, response_only=False):
+def encode_with_messages_format(example, tokenizer, max_seq_length, include_response=True, response_only=False, only_first_two=False):
     """
     Here we assume each example has a 'messages' field Each message is a dict with 'role' and 'content' fields.
     We concatenate all messages with the roles as delimiters and tokenize them together.
@@ -12,7 +33,13 @@ def encode_with_messages_format(example, tokenizer, max_seq_length, include_resp
         raise ValueError("messages field is empty.")
 
     # change: just take the first two prompts.
-    messages = messages[:2]
+    if only_first_two:
+        # if first role is system, we actually want to take the second and third message,
+        # ignoring the first system message.
+        if messages[0]["role"] == "system":
+            messages = messages[1:3]
+        else:
+            messages = messages[:2]
     if response_only:
         msg = "<|assistant|>\n" + messages[1]["content"].strip()
         res = tokenizer(msg, return_tensors="pt", max_length=max_seq_length, truncation=True)
@@ -74,3 +101,17 @@ def encode_with_messages_format(example, tokenizer, max_seq_length, include_resp
         "attention_mask": attention_mask.flatten(),
         "string": messages_so_far,
     }
+
+
+# helper script for working out if we need to look at /data
+# or nfs
+def get_appropriate_data_dir():
+    # default to /data, in beaker.
+    if os.path.exists("/data"):
+        return "/data"
+    elif os.path.exists("/net/nfs.cirrascale/allennlp/hamishi/minimal-multitask-tuning/data"):
+        return "/net/nfs.cirrascale/allennlp/hamishi/minimal-multitask-tuning/data"
+    elif os.path.exists("data"):
+        return "data"
+    else:
+        raise FileNotFoundError("No valid data directory found.")

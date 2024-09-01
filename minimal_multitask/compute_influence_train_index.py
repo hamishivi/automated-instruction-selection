@@ -59,6 +59,8 @@ parser.add_argument("--llama_model", action="store_true")
 parser.add_argument("--train_dataset", type=str, default="alpaca")
 # use peft loading (in case you hit merging issues)
 parser.add_argument("--add_pad_before_load", type=str, default=None)
+# if set, only use the first two messages in the chat.
+parser.add_argument("--only_first_two", action="store_true")
 args = parser.parse_args()
 
 torch.manual_seed(args.seed)
@@ -117,18 +119,18 @@ if args.train_dataset == "alpaca":
         "train"
     ]
     train_dataset = train_dataset.map(
-        lambda x: encode_with_messages_format(x, tokenizer, 512, True, False), num_proc=16
+        lambda x: encode_with_messages_format(x, tokenizer, 512, True, False, args.only_first_two), num_proc=16
     )
 elif args.train_dataset == "tulu2":
     train_dataset = load_dataset("allenai/tulu-v2-sft-mixture", split="train")
     train_dataset = train_dataset.map(
-        lambda x: encode_with_messages_format(x, tokenizer, 2048, True, False), num_proc=16
+        lambda x: encode_with_messages_format(x, tokenizer, 2048, True, False, args.only_first_two), num_proc=16
     )
 else:
     if os.path.exists(args.train_dataset):
         train_dataset = load_dataset("json", data_files=args.train_dataset)["train"]
         train_dataset = train_dataset.map(
-            lambda x: encode_with_messages_format(x, tokenizer, 2048, True, False), num_proc=16
+            lambda x: encode_with_messages_format(x, tokenizer, 2048, True, False, args.only_first_two), num_proc=16
         )
     else:
         raise ValueError(f"Invalid train dataset: {args.train_dataset}")

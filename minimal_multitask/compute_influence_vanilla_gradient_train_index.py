@@ -19,6 +19,7 @@ parser.add_argument("--instance_to_influences", type=str, default=None)
 parser.add_argument("--seed", type=int, default=42)
 parser.add_argument("--eval_dataset", type=str, choices=DATASETS.keys(), default="mmlu")
 parser.add_argument("--index_path", type=str)
+parser.add_argument("--only_first_two", action="store_true")
 args = parser.parse_args()
 
 torch.manual_seed(args.seed)
@@ -51,7 +52,7 @@ else:
 
 # load and process train dataset
 train_dataset = load_dataset("json", data_files="data/camel_datasets/stanford_alpaca/stanford_alpaca_data.jsonl")
-train_dataset = train_dataset.map(lambda x: encode_with_messages_format(x, tokenizer, 512, True, False))
+train_dataset = train_dataset.map(lambda x: encode_with_messages_format(x, tokenizer, 512, True, False, args.only_first_two))
 train_dataset.set_format(type="torch", columns=["input_ids", "attention_mask", "labels"])
 train_dataset = train_dataset["train"]
 

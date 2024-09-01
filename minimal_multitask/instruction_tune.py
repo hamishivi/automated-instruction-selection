@@ -15,7 +15,6 @@ import sys
 from peft import LoraConfig, TaskType, get_peft_model
 from dataclasses import dataclass, field
 from datasets import load_dataset, IterableDataset, Dataset
-from functools import partial
 
 
 @dataclass
@@ -57,6 +56,9 @@ class AdditionalTrainingArguments:
     use_hf_auth_token: Optional[str] = field(default=False, metadata={"help": "Use the token stored in HF_TOKEN."})
     lora_ff_train: Optional[bool] = field(
         default=False, metadata={"help": "Whether to fully finetune the model along with the LoRA."}
+    )
+    only_first_two: Optional[bool] = field(
+        default=False, metadata={"help": "Whether to only use the first two messages in the input."}
     )
 
 
@@ -118,7 +120,7 @@ if additional_args.lora_rank > -1:
 if additional_args.train_dataset == "alpaca":
     train_dataset = load_dataset("json", data_files="data/camel_datasets/stanford_alpaca/stanford_alpaca_data.jsonl")
     train_dataset = train_dataset["train"]
-    train_dataset = train_dataset.map(lambda x: encode_with_messages_format(x, tokenizer, 1024, True, False))
+    train_dataset = train_dataset.map(lambda x: encode_with_messages_format(x, tokenizer, 1024, True, False, additional_args.only_first_two))
 elif additional_args.train_dataset == "lima":
     train_dataset = load_dataset("GAIR/lima", use_auth_token=True, split="train")
 
@@ -130,16 +132,16 @@ elif additional_args.train_dataset == "lima":
         return {"messages": messages}
 
     train_dataset = train_dataset.map(convert_lima)
-    train_dataset = train_dataset.map(lambda x: encode_with_messages_format(x, tokenizer, 1024, True, False))
+    train_dataset = train_dataset.map(lambda x: encode_with_messages_format(x, tokenizer, 1024, True, False, additional_args.only_first_two))
 elif additional_args.train_dataset == "tulu2":
     train_dataset = load_dataset("allenai/tulu-v2-sft-mixture", split="train")
-    train_dataset = train_dataset.map(lambda x: encode_with_messages_format(x, tokenizer, 2048, True, False))
+    train_dataset = train_dataset.map(lambda x: encode_with_messages_format(x, tokenizer, 2048, True, False, additional_args.only_first_two))
 else:
     if os.path.exists(additional_args.train_dataset):
         # data files can be really big, but then we want to subselect
         train_dataset = load_dataset("json", data_files=additional_args.train_dataset, streaming=True)
         train_dataset = train_dataset["train"]
-        train_dataset = train_dataset.map(lambda x: encode_with_messages_format(x, tokenizer, 2048, True, False))
+        train_dataset = train_dataset.map(lambda x: encode_with_messages_format(x, tokenizer, 2048, True, False, additional_args.only_first_two))
     else:
         raise ValueError(f"Unknown dataset {additional_args.train_dataset}")
 

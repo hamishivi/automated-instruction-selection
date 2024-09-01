@@ -1,5 +1,5 @@
 # given we have made an index, select from it for all our evals.
-model_path=01J6806J2ARD5KQB1NZ1QHKTCM
+model_path=01J6GMQH7BKQRQ6FX7ZTJ0JWFM
 
 for dataset in alpacafarm squad mmlu_shots codex bbh_shots tydiqa_shots gsm8k_shots; do
     # replace file with beaker ids 
@@ -15,15 +15,15 @@ for dataset in alpacafarm squad mmlu_shots codex bbh_shots tydiqa_shots gsm8k_sh
                 --workspace ai2/minimal-multitask-finetuning \
                 --gpus 1 \
                 --env-secret HF_TOKEN=HF_TOKEN \
-                --name ff_5k_lora_5k_select_${dataset}_${shard} \
-                --task-name ff_5k_lora_5k_select_${dataset}_${shard} \
+                --name lora_and_ff_20k_${dataset}_${shard} \
+                --task-name lora_and_ff_20k_${dataset}_${shard} \
                 --dataset "${dataset_id}:/index" \
                 --dataset "${model_path}:/model" \
-                --dataset "01J67Y14Z3M0V6176CEA35DX5R:/underlying_model" \
+                --dataset 01J6QSXVDS4MN0W45HB2MHWXQN:/data \
                 --env LD_LIBRARY_PATH=/opt/conda/envs/venv/lib \
                 -- python -m minimal_multitask.compute_influence_train_index  \
                     --model_name /model \
-                    --underlying_model_name /underlying_model \
+                    --underlying_model_name /model/underlying_model \
                     --top_k 1000000 \
                     --instance_to_influences /results/unfiltered_tulu_${dataset}_shots_samples_${shard}.pkl \
                     --seed 42 \
