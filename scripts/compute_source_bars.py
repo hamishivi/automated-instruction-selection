@@ -29,7 +29,7 @@ all_keys = [c.keys() for c in counters]
 all_counter_keys = set()
 for keys in all_keys:
     all_counter_keys.update(keys)
-all_counter_keys = list(all_counter_keys)
+all_counter_keys = sorted(list(all_counter_keys))
 combined_d = {k: [c[k] for c in counters] for k in all_counter_keys}
 width = 0.5
 bottom = np.zeros(len(counters))

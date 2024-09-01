@@ -15,7 +15,6 @@ import sys
 from peft import LoraConfig, TaskType, get_peft_model
 from dataclasses import dataclass, field
 from datasets import load_dataset, IterableDataset, Dataset
-from functools import partial
 
 
 @dataclass
