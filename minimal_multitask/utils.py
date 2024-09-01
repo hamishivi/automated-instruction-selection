@@ -1,4 +1,25 @@
 import torch
+import os
+
+
+# convert, but just return text.
+def create_prompt_with_tulu_chat_format(messages, tokenizer, add_bos=False):
+    formatted_text = ""
+    for message in messages:
+        if message["role"] == "system":
+            formatted_text += "<|system|>\n" + message["content"] + "\n"
+        elif message["role"] == "user":
+            formatted_text += "<|user|>\n" + message["content"] + "\n"
+        elif message["role"] == "assistant":
+            formatted_text += "<|assistant|>\n" + message["content"].strip() + tokenizer.eos_token + "\n"
+        else:
+            raise ValueError(
+                "Tulu chat template only supports 'system', 'user' and 'assistant' roles. Invalid role: {}.".format(
+                    message["role"]
+                )
+            )
+    formatted_text += "<|assistant|>\n"
+    return formatted_text
 
 
 # needed for open-instruct: convert msg format.
@@ -80,3 +101,16 @@ def encode_with_messages_format(example, tokenizer, max_seq_length, include_resp
         "attention_mask": attention_mask.flatten(),
         "string": messages_so_far,
     }
+
+# helper script for working out if we need to look at /data
+# or nfs
+def get_appropriate_data_dir():
+    # default to /data, in beaker.
+    if os.path.exists("/data"):
+        return "/data"
+    elif os.path.exists("/net/nfs.cirrascale/allennlp/hamishi/minimal-multitask-tuning/data"):
+        return "/net/nfs.cirrascale/allennlp/hamishi/minimal-multitask-tuning/data"
+    elif os.path.exists("data"):
+        return "data"
+    else:
+        raise FileNotFoundError("No valid data directory found.")

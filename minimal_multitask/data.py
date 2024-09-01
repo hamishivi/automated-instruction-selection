@@ -12,8 +12,7 @@ from minimal_multitask.eval.codex_humaneval.data import read_problems
 import json
 from datasets import load_dataset, Dataset
 from minimal_multitask.eval.mmlu.run_mmlu_eval import construct_prompts
-from minimal_multitask.eval.alpaca_eval.run_alpaca_eval import create_prompt_with_tulu_chat_format
-from minimal_multitask.eval.gsm.examplars import EXAMPLARS as GSM_EXAMPLARS
+from minimal_multitask.utils import get_appropriate_data_dir, create_prompt_with_tulu_chat_format
 import glob
 import os
 import tqdm
@@ -31,9 +30,7 @@ class TestDataset:
 
 
 # turns sample into something we can feed into a model
-
-
-def construct_test_sample(tokenizer, sample, max_length=1024):
+def construct_test_sample(tokenizer, sample, max_length=2048):
     prompt, label = sample["prompts"], sample["labels"]
     # tokenizer label and prompt independently, then concatenate.
     # this is so we match the test format (tokenize the prompt and generate)
@@ -129,11 +126,11 @@ class MMLUShots(TestDataset):
 
 
 class GSM8kEval(TestDataset):
-    data_dir = "/net/nfs.cirrascale/allennlp/hamishi/minimal-multitask-tuning/data/eval/gsm"
+    data_dir = os.path.join(get_appropriate_data_dir(), "eval/gsm")
     n_shot = 8
     cot = True
 
-    def get_all_test_prompts(self, num_samples=None, seed=42, max_length=512):
+    def get_all_test_prompts(self, num_samples=None, seed=42, max_length=2048):
         test_data = []
         tokenizer = self.tokenizer
         with open(os.path.join(self.data_dir, "test.jsonl")) as fin:
@@ -195,7 +192,7 @@ class GSM8kShots(TestDataset):
     n_shot = 8
     cot = True
 
-    def get_all_test_prompts(self, num_samples=8, seed=42, max_length=512):
+    def get_all_test_prompts(self, num_samples=8, seed=42, max_length=2048):
         self.tokenizer
 
         global GSM_EXAMPLARS
@@ -256,11 +253,11 @@ class BBHEval(TestDataset):
         "word_sorting",
     ]
     cot = True
-    data_dir = "/net/nfs.cirrascale/allennlp/hamishi/minimal-multitask-tuning/data/eval/bbh"
+    data_dir = os.path.join(get_appropriate_data_dir(), "eval/bbh")
     max_num_examples_per_task = 40  # following eval setting
 
     # 270 prompts: 10 per task.
-    def get_all_test_prompts(self, num_samples=270, seed=42, max_length=512):
+    def get_all_test_prompts(self, num_samples=270, seed=42, max_length=2048):
         random.seed(42)
         all_tasks = {}
         task_files = glob.glob(os.path.join(self.data_dir, "bbh", "*.json"))
@@ -343,11 +340,11 @@ class BBHShots(TestDataset):
         "word_sorting",
     ]
     cot = True
-    data_dir = "/net/nfs.cirrascale/allennlp/hamishi/minimal-multitask-tuning/data/eval/bbh"
+    data_dir = os.path.join(get_appropriate_data_dir(), "eval/bbh")
     max_num_examples_per_task = 10
 
     # 270 prompts: 3 per task.
-    def get_all_test_prompts(self, num_samples=81, seed=42, max_length=512):
+    def get_all_test_prompts(self, num_samples=81, seed=42, max_length=2048):
         random.seed(42)
         all_prompts = {}
         cot_prompt_files = glob.glob(os.path.join(self.data_dir, "cot-prompts", "*.txt"))
@@ -392,7 +389,7 @@ class BBHShots(TestDataset):
 
 
 class TydiqaEval(TestDataset):
-    data_dir = "/net/nfs.cirrascale/allennlp/hamishi/minimal-multitask-tuning/data/eval/tydiqa"
+    data_dir = os.path.join(get_appropriate_data_dir(), "eval/tydiqa")
     max_num_examples_per_lang = 100
     n_shot = 1
     encoding_templates_with_context = {
@@ -451,7 +448,7 @@ class TydiqaEval(TestDataset):
     no_context = False
     # 90 prompts: 10 per language.
 
-    def get_all_test_prompts(self, num_samples=90, seed=42, max_length=512):
+    def get_all_test_prompts(self, num_samples=90, seed=42, max_length=2048):
         test_data = []
         tokenizer = self.tokenizer
         with open(os.path.join(self.data_dir, "tydiqa-goldp-v1.1-dev.json")) as fin:
@@ -586,7 +583,7 @@ class TydiqaEval(TestDataset):
 
 
 class TydiQAShots(TestDataset):
-    data_dir = "/net/nfs.cirrascale/allennlp/hamishi/minimal-multitask-tuning/data/eval/tydiqa"
+    data_dir = os.path.join(get_appropriate_data_dir(), "eval/tydiqa")
     max_num_examples_per_lang = 10
     n_shot = 1
     encoding_templates_with_context = {
@@ -645,7 +642,7 @@ class TydiQAShots(TestDataset):
     no_context = False
     # 90 prompts: 10 per language.
 
-    def get_all_test_prompts(self, num_samples=90, seed=42, max_length=512):
+    def get_all_test_prompts(self, num_samples=90, seed=42, max_length=2048):
         test_data = []
         self.tokenizer
         with open(os.path.join(self.data_dir, "tydiqa-goldp-v1.1-dev.json")) as fin:
@@ -728,10 +725,8 @@ class TydiQAShots(TestDataset):
 
 
 class CodexEval(TestDataset):
-    data_file = "/net/nfs.cirrascale/allennlp/hamishi/minimal-multitask-tuning/data/eval/codex_humaneval/HumanEval_dev.jsonl.gz"
-    data_file_hep = (
-        "/net/nfs.cirrascale/allennlp/hamishi/minimal-multitask-tuning/data/eval/codex_humaneval/humanevalpack.jsonl"
-    )
+    data_file = os.path.join(get_appropriate_data_dir(), "eval/codex_humaneval/HumanEval_dev.jsonl.gz")
+    data_file_hep = os.path.join(get_appropriate_data_dir(), "eval/codex_humaneval/humanevalpack.jsonl")
 
     def get_all_test_prompts(self, num_samples=100, seed=42, max_length=512):
         random.seed(42)
@@ -791,21 +786,17 @@ class CodexEval(TestDataset):
 
 class CodexEvalTest(CodexEval):
     # test file
-    data_file = (
-        "/net/nfs.cirrascale/allennlp/hamishi/minimal-multitask-tuning/data/eval/codex_humaneval/HumanEval.jsonl.gz"
-    )
+    data_file = os.path.join(get_appropriate_data_dir(), "eval/codex_humaneval/HumanEval.jsonl.gz")
 
 
 # ALPACAEVAL
 
 
 class AlpacaEval(TestDataset):
-    data_dir = (
-        "/net/nfs.cirrascale/allennlp/hamishi/minimal-multitask-tuning/data/eval/alpacaeval/alpaca_eval_dev.json"
-    )
+    data_file = os.path.join(get_appropriate_data_dir(), "eval/alpacaeval/alpaca_eval_dev.json")
 
     def get_all_test_prompts(self, num_samples=50, seed=42, max_length=512):
-        data = json.load(open(self.data_dir, "r"))
+        data = json.load(open(self.data_file, "r"))
         # shuffle and select first num_samples
         random.seed(42)
         random.shuffle(data)
@@ -834,9 +825,7 @@ class AlpacaEval(TestDataset):
 
 
 class AlpacaEvalTest(AlpacaEval):
-    data_dir = (
-        "/net/nfs.cirrascale/allennlp/hamishi/minimal-multitask-tuning/data/eval/alpacaeval/alpaca_eval_test.json"
-    )
+    data_file = os.path.join(get_appropriate_data_dir(), "eval/alpacaeval/alpaca_eval_test.json")
 
 
 # Toxigen
@@ -846,7 +835,7 @@ class AlpacaEvalTest(AlpacaEval):
 
 
 class ToxigenEval(TestDataset):
-    data_dir = "/net/nfs.cirrascale/allennlp/hamishi/minimal-multitask-tuning/data/eval/toxigen/dev"
+    data_dir = os.path.join(get_appropriate_data_dir(), "eval/toxigen/dev")
     max_prompts_per_group = 10
     # 140 default: 10 per group.
 

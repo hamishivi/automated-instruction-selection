@@ -7,14 +7,15 @@ BEAKER_PATH=$2
 
 # command for gantry here
 # includes oai key and turning off alpaca eval 2 for alpaca eval stuff.
-GANTRY_CMD="gantry run --cluster ai2/allennlp-cirrascale --cluster ai2/general-cirrascale --cluster ai2/mosaic-cirrascale-a100 --cluster ai2/pluto-cirrascale --cluster ai2/s2-cirrascale-l40 --budget ai2/oe-adapt --allow-dirty --priority preemptible --workspace ai2/minimal-multitask-finetuning --gpus 1 --env-secret OPENAI_API_KEY=OPENAI_API_KEY --env IS_ALPACA_EVAL_2=False --dataset ${BEAKER_PATH}:/model"
+# dataset 01J6QPDA42DV51EN4BHC9GA2TE is the data for the eval
+GANTRY_CMD="gantry run --cluster ai2/allennlp-cirrascale --cluster ai2/general-cirrascale --cluster ai2/mosaic-cirrascale-a100 --cluster ai2/pluto-cirrascale --cluster ai2/s2-cirrascale-l40 --budget ai2/oe-adapt --allow-dirty --priority preemptible --workspace ai2/minimal-multitask-finetuning --gpus 1 --env-secret OPENAI_API_KEY=OPENAI_API_KEY --env IS_ALPACA_EVAL_2=False --dataset ${BEAKER_PATH}:/model --dataset 01J6QPDA42DV51EN4BHC9GA2TE:/data"
 
 # mmlu
 # 0shot eval
 # NB: bsz 1 due to a bug in the tokenizer for llama 2.
 $GANTRY_CMD --name ${MODEL_NAME}_mmlu_0shot -- python -m minimal_multitask.eval.mmlu.run_mmlu_eval \
     --ntrain 0 \
-    --data_dir /net/nfs.cirrascale/allennlp/yizhongw/open-instruct/data/eval/mmlu/ \
+    --data_dir /data/eval/mmlu/ \
     --save_dir /results \
     --model_name_or_path /model \
     --eval_batch_size 1 \
@@ -24,7 +25,7 @@ $GANTRY_CMD --name ${MODEL_NAME}_mmlu_0shot -- python -m minimal_multitask.eval.
 # gsm8k
 # cot, 8 shot.
 $GANTRY_CMD --name ${MODEL_NAME}_gsm_cot -- python -m minimal_multitask.eval.gsm.run_eval \
-    --data_dir /net/nfs.cirrascale/allennlp/hamishi/minimal-multitask-tuning/data/eval/gsm/ \
+    --data_dir /data/eval/gsm/ \
     --max_num_examples 200 \
     --save_dir /results \
     --model_name_or_path /model \
@@ -36,7 +37,7 @@ $GANTRY_CMD --name ${MODEL_NAME}_gsm_cot -- python -m minimal_multitask.eval.gsm
 # bbh
 # cot, 3-shot
 $GANTRY_CMD --name ${MODEL_NAME}_bbh_cot -- python -m minimal_multitask.eval.bbh.run_eval \
-    --data_dir /net/nfs.cirrascale/allennlp/yizhongw/open-instruct/data/eval/bbh \
+    --data_dir /data/eval/bbh \
     --save_dir /results \
     --model_name_or_path /model \
     --max_num_examples_per_task 40 \
@@ -47,7 +48,7 @@ $GANTRY_CMD --name ${MODEL_NAME}_bbh_cot -- python -m minimal_multitask.eval.bbh
 # tydiqa
 # 1-shot, with context
 $GANTRY_CMD --name ${MODEL_NAME}_tydiqa_goldp -- python -m minimal_multitask.eval.tydiqa.run_eval \
-    --data_dir /net/nfs.cirrascale/allennlp/yizhongw/open-instruct/data/eval/tydiqa/ \
+    --data_dir /data/eval/tydiqa/ \
     --n_shot 1 \
     --max_num_examples_per_lang 100 \
     --max_context_length 512 \
@@ -62,8 +63,8 @@ $GANTRY_CMD --name ${MODEL_NAME}_tydiqa_goldp -- python -m minimal_multitask.eva
 # humaneval pack, using my test split.
 # measure p@10
 $GANTRY_CMD --name ${MODEL_NAME}_codex_pass10 -- python -m minimal_multitask.eval.codex_humaneval.run_eval \
-    --data_file /net/nfs.cirrascale/allennlp/hamishi/minimal-multitask-tuning/data/eval/codex_humaneval/HumanEval.jsonl.gz  \
-    --data_file_hep /net/nfs.cirrascale/allennlp/hamishi/minimal-multitask-tuning/data/eval/codex_humaneval/humanevalpack.jsonl  \
+    --data_file /data/eval/codex_humaneval/HumanEval.jsonl.gz  \
+    --data_file_hep /data/eval/codex_humaneval/humanevalpack.jsonl  \
     --use_chat_format \
     --chat_formatting_function minimal_multitask.eval.templates.create_prompt_with_tulu_chat_format \
     --eval_pass_at_ks 10 \

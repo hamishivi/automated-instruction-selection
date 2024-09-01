@@ -44,10 +44,7 @@ def main(args):
     # original alpaca eval data
     # alpaca_eval_data = load_dataset("tatsu-lab/alpaca_eval", "alpaca_eval")["eval"]
     # my eval split :)
-    alpaca_eval_data = load_dataset(
-        "json",
-        data_files="/net/nfs.cirrascale/allennlp/hamishi/minimal-multitask-tuning/data/eval/alpacaeval/alpaca_eval_test.json",
-    )["train"]
+    alpaca_eval_data = load_dataset("hamishivi/alpaca_eval_test_mmft", split="test")
 
     prompts = []
     chat_formatting_function = create_prompt_with_tulu_chat_format
