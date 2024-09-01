@@ -28,7 +28,7 @@ random.shuffle(random_indices)
 pbar = tqdm(total=args.n)
 while len(sampled_data) < args.n:
     line = data[random_indices.pop()]
-    encoded_line = encode_with_messages_format(line, tokenizer, 1024, True, False)
+    encoded_line = encode_with_messages_format(line, tokenizer, 2048, True, False)
     if (encoded_line['labels'] == -100).all():
         continue
     sampled_data.append(line)
