@@ -13,7 +13,12 @@ def encode_with_messages_format(example, tokenizer, max_seq_length, include_resp
 
     # change: just take the first two prompts.
     if only_first_two:
-        messages = messages[:2]
+        # if first role is system, we actually want to take the second and third message,
+        # ignoring the first system message.
+        if messages[0]["role"] == "system":
+            messages = messages[1:3]
+        else:
+            messages = messages[:2]
     if response_only:
         msg = "<|assistant|>\n" + messages[1]["content"].strip()
         res = tokenizer(msg, return_tensors="pt", max_length=max_seq_length, truncation=True)
