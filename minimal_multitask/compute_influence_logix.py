@@ -37,6 +37,7 @@ parser.add_argument("--hessian_type", type=str, default="raw")  # options: none,
 parser.add_argument("--logra_rank", type=int, default=6)  # rank used for logra. 6 ~= 8k, 64 was paper default.
 parser.add_argument("--beaker", action="store_true")  # if we are running on beaker
 parser.add_argument("--logra_precision", type=str, default="float16")  # precision used for logra
+parser.add_argument("--only_first_two", action="store_true")  # only use the first two messages
 args = parser.parse_args()
 
 accelerator = Accelerator()
@@ -61,18 +62,18 @@ if args.train_dataset == "alpaca":
         "train"
     ]
     train_dataset = train_dataset.map(
-        lambda x: encode_with_messages_format(x, tokenizer, 512, True, False), num_proc=16
+        lambda x: encode_with_messages_format(x, tokenizer, 512, True, False, args.only_first_two), num_proc=16
     )
 elif args.train_dataset == "tulu2":
     train_dataset = load_dataset("allenai/tulu-v2-sft-mixture", split="train")
     train_dataset = train_dataset.map(
-        lambda x: encode_with_messages_format(x, tokenizer, 512, True, False), num_proc=16
+        lambda x: encode_with_messages_format(x, tokenizer, 512, True, False, args.only_first_two), num_proc=16
     )
 else:
     if os.path.exists(args.train_dataset):
         train_dataset = load_dataset("json", data_files=args.train_dataset)["train"]
         train_dataset = train_dataset.map(
-            lambda x: encode_with_messages_format(x, tokenizer, 2048, True, False), num_proc=16
+            lambda x: encode_with_messages_format(x, tokenizer, 2048, True, False, args.only_first_two), num_proc=16
         )
     else:
         raise ValueError(f"Invalid train dataset: {args.train_dataset}")

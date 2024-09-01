@@ -2,7 +2,7 @@ import torch
 
 
 # needed for open-instruct: convert msg format.
-def encode_with_messages_format(example, tokenizer, max_seq_length, include_response=True, response_only=False):
+def encode_with_messages_format(example, tokenizer, max_seq_length, include_response=True, response_only=False, only_first_two=False):
     """
     Here we assume each example has a 'messages' field Each message is a dict with 'role' and 'content' fields.
     We concatenate all messages with the roles as delimiters and tokenize them together.
@@ -12,7 +12,8 @@ def encode_with_messages_format(example, tokenizer, max_seq_length, include_resp
         raise ValueError("messages field is empty.")
 
     # change: just take the first two prompts.
-    messages = messages[:2]
+    if only_first_two:
+        messages = messages[:2]
     if response_only:
         msg = "<|assistant|>\n" + messages[1]["content"].strip()
         res = tokenizer(msg, return_tensors="pt", max_length=max_seq_length, truncation=True)

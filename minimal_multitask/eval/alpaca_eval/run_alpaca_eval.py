@@ -41,11 +41,13 @@ def main(args):
     os.makedirs(args.save_dir, exist_ok=True)
 
     logging.info("loading data and model...")
-    alpaca_eval_data = load_dataset("tatsu-lab/alpaca_eval", "alpaca_eval")["eval"]
-    # alpaca_eval_data = load_dataset(
-    #     "json",
-    #     data_files="/net/nfs.cirrascale/allennlp/hamishi/minimal-multitask-tuning/data/eval/alpacaeval/alpaca_eval_dev.json",
-    # )["train"]
+    # original alpaca eval data
+    # alpaca_eval_data = load_dataset("tatsu-lab/alpaca_eval", "alpaca_eval")["eval"]
+    # my eval split :)
+    alpaca_eval_data = load_dataset(
+        "json",
+        data_files="/net/nfs.cirrascale/allennlp/hamishi/minimal-multitask-tuning/data/eval/alpacaeval/alpaca_eval_dev.json",
+    )["train"]
 
     prompts = []
     chat_formatting_function = create_prompt_with_tulu_chat_format

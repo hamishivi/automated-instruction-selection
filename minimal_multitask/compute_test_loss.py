@@ -20,6 +20,7 @@ parser.add_argument("--tokenizer", type=str, default=None)
 parser.add_argument("--eval_datasets", nargs="+", default=["mmlu"])
 parser.add_argument("--seed", type=int, default=42)
 parser.add_argument("--results", type=str, default=None)
+parser.add_argument("--only_first_two", action="store_true")
 args = parser.parse_args()
 
 # load model
@@ -38,7 +39,7 @@ for dataset in args.eval_datasets:
         # assume its a jsonl file in the messages format
         data = [json.loads(line) for line in open(dataset, "r")]
         # convert to prompt format
-        train_dataset = [encode_with_messages_format(x, tokenizer, 2048, True, False) for x in data]
+        train_dataset = [encode_with_messages_format(x, tokenizer, 2048, True, False, args.only_first_two) for x in data]
         eval_data_loader = torch.utils.data.DataLoader(train_dataset, batch_size=1, shuffle=False)
     # for each prompt, compute loss
     # todo: maybe make this batched? But then is not properly per-sample avg.
