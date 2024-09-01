@@ -19,6 +19,7 @@ for dataset in alpacafarm squad mmlu_shots codex bbh_shots tydiqa_shots gsm8k_sh
                 --task-name lora_and_ff_20k_${dataset}_${shard} \
                 --dataset "${dataset_id}:/index" \
                 --dataset "${model_path}:/model" \
+                --dataset 01J6QSXVDS4MN0W45HB2MHWXQN:/data \
                 --env LD_LIBRARY_PATH=/opt/conda/envs/venv/lib \
                 -- python -m minimal_multitask.compute_influence_train_index  \
                     --model_name /model \
