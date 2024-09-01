@@ -46,7 +46,7 @@ def main(args):
     # my eval split :)
     alpaca_eval_data = load_dataset(
         "json",
-        data_files="/net/nfs.cirrascale/allennlp/hamishi/minimal-multitask-tuning/data/eval/alpacaeval/alpaca_eval_dev.json",
+        data_files="/net/nfs.cirrascale/allennlp/hamishi/minimal-multitask-tuning/data/eval/alpacaeval/alpaca_eval_test.json",
     )["train"]
 
     prompts = []
