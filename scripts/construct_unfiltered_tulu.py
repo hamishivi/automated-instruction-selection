@@ -953,8 +953,8 @@ if __name__ == "__main__":
             convert_cot_data(
                 data_dir=os.path.join(args.raw_data_dir, "cot"),
                 output_dir=os.path.join(args.output_dir, "tulu_v2_unfiltered", "cot_subset"),
-                num_few_shot_examples=298991,
-                num_zero_shot_examples=149448,
+                num_few_shot_examples=100000000000,  # way more than all, to just get all
+                num_zero_shot_examples=100000000000,  # way more than all, to just get all
             )
             convert_oasst1_data(
                 data_dir=os.path.join(args.raw_data_dir, "oasst1"),
