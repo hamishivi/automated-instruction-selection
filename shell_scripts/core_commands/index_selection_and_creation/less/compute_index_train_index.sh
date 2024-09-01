@@ -5,7 +5,7 @@ BEAKER_PATH=$1
 # includes oai key and turning off alpaca eval 2 for alpaca eval stuff.
 GANTRY_CMD="gantry run --cluster ai2/allennlp-cirrascale --budget ai2/oe-adapt --allow-dirty --priority normal --workspace ai2/minimal-multitask-finetuning --gpus 1 --env-secret OPENAI_API_KEY=OPENAI_API_KEY --env LD_LIBRARY_PATH=/opt/conda/envs/venv/lib --env IS_ALPACA_EVAL_2=False --dataset ${BEAKER_PATH}:/model --dataset 01J6QSXVDS4MN0W45HB2MHWXQN:/data"
 
-for file in /net/nfs.cirrascale/allennlp/hamishi/minimal-multitask-tuning/data/tulu_splits/tulu_v2_unfiltered/subshards/*.jsonl; do
+for file in /net/nfs.cirrascale/allennlp/hamishi/minimal-multitask-tuning/data/tulu_splits/tulu_v2_unfiltered_fixed/tulu_v2_unfiltered/subshards/*.jsonl; do
     if [ -f "$file" ]; then
         shard=$(basename $file .jsonl)
             echo "Processing $shard"
@@ -15,7 +15,7 @@ for file in /net/nfs.cirrascale/allennlp/hamishi/minimal-multitask-tuning/data/t
                 --underlying_model_name /model/underlying_model \
                 --top_k 326154 \
                 --seed 42 \
-                --train_dataset /net/nfs.cirrascale/allennlp/hamishi/minimal-multitask-tuning/data/tulu_splits/tulu_v2_unfiltered/subshards/${shard}.jsonl \
+                --train_dataset /net/nfs.cirrascale/allennlp/hamishi/minimal-multitask-tuning/data/tulu_splits/tulu_v2_unfiltered_fixed/tulu_v2_unfiltered/subshards/${shard}.jsonl \
                 --eval_dataset alpacafarm \
                 --index_path /results/tulu_unfiltered_tulu_unfiltered_${shard}.faiss \
                 --instance_to_influences /results/alpacafarm_tulu_unfiltered_tulu_unfiltered_${shard}.pkl \
