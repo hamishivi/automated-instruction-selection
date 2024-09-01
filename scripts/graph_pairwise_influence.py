@@ -19,11 +19,13 @@ args = parser.parse_args()
 
 assert args.selection_method in ["min", "max", "mean", "random"], "Invalid selection method."
 
+
 def open_file(filename):
     if filename.endswith(".json"):
         return json.load(open(filename))
     elif filename.endswith(".pkl"):
         return pickle.load(open(filename, "rb"))
+
 
 # load the pickles
 influences = [open_file(f) for f in tqdm(args.input_files)]
@@ -72,7 +74,7 @@ if args.subsample:
                 new_scores[i][idx] = scores[i][str(idx)]
             else:
                 print(f"Index {idx} not found in dataset {i}.")
-                import pdb; pdb.set_trace()
+                raise ValueError
 
 # now, pairwise scatter plots.
 fig, axs = plt.subplots(len(scores), len(scores), figsize=(25, 25))

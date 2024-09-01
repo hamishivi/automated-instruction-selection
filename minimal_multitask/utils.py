@@ -102,6 +102,7 @@ def encode_with_messages_format(example, tokenizer, max_seq_length, include_resp
         "string": messages_so_far,
     }
 
+
 # helper script for working out if we need to look at /data
 # or nfs
 def get_appropriate_data_dir():

@@ -5,6 +5,7 @@ import argparse
 import json
 from tqdm import tqdm
 
+
 def dedup_jsonl(input_file, output_file):
     seen = set()
     count = 0
@@ -19,7 +20,7 @@ def dedup_jsonl(input_file, output_file):
                 out.write(line)
                 seen.add(data_content)
     return count - len(seen)
-    
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
