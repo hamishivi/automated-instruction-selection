@@ -60,13 +60,13 @@ def compute_dataset_influences(influence_dict):
 
 scores = [compute_dataset_influences(influence) for influence in tqdm(influences)]
 # subsample if needed. Prefer to subsample from color_idxes.
-new_scores = {}
+new_scores = []
 if args.subsample:
     print(f"Subsampling to {args.subsample} datapoints.")
     index_range = range(len(scores[0]))
     random_idxes = random.sample(index_range, args.subsample)
     for i in tqdm(range(len(scores))):
-        new_scores[i] = {}
+        new_scores.append({})
         for idx in random_idxes:
             if idx in scores[i]:
                 new_scores[i][idx] = scores[i][idx]
@@ -75,6 +75,7 @@ if args.subsample:
             else:
                 print(f"Index {idx} not found in dataset {i}.")
                 raise ValueError
+scores = new_scores
 
 # now, pairwise scatter plots.
 fig, axs = plt.subplots(len(scores), len(scores), figsize=(25, 25))
