@@ -13,7 +13,7 @@ for file in /net/nfs.cirrascale/allennlp/hamishi/minimal-multitask-tuning/data/t
             python -m minimal_multitask.compute_influence_train_index \
                 --model_name /model \
                 --underlying_model_name /model/underlying_model \
-                --top_k 326154 \
+                --top_k 7000000 \
                 --seed 42 \
                 --train_dataset /net/nfs.cirrascale/allennlp/hamishi/minimal-multitask-tuning/data/tulu_splits/tulu_v2_unfiltered_fixed/tulu_v2_unfiltered/subshards/${shard}.jsonl \
                 --eval_dataset alpacafarm \
