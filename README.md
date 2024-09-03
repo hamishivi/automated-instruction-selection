@@ -129,3 +129,160 @@ To evaluate internally at Ai2, just run `./shell_scripts/eval/eval_beaker.sh <mo
 ### Analysis
 
 Generally, analysis scripts live in `scripts`. These are undocumented unless Hamish decides to write more about them. I also have a tonne of old scripts from a previous version of this project in `scripts/old`.
+
+## Putting it together
+
+Here's the workflow for doing data selection. I'm going to assume a non-sharded setup here.
+
+**1. Warmup your model**
+```bash
+EXP_NAME=<experiment name>
+TRAIN_FILE=<nfs path to train dataset>
+gantry run --workspace hamishivi --cluster ai2/allennlp-cirrascale --budget ai2/oe-adapt --allow-dirty --priority normal --workspace ai2/minimal-multitask-finetuning --gpus 1 --env-secret HF_TOKEN=HF_TOKEN  --name $EXP_NAME --task-name $EXP_NAME -- python -m minimal_multitask.instruction_tune \
+        --model_name meta-llama/Llama-2-7b-hf \
+        --output_dir /results \
+        --per_device_train_batch_size 1 \
+        --gradient_accumulation_steps 128 \
+        --num_train_epochs 2 \
+        --learning_rate 2e-5 \
+        --seed 42 \
+        --warmup_ratio 0.03 \
+        --lr_scheduler_type linear \
+        --weight_decay 0. \
+        --evaluation_strategy no \
+        --save_strategy no \
+        --logging_steps 1 \
+        --is_llama=True \
+        --lora_alpha 512 \
+        --lora_rank 128 \
+        --use_hf_auth_token True \
+        --train $TRAIN_FILE \
+        --lora_ff_train true
+```
+Then, record the output beaker dataset.
+
+**2. Construct the gradient datastore (this is the longest step)**
+```bash
+EXP_NAME=<experiment_name>
+BEAKER_PATH=<beaker id of the model you just trained>
+TRAIN_DATAFILE=<full nfs path to the data we want to index>
+
+GANTRY_CMD="gantry run --cluster ai2/allennlp-cirrascale --budget ai2/oe-adapt --allow-dirty --priority normal --workspace ai2/minimal-multitask-finetuning --gpus 1 --env-secret OPENAI_API_KEY=OPENAI_API_KEY --env LD_LIBRARY_PATH=/opt/conda/envs/venv/lib --env IS_ALPACA_EVAL_2=False --dataset ${BEAKER_PATH}:/model --dataset 01J6QSXVDS4MN0W45HB2MHWXQN:/data"
+
+$GANTRY_CMD --name $EXP_NAME --task-name $EXP_NAME -- \
+    python -m minimal_multitask.compute_influence_train_index \
+        --model_name /model \
+        --underlying_model_name /model/underlying_model \
+        --top_k 7000000 \
+        --seed 42 \
+        --train_dataset $TRAIN_DATAFILE \
+        --eval_dataset alpacafarm \
+        --index_path /results/index.faiss \
+        --instance_to_influences /results/influence_scores.pkl \
+        --save_index \
+        --vanilla_gradients \
+        --normalise_influences \
+        --random_transform 8192 \
+        --grad_batch 12 \
+        --llama_model
+```
+
+Record the beaker output dataset id for the next command.
+
+**3. Compute influence scores for all the dev sets**
+```bash
+EXP_NAME=<experiment_name>
+BEAKER_PATH=<beaker id of the model you just trained>
+DATASET_ID=<beaker id of train datastore index you just made>
+TRAIN_DATAFILE=<full nfs path to the data we just indexed>
+
+for dataset in alpacafarm squad mmlu_shots codex bbh_shots tydiqa_shots gsm8k_shots; do
+    gantry run \
+        --workspace hamishivi \
+        --cluster ai2/allennlp-cirrascale \
+        --budget ai2/oe-adapt \
+        --nfs \
+        --allow-dirty --priority normal \
+        --workspace ai2/minimal-multitask-finetuning \
+        --gpus 1 \
+        --env-secret HF_TOKEN=HF_TOKEN \
+        --name ${EXP_NAME}_${dataset} \
+        --task-name ${EXP_NAME}_${dataset} \
+        --dataset "${dataset_id}:/index" \
+        --dataset "${BEAKER_PATH}:/model" \
+        --dataset 01J6QSXVDS4MN0W45HB2MHWXQN:/data \
+        --env LD_LIBRARY_PATH=/opt/conda/envs/venv/lib \
+        -- python -m minimal_multitask.compute_influence_train_index  \
+            --model_name /model \
+            --underlying_model_name /model/underlying_model \
+            --top_k 1000000 \
+            --instance_to_influences /results/influence_scores_${dataset}.pkl \
+            --seed 42 \
+            --random_transform 8192 \
+            --normalise_influences \
+            --vanilla_gradients \
+            --eval_dataset ${dataset} \
+            --index_path /index/index.faiss \
+            --llama_model \
+            --train_dataset $TRAIN_DATAFILE \
+            --grad_batch 12
+done
+```
+
+We now have our influence scores! We can directly analyse the pickles, or we can further select data, train, and evaluate.
+
+**4. Select top data**
+
+First, download the pickle file you just made locally. I recommend creating some nice folder system to organize this stuff.
+I'll assume for now the file can be located at `./influence_scores.pkl`. Then you can run the following:
+```bash
+TRAIN_DATAFILE=<full nfs path to the data we just indexed>
+
+python -m minimal_multitask.get_top_influences \
+    --input_files ./influence_scores.pkl \
+    --output_file top_10k.json \
+    --output_size 10000 \
+    --selection_method min \
+    --train_datasets $TRAIN_DATAFILE \
+    --output_dataset
+```
+
+`top_10k.json` contains the selected data. You can of course edit output size, selection method, etc to customize to your needs.
+
+**5. Train on data**
+
+This is just the same as above, although potentially you don't want to add loras:
+```bash
+EXP_NAME=<experiment name>
+TRAIN_FILE=<nfs path to 10k selected file>
+gantry run --workspace hamishivi --cluster ai2/allennlp-cirrascale --budget ai2/oe-adapt --allow-dirty --priority normal --workspace ai2/minimal-multitask-finetuning --gpus 1 --env-secret HF_TOKEN=HF_TOKEN  --name $EXP_NAME --task-name $EXP_NAME -- python -m minimal_multitask.instruction_tune \
+        --model_name meta-llama/Llama-2-7b-hf \
+        --output_dir /results \
+        --per_device_train_batch_size 1 \
+        --gradient_accumulation_steps 128 \
+        --num_train_epochs 2 \
+        --learning_rate 2e-5 \
+        --seed 42 \
+        --warmup_ratio 0.03 \
+        --lr_scheduler_type linear \
+        --weight_decay 0. \
+        --evaluation_strategy no \
+        --save_strategy no \
+        --logging_steps 1 \
+        --is_llama=True \
+        --lora_alpha 512 \
+        --lora_rank 128 \
+        --use_hf_auth_token True \
+        --train $TRAIN_FILE
+```
+
+You could also alter this command to start training from an existing checkpoint.
+
+**6. Evaluate trained model**
+
+This is pretty easy, just run:
+```bash
+./shell_scripts/eval/eval_beaker.sh <model/experiment name> <beaker id of trained model>
+```
+
+This will launch a set of beaker gantry jobs you can then directly examine for the final results!

@@ -15,8 +15,8 @@ for dataset in alpacafarm squad mmlu_shots codex bbh_shots tydiqa_shots gsm8k_sh
                 --workspace ai2/minimal-multitask-finetuning \
                 --gpus 1 \
                 --env-secret HF_TOKEN=HF_TOKEN \
-                --name lora_and_ff_20k_${dataset}_${shard} \
-                --task-name lora_and_ff_20k_${dataset}_${shard} \
+                --name lora_ff_10k_fixed_sampling_${dataset}_${shard} \
+                --task-name lora_ff_10k_fixed_sampling_${dataset}_${shard} \
                 --dataset "${dataset_id}:/index" \
                 --dataset "${model_path}:/model" \
                 --dataset 01J6QSXVDS4MN0W45HB2MHWXQN:/data \
@@ -31,9 +31,9 @@ for dataset in alpacafarm squad mmlu_shots codex bbh_shots tydiqa_shots gsm8k_sh
                     --normalise_influences \
                     --vanilla_gradients \
                     --eval_dataset ${dataset} \
-                    --index_path /index/tulu_unfiltered_tulu_unfiltered_unfiltered_tulu_shard_${shard}.faiss \
+                    --index_path /index/tulu_unfiltered_tulu_unfiltered_${shard}.faiss \
                     --llama_model \
-                    --train_dataset /net/nfs.cirrascale/allennlp/hamishi/minimal-multitask-tuning/data/tulu_splits/tulu_v2_unfiltered/subshards/unfiltered_tulu_shard_${shard}.jsonl \
+                    --train_dataset /net/nfs.cirrascale/allennlp/hamishi/minimal-multitask-tuning/data/tulu_splits/tulu_v2_unfiltered_fixed/tulu_v2_unfiltered/subshards/${shard}.jsonl \
                     --grad_batch 12
     done < "$shards_dataset_file"
 done
