@@ -24,7 +24,7 @@ while IFS=$'\t' read -r name id; do
   train_datasets+=($name)
 done < $file_basename
 
-train_dataset_prefix=/net/nfs.cirrascale/allennlp/hamishi/minimal-multitask-tuning/data/tulu_splits/tulu_v2_unfiltered/subshards/unfiltered_tulu_shard_
+train_dataset_prefix=/net/nfs.cirrascale/allennlp/hamishi/minimal-multitask-tuning/data/tulu_splits/tulu_v2_unfiltered_fixed/tulu_v2_unfiltered/subshards/tulu_v2_unfiltered_data_dedup_
 
 train_datasets_combined=()
 for ds_name in "${train_datasets[@]}"; do

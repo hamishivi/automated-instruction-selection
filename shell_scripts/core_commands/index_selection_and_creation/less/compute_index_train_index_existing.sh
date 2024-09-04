@@ -1,7 +1,7 @@
 # given we have made an index, select from it for all our evals.
-model_path=01J6GMQH7BKQRQ6FX7ZTJ0JWFM
+model_path=01J6QMC703TRBF0FEZKMM2S5Q4
 
-for dataset in alpacafarm squad mmlu_shots codex bbh_shots tydiqa_shots gsm8k_shots; do
+for dataset in gsm8k_shots; do
     # replace file with beaker ids 
     shards_dataset_file=$1
     while IFS=$'\t' read -r shard dataset_id; do
@@ -9,6 +9,8 @@ for dataset in alpacafarm squad mmlu_shots codex bbh_shots tydiqa_shots gsm8k_sh
             gantry run \
                 --workspace hamishivi \
                 --cluster ai2/allennlp-cirrascale \
+                --cluster ai2/general-cirrascale \
+                --cluster ai2/pluto-cirrascale \
                 --budget ai2/oe-adapt \
                 --nfs \
                 --allow-dirty --priority normal \
@@ -31,9 +33,9 @@ for dataset in alpacafarm squad mmlu_shots codex bbh_shots tydiqa_shots gsm8k_sh
                     --normalise_influences \
                     --vanilla_gradients \
                     --eval_dataset ${dataset} \
-                    --index_path /index/tulu_unfiltered_tulu_unfiltered_${shard}.faiss \
+                    --index_path /index/tulu_unfiltered_tulu_unfiltered_tulu_v2_unfiltered_data_dedup_${shard}.faiss \
                     --llama_model \
-                    --train_dataset /net/nfs.cirrascale/allennlp/hamishi/minimal-multitask-tuning/data/tulu_splits/tulu_v2_unfiltered_fixed/tulu_v2_unfiltered/subshards/${shard}.jsonl \
+                    --train_dataset /net/nfs.cirrascale/allennlp/hamishi/minimal-multitask-tuning/data/tulu_splits/tulu_v2_unfiltered_fixed/tulu_v2_unfiltered/subshards/tulu_v2_unfiltered_data_dedup_${shard}.jsonl \
                     --grad_batch 12
     done < "$shards_dataset_file"
 done
