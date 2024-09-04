@@ -1,5 +1,6 @@
 TRAIN_FILE=$1
 EXP_NAME=$2
+MODEL_ID=$3
 
 gantry run \
         --workspace hamishivi \
@@ -13,8 +14,9 @@ gantry run \
         --env-secret HF_TOKEN=HF_TOKEN \
         --name $EXP_NAME \
         --task-name $EXP_NAME \
+        --dataset ${MODEL_ID}:/model \
         -- python -m minimal_multitask.instruction_tune \
-                --model_name meta-llama/Llama-2-7b-hf \
+                --model_name /model \
                 --output_dir /results \
                 --per_device_train_batch_size 1 \
                 --gradient_accumulation_steps 128 \

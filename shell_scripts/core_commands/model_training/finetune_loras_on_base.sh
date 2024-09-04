@@ -9,8 +9,7 @@ gantry run \
         --allow-dirty \
         --priority normal \
         --workspace ai2/minimal-multitask-finetuning \
-        --gpus 1 \
-        --env-secret HF_TOKEN=HF_TOKEN \
+        --gpus 1 --env-secret HF_TOKEN=HF_TOKEN \
         --name $EXP_NAME \
         --task-name $EXP_NAME \
         -- python -m minimal_multitask.instruction_tune \
@@ -28,5 +27,7 @@ gantry run \
                 --save_strategy no \
                 --logging_steps 1 \
                 --is_llama=True \
+                --lora_alpha 512 \
+                --lora_rank 128 \
                 --use_hf_auth_token True \
                 --train $TRAIN_FILE

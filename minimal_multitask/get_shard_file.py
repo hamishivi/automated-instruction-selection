@@ -31,7 +31,7 @@ for exp in beaker.workspace.iter_experiments(workspace=args.workspace, match=arg
     shards.append(exp.name.split("_")[-1])
 
 assert len(datasets) == len(shards), f"Mismatch between datasets and shards - got {len(datasets)}"
-assert len(datasets) == 29, f"Expected 29 datasets - got {len(datasets)}"
+assert len(datasets) == 29 or len(datasets) == 30, f"Expected 29 or 30 datasets - got {len(datasets)}"
 
 # sort alphabetically
 ds_and_shard = sorted(zip(datasets, shards), key=lambda x: x[1])
