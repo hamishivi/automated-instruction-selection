@@ -52,7 +52,7 @@ for exp in beaker.workspace.iter_experiments(workspace=args.workspace, match=arg
     else:
         # currently only other case is tydiqa, so just hardcode
         results[EVAL_JOB_NAMES[eval_name]] = metrics["average"]["f1"]
-    
+
 # finally, print results in order given with tab spacing
 for eval_name in EVAL_NAMES:
     print(eval_name, end='\t')
@@ -63,4 +63,3 @@ for eval_name in EVAL_NAMES:
     else:
         print("N/A", end='\t')
 print()
-    
