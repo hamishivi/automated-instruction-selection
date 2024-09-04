@@ -3,7 +3,7 @@ BEAKER_PATH=$1
 
 # command for gantry here
 # includes oai key and turning off alpaca eval 2 for alpaca eval stuff.
-GANTRY_CMD="gantry run --cluster ai2/allennlp-cirrascale --budget ai2/oe-adapt --allow-dirty --priority normal --workspace ai2/minimal-multitask-finetuning --gpus 1 --env-secret OPENAI_API_KEY=OPENAI_API_KEY --env LD_LIBRARY_PATH=/opt/conda/envs/venv/lib --env IS_ALPACA_EVAL_2=False --dataset ${BEAKER_PATH}:/model --dataset 01J6QSXVDS4MN0W45HB2MHWXQN:/data"
+GANTRY_CMD="gantry run --cluster ai2/allennlp-cirrascale --cluster ai2/pluto-cirrascale --budget ai2/oe-adapt --allow-dirty --priority normal --workspace ai2/minimal-multitask-finetuning --gpus 1 --env-secret OPENAI_API_KEY=OPENAI_API_KEY --env LD_LIBRARY_PATH=/opt/conda/envs/venv/lib --env IS_ALPACA_EVAL_2=False --dataset ${BEAKER_PATH}:/model --dataset 01J6QSXVDS4MN0W45HB2MHWXQN:/data"
 
 for file in /net/nfs.cirrascale/allennlp/hamishi/minimal-multitask-tuning/data/tulu_splits/tulu_v2_unfiltered_fixed/tulu_v2_unfiltered/subshards/*.jsonl; do
     if [ -f "$file" ]; then

@@ -9,7 +9,6 @@ for dataset in gsm8k_shots; do
             gantry run \
                 --workspace hamishivi \
                 --cluster ai2/allennlp-cirrascale \
-                --cluster ai2/general-cirrascale \
                 --cluster ai2/pluto-cirrascale \
                 --budget ai2/oe-adapt \
                 --nfs \
