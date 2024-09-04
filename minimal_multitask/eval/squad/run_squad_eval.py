@@ -85,9 +85,9 @@ def main(args):
     if args.output_file:
         with open(args.output_file, "w") as f:
             f.write(f"Results on all squad:\n{results}")
-    if args.results_file:
+    if args.metrics_file:
         results_dict = results
-        with open(args.results_file, "w") as f:
+        with open(args.metrics_file, "w") as f:
             f.write(json.dumps(results_dict))
 
 

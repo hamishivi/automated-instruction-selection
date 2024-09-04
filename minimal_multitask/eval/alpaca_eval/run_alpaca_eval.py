@@ -132,8 +132,9 @@ def main(args):
     print(df_leaderboard.to_string(float_format="%.2f"))
 
     # save to json
+    results_json = {"win_rate": df_leaderboard.to_dict()["win_rate"]["model-greedy-long"]}
     with open(os.path.join(args.save_dir, "metrics.json"), "w") as fout:
-        json.dump(df_leaderboard.to_dict(), fout)
+        json.dump(results_json, fout)
 
 
 if __name__ == "__main__":
