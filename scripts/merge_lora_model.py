@@ -3,7 +3,7 @@ Quick script for merging loras into underlying model
 '''
 import argparse
 from transformers import AutoModelForCausalLM, AutoTokenizer
-from peft import PeftModel 
+from peft import PeftModel
 
 parser = argparse.ArgumentParser(description='Merge lora into underlying model')
 parser.add_argument('model', type=str, help='Path to model')
