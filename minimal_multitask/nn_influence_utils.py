@@ -79,9 +79,9 @@ def get_loss_with_weight_decay(
     shift_labels = shift_labels.to(shift_logits.device)
     loss = loss_fct(shift_logits, shift_labels)
 
-    if n_gpu > 1:
-        # TODO: setup multi-gpu code (required for larger models)
-        assert False
+    # if n_gpu > 1:
+    #     # TODO: setup multi-gpu code (required for larger models)
+    #     assert False
     return loss
 
 
