@@ -80,7 +80,8 @@ $GANTRY_CMD --name ${MODEL_NAME}_squad_context -- python -m minimal_multitask.ev
     --model_name_or_path /model \
     --output_file "/results/predictions.json" \
     --metrics_file "/results/metrics.json" \
-    --generation_file "/results/generation.json"
+    --generation_file "/results/generation.json" \
+    --use_vllm
 
 # alpaca eval
 # use my test split
