@@ -107,10 +107,10 @@ def encode_with_messages_format(example, tokenizer, max_seq_length, include_resp
 # or nfs
 def get_appropriate_data_dir():
     # default to /data, in beaker.
-    if os.path.exists("/data"):
-        return "/data"
-    elif os.path.exists("/net/nfs.cirrascale/allennlp/hamishi/minimal-multitask-tuning/data"):
+    if os.path.exists("/net/nfs.cirrascale/allennlp/hamishi/minimal-multitask-tuning/data"):
         return "/net/nfs.cirrascale/allennlp/hamishi/minimal-multitask-tuning/data"
+    elif os.path.exists("/data"):
+        return "/data"
     elif os.path.exists("data"):
         return "data"
     else:
