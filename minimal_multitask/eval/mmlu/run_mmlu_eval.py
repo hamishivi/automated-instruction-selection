@@ -117,11 +117,17 @@ def format_example(df, idx, include_answer=True):
     return prompt
 
 
-def gen_prompt(train_df, subject, k=-1):
+def gen_prompt(train_df, subject, k=-1, question_prompt=""):
     prompt = "The following are multiple choice questions (with answers) about {}.\n\n".format(format_subject(subject))
+    # if given a question prompt, remove it from the train_df
+    if question_prompt:
+        train_df = train_df[train_df[0] != question_prompt]
     if k == -1:
         k = train_df.shape[0]
     for i in range(k):
+        # if we have exhausted all the examples in the train_df, we will break.
+        if i >= train_df.shape[0]:
+            break
         prompt += format_example(train_df, i)
     return prompt
 
@@ -156,7 +162,7 @@ def construct_prompts(
         for i in range(0, test_df.shape[0]):
             k = ntrain
             prompt_end = format_example(test_df, i, include_answer=False)
-            train_prompt = gen_prompt(dev_df, subject, k)
+            train_prompt = gen_prompt(dev_df, subject, k, test_df.iloc[i, 0])
             prompt = train_prompt + prompt_end
 
             if use_chat_format:
