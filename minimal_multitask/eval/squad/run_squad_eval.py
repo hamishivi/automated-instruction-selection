@@ -30,53 +30,65 @@ def main(args):
 
     # predict over dataset
     model_results = []
-    if args.use_vllm:
-        model = vllm.LLM(
-            model=args.model_name_or_path,
-            tokenizer=args.tokenizer_name_or_path
-            if args.tokenizer_name_or_path is not None
-            else args.model_name_or_path,
-            # tokenizer_mode="slow",
-            tensor_parallel_size=torch.cuda.device_count(),
-        )
-        sampling_params = vllm.SamplingParams(
-            temperature=0,  # greedy decoding
-            max_tokens=8192,
-        )
-        outputs = model.generate(prompts, sampling_params)
-        model_results = [it.outputs[0].text for it in outputs]
+    result_file = os.path.join(args.save_dir, f"{model_name}-squad-greedy-long-output.jsonl")
+    if args.results_file is not None:
+        result_file = args.results_file
+    if not os.path.exists(result_file):
+        if args.use_vllm:
+            model = vllm.LLM(
+                model=args.model_name_or_path,
+                tokenizer=args.tokenizer_name_or_path if args.tokenizer_name_or_path is not None else args.model_name_or_path,
+                # tokenizer_mode="slow",
+                tensor_parallel_size=torch.cuda.device_count(),
+            )
+            sampling_params = vllm.SamplingParams(
+                temperature=0,  # greedy decoding
+                max_tokens=8192,
+            )
+            outputs = model.generate(prompts, sampling_params)
+            generations = [it.outputs[0].text for it in outputs]
+        else:
+            model = AutoModelForCausalLM.from_pretrained(args.model_name_or_path, torch_dtype=torch.bfloat16, device_map="auto")
+            tokenizer.padding_side = 'left'
+            tokenizer.pad_token = tokenizer.unk_token
+            hf_prompts = tokenizer(prompts, return_tensors='pt', padding=True)
+            ds = Dataset.from_dict(hf_prompts)
+            ds.set_format(type='torch', columns=['input_ids', 'attention_mask'])
+            ds_loader = DataLoader(ds, batch_size=args.batch_size)
+
+            model.generation_config.max_new_tokens = 100
+            # model.generation_config.eos_token_id = [2, 21106, 829] # Temporariy fix to stop when generating ".</", although it's weird that the model generate this instead of eos token
+            if args.decoding_algo == "greedy":
+                model.generation_config.temperature=0.0
+                model.generation_config.do_sample=False
+            elif args.decoding_algo == "sampling":
+                model.generation_config.temperature=args.temperature
+            outputs = []
+            for batch in tqdm.tqdm(ds_loader):
+                output = model.generate(batch['input_ids'].cuda(), attention_mask=batch['attention_mask'].cuda())
+                generation = output[:, batch['input_ids'].shape[1]:]
+                outputs.extend(generation)
+            generations = tokenizer.batch_decode(outputs, skip_special_tokens=True)
+        os.makedirs(os.path.dirname(result_file), exist_ok=True)
+        with open(result_file, "w") as fout:
+            for i, output in enumerate(generations):
+                # if output.endswith("</"):
+                #     output = (output.strip())[:-2]
+                fout.write(json.dumps({"Prompt" : prompts[i], "Generation" : (output.strip())}) + "\n")
+                model_results.append({'id': squad_og[i]['id'], 'prediction_text': output})
     else:
-        model = AutoModelForCausalLM.from_pretrained(
-            args.model_name_or_path, torch_dtype=torch.bfloat16, device_map="auto"
-        )
-        tokenizer.padding_side = "left"
-        tokenizer.pad_token = tokenizer.unk_token
-        hf_prompts = tokenizer(prompts, return_tensors="pt", padding=True)
-        ds = Dataset.from_dict(hf_prompts)
-        ds.set_format(type="torch", columns=["input_ids", "attention_mask"])
-        ds_loader = DataLoader(ds, batch_size=args.batch_size)
+        print("Loading from existing file: ", result_file)
+        with open(result_file, "r") as fout:
+            for i, content in enumerate(fout):
+                outputs = json.loads(content)['Generation']
+                model_results.append({'id': squad_og[i]['id'], 'prediction_text': outputs})
 
-        model.generation_config.max_new_tokens = 100
-        # model.generation_config.eos_token_id = [2, 21106, 829] # Temporariy fix to stop when generating ".</", although it's weird that the model generate this instead of eos token
-        if args.decoding_algo == "greedy":
-            model.generation_config.temperature = 0.0
-            model.generation_config.do_sample = False
-        elif args.decoding_algo == "sampling":
-            model.generation_config.temperature = args.temperature
-        outputs = []
-        for batch in tqdm.tqdm(ds_loader):
-            output = model.generate(batch["input_ids"].cuda(), attention_mask=batch["attention_mask"].cuda())
-            generation = output[:, batch["input_ids"].shape[1]:]
-            outputs.extend(generation)
-        model_results = tokenizer.batch_decode(outputs, skip_special_tokens=True)
-    with open(args.generation_file, "w") as fout:
-        for i, output in enumerate(model_results):
-            # if output.endswith("</"):
-            #     output = (output.strip())[:-2]
-            fout.write(json.dumps({"Prompt": prompts[i], "Generation": (output.strip())}) + "\n")
+    # inf_outputs = model.generate(inf_prompts, sampling_params)
+    # inf_outputs = [it.outputs[0].text for it in inf_outputs]
 
+    # calculate squad f1c
     references = [{"id": sample["id"], "answers": sample["answers"]} for sample in squad_og]
-    outputs = [{"id": squad_og[i]["id"], "prediction_text": output} for i, output in enumerate(model_results)]
+    outputs = [{"id": squad_og[i]["id"], "prediction_text": output} for i, output in enumerate(outputs)]
     results = evaluate(references=references, predictions=outputs)
 
     print("Results on all squad:")
