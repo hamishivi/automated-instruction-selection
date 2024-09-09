@@ -23,6 +23,8 @@ beaker = Beaker.from_env(default_workspace=args.workspace)
 datasets = []
 shards = []
 for exp in beaker.workspace.iter_experiments(workspace=args.workspace, match=args.prefix):
+    if not exp.name.startswith(args.prefix):
+        continue
     # get result
     result = beaker.experiment.results(exp)
     if result is None:
