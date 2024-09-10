@@ -24,7 +24,7 @@ parser.add_argument("--output_dataset", action="store_true", default=False)
 parser.add_argument("--domain_weights", type=str)  # json file containing domain weights normalized to 1.
 args = parser.parse_args()
 
-assert args.selection_method in ["min", "max", "mean_min", "mean_max"], "Invalid selection method."
+assert args.selection_method in ["min", "max", "mean_min", "mean_max", "normalized_mean_min"], "Invalid selection method."
 # assert len(args.input_files) == len(args.train_datasets), "Number of input files must match number of train datasets, " + len(args.input_files) + ", " + len(args.train_datasets)
 if len(args.input_files) > 1:
     assert args.output_dataset, "Must save output dataset for multiple input files."
@@ -85,6 +85,9 @@ for i, instance_to_influences_i in enumerate(instance_to_influences_list):
         if test_index not in instance_to_influences:
             instance_to_influences[test_index] = {}
         for train_idx, score in influences.items():
+            if train_idx == -1:
+                # malformed influence score, skip it.
+                continue
             instance_to_influences[test_index][(i, train_idx)] = score
 
 # track domain sizes
@@ -95,7 +98,36 @@ domain_sizes = defaultdict(int)
 # for mean_max, we have the inverted form of the above.
 # for min, we select the top k points per test instance such that we have a total of k instances.
 # max is simply min but reversed, for cosine sim or toxigen inversion.
-if "mean" in args.selection_method:
+if "normalized_mean" in args.selection_method:
+    print("Using normalized mean influence selection method.")
+    # this is mean, but we normalize influence scores to be in [-1, 1] range.
+    average_influences = {}
+    for i, influences in instance_to_influences.items():
+        for train_idx, score in influences.items():
+            if train_idx not in average_influences:
+                average_influences[train_idx] = []
+            average_influences[train_idx].append(score)
+    average_influences = list(average_influences.items())
+    # normalize scores. notably, we normalize per test instance, not per train instance
+    for idx in range(len(average_influences[0])):
+        scores_for_test_point = [scores[idx] for _, scores in average_influences]
+        min_scores = min(scores_for_test_point)
+        max_scores = max(scores_for_test_point)
+        # normalize scores
+        scores_for_test_point = [(score - min_scores) / (max_scores - min_scores) for score in scores_for_test_point]
+        for i, (train_idx, scores) in enumerate(average_influences):
+            average_influences[i][1][idx] = scores_for_test_point[i]
+    # then average
+    average_influences = [(train_idx, mean(scores)) for train_idx, scores in average_influences]
+    # sort by average influence
+    if "min" in args.selection_method:
+        average_influences = sorted(average_influences, key=lambda x: x[1])[: args.output_size]
+    else:
+        average_influences = sorted(average_influences, key=lambda x: x[1])[-args.output_size:]
+    # construct list of train indices
+    saved_instances = [index for index, _ in average_influences]
+    saved_scores = [score for _, score in average_influences]
+elif "mean" in args.selection_method:
     print("Using mean influence selection method.")
     average_influences = {}
     for i, influences in instance_to_influences.items():
@@ -104,11 +136,12 @@ if "mean" in args.selection_method:
                 average_influences[train_idx] = []
             average_influences[train_idx].append(score)
     average_influences = list(average_influences.items())
+    average_influences = [(train_idx, mean(scores)) for train_idx, scores in average_influences]
     # sort by average influence
     if "min" in args.selection_method:
-        average_influences = sorted(average_influences, key=lambda x: mean(x[1]))[: args.output_size]
+        average_influences = sorted(average_influences, key=lambda x: x[1])[: args.output_size]
     else:
-        average_influences = sorted(average_influences, key=lambda x: mean(x[1]))[-args.output_size:]
+        average_influences = sorted(average_influences, key=lambda x: x[1])[-args.output_size:]
     # construct list of train indices
     saved_instances = [index for index, _ in average_influences]
     saved_scores = [score for _, score in average_influences]

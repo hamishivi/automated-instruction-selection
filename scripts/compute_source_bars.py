@@ -23,8 +23,14 @@ for file in args.input_files:
 # go through counters, plot stacked bar chart
 fig, ax = plt.subplots(figsize=(10, 5))
 # stacked bar chart setup
-basenames = ["alpacaeval", "gsm8k", "tydiqa", "bbh", "mmlu", "codex", "squad"]
-# [os.path.basename(f).split('_')[0] for f in args.input_files]
+
+evals = ["alpacaeval", "gsm8k", "tydiqa", "bbh", "mmlu", "codex", "squad"]
+evals_ordered = []
+for f in args.input_files:
+    for eve in evals:
+        if eve in f:
+            evals_ordered.append(eve)
+basenames = evals_ordered
 all_keys = [c.keys() for c in counters]
 all_counter_keys = set()
 for keys in all_keys:
