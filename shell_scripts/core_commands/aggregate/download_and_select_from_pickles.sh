@@ -37,7 +37,7 @@ python -m minimal_multitask.get_top_influences \
     --input_files $1/*.pkl \
     --output_file $1/top_10k.json \
     --output_size 10000 \
-    --selection_method min \
+    --selection_method normalized_mean_min \
     --train_datasets ${train_datasets_combined[@]} \
     --output_dataset  # we want to save the actual data
 

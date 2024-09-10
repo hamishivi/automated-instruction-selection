@@ -67,6 +67,8 @@ torch.manual_seed(args.seed)
 kwargs = {"torch_dtype": torch.bfloat16}
 if "llama" in args.model_name or args.llama_model:
     kwargs["attn_implementation"] = "eager"  # flash doesnt work with second order grad.
+if os.environ.get("HF_TOKEN", None) is not None:
+    kwargs["use_auth_token"] = os.environ.get("HF_TOKEN", None)
 
 # make our output dirs
 if os.path.dirname(args.instance_to_influences):
