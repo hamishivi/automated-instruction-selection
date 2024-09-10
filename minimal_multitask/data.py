@@ -280,7 +280,7 @@ class GSM8kShotsShots(TestDataset):
         labels = []
 
         def apply_chat_format(example, tokenizer, prompt_prefix):
-            messages = [{"role": "user", "content": prompt_prefix + "Question: " +  example["question"].strip()}]
+            messages = [{"role": "user", "content": prompt_prefix + "Question: " + example["question"].strip()}]
             prompt = create_prompt_with_tulu_chat_format(messages, tokenizer, add_bos=False)
             prompt += "Answer:" if prompt[-1] in ["\n", " "] else " Answer:"
             return prompt
@@ -997,7 +997,7 @@ class TydiQAShotsShots(TestDataset):
                     train_data_for_langs[lang] = two_shots[1:]
                     test_data.append(two_shots[0])
             # assert that we have exactly n_shot examples for each language
-            assert all([len(train_data_for_langs[lang]) == self.n_shot -1 for lang in data_languages])
+            assert all([len(train_data_for_langs[lang]) == self.n_shot - 1 for lang in data_languages])
 
         # construct prompts, labels directly from few-shots
         prompts, labels = [], []

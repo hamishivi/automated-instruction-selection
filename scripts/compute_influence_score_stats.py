@@ -58,5 +58,4 @@ if args.plot:
         ax.set_xlim(x_lim_min, x_lim_max)
         ax.set_ylim(y_lim_min, y_lim_max)
 
-
     plt.savefig(args.plot)
