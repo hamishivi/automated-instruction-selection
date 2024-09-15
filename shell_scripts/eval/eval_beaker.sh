@@ -76,7 +76,7 @@ $GANTRY_CMD --name ${MODEL_NAME}_codex_pass10 -- python -m minimal_multitask.eva
 
 # squad
 # just eval as normal
-$GANTRY_CMD --name ${MODEL_NAME}_squad_context -- python -m minimal_multitask.eval.squad.run_squad_eval \
+$GANTRY_CMD --name ${MODEL_NAME}_squad_context_fixed -- python -m minimal_multitask.eval.squad.run_squad_eval \
     --model_name_or_path /model \
     --output_file "/results/predictions.json" \
     --metrics_file "/results/metrics.json" \
