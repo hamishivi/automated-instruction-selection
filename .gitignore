@@ -6,7 +6,8 @@ my_package.egg-info/
 build/
 dist/
 pip-wheel-metadata/
-
+selections/
+visualizations/
 
 # dev tools
 
