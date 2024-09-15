@@ -17,9 +17,9 @@ EVAL_NAMES = ["MMLU", "GSM8k", "BBH", "TydiQA", "Codex", "Squad", "AlpacaEval"]
 EVAL_METRICS = ["average_acc", "exact_match", "average_exact_match", "average:f1", "pass@10", "f1", "win_rate"]
 EVAL_JOB_NAMES = {
     "mmlu_0shot": "MMLU",
-    "gsm_cot": "GSM8k",
-    "bbh_cot": "BBH",
-    "tydiqa_goldp": "TydiQA",
+    "gsm_cot_full": "GSM8k",
+    "bbh_cot_ful": "BBH",
+    "tydiqa_goldp_full": "TydiQA",
     "codex_pass10": "Codex",
     "squad_context": "Squad",
     "alpaca_eval": "AlpacaEval",
