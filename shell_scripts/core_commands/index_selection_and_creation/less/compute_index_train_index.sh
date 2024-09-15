@@ -9,7 +9,7 @@ for file in /net/nfs.cirrascale/allennlp/hamishi/minimal-multitask-tuning/data/t
     if [ -f "$file" ]; then
         shard=$(basename $file .jsonl)
             echo "Processing $shard"
-            $GANTRY_CMD --name lora_ff_10k_fixed_sampling_${shard} --task-name lora_ff_10k_fixed_sampling_${shard} -- \
+            $GANTRY_CMD --name lora_ff_10k_fixed_sampling_4_epochs_${shard} --task-name lora_ff_10k_fixed_sampling_4_epochs_${shard} -- \
             python -m minimal_multitask.compute_influence_train_index \
                 --model_name /model \
                 --underlying_model_name /model/underlying_model \
@@ -46,3 +46,5 @@ done
 #     --random_transform 8192 \
 #     --grad_batch 12 \
 #     --llama_model
+
+# --add_pad_before_load true \

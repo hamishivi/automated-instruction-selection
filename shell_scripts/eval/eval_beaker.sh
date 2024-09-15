@@ -16,7 +16,7 @@ GANTRY_CMD="gantry run --cluster ai2/allennlp-cirrascale --cluster ai2/general-c
 $GANTRY_CMD --name ${MODEL_NAME}_mmlu_0shot -- python -m minimal_multitask.eval.mmlu.run_mmlu_eval \
     --ntrain 0 \
     --data_dir /data/eval/mmlu/ \
-    --save_dir /results/mmlu \
+    --save_dir /results \
     --model_name_or_path /model \
     --eval_batch_size 1 \
     --use_chat_format \
@@ -24,10 +24,9 @@ $GANTRY_CMD --name ${MODEL_NAME}_mmlu_0shot -- python -m minimal_multitask.eval.
 
 # gsm8k
 # cot, 8 shot.
-$GANTRY_CMD --name ${MODEL_NAME}_gsm_cot -- python -m minimal_multitask.eval.gsm.run_eval \
+$GANTRY_CMD --name ${MODEL_NAME}_gsm_cot_full -- python -m minimal_multitask.eval.gsm.run_eval \
     --data_dir /data/eval/gsm/ \
-    --max_num_examples 200 \
-    --save_dir /results/gsm8k \
+    --save_dir /results \
     --model_name_or_path /model \
     --n_shot 8 \
     --use_chat_format \
@@ -36,23 +35,21 @@ $GANTRY_CMD --name ${MODEL_NAME}_gsm_cot -- python -m minimal_multitask.eval.gsm
 
 # bbh
 # cot, 3-shot
-$GANTRY_CMD --name ${MODEL_NAME}_bbh_cot -- python -m minimal_multitask.eval.bbh.run_eval \
+$GANTRY_CMD --name ${MODEL_NAME}_bbh_cot_full -- python -m minimal_multitask.eval.bbh.run_eval \
     --data_dir /data/eval/bbh \
-    --save_dir /results/bbh \
+    --save_dir /results \
     --model_name_or_path /model \
-    --max_num_examples_per_task 40 \
     --use_vllm \
     --use_chat_format \
     --chat_formatting_function minimal_multitask.eval.templates.create_prompt_with_tulu_chat_format
 
 # tydiqa
 # 1-shot, with context
-$GANTRY_CMD --name ${MODEL_NAME}_tydiqa_goldp -- python -m minimal_multitask.eval.tydiqa.run_eval \
+$GANTRY_CMD --name ${MODEL_NAME}_tydiqa_goldp_full -- python -m minimal_multitask.eval.tydiqa.run_eval \
     --data_dir /data/eval/tydiqa/ \
     --n_shot 1 \
-    --max_num_examples_per_lang 100 \
     --max_context_length 512 \
-    --save_dir /results/tydiqa \
+    --save_dir /results \
     --model_name_or_path /model \
     --eval_batch_size 20 \
     --use_vllm \
@@ -70,7 +67,7 @@ $GANTRY_CMD --name ${MODEL_NAME}_codex_pass10 -- python -m minimal_multitask.eva
     --eval_pass_at_ks 10 \
     --unbiased_sampling_size_n 10 \
     --temperature 0.8 \
-    --save_dir /results/codex \
+    --save_dir /results \
     --model_name_or_path /model \
     --use_vllm
 
@@ -80,12 +77,13 @@ $GANTRY_CMD --name ${MODEL_NAME}_squad_context_fixed -- python -m minimal_multit
     --model_name_or_path /model \
     --output_file "/results/predictions.json" \
     --metrics_file "/results/metrics.json" \
-    --generation_file "/results/generation.json"
+    --generation_file "/results/generation.json" \
+    --use_vllm
 
 # alpaca eval
 # use my test split
 $GANTRY_CMD --name ${MODEL_NAME}_alpaca_eval -- python -m minimal_multitask.eval.alpaca_eval.run_alpaca_eval \
-    --save_dir /results/alpacaeval \
+    --save_dir /results \
     --model_name_or_path /model \
     --use_vllm
 

@@ -9,7 +9,6 @@ pip-wheel-metadata/
 selections/
 visualizations/
 
-
 # dev tools
 
 .envrc

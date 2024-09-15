@@ -17,13 +17,14 @@ EVAL_NAMES = ["MMLU", "GSM8k", "BBH", "TydiQA", "Codex", "Squad", "AlpacaEval"]
 EVAL_METRICS = ["average_acc", "exact_match", "average_exact_match", "average:f1", "pass@10", "f1", "win_rate"]
 EVAL_JOB_NAMES = {
     "mmlu_0shot": "MMLU",
-    "gsm_cot": "GSM8k",
-    "bbh_cot": "BBH",
-    "tydiqa_goldp": "TydiQA",
+    "gsm_cot_full": "GSM8k",
+    "bbh_cot_ful": "BBH",
+    "tydiqa_goldp_full": "TydiQA",
     "codex_pass10": "Codex",
     "squad_context": "Squad",
     "alpaca_eval": "AlpacaEval",
 }
+MULTIPLY_METRICS = ["MMLU", "GSM8k", "BBH", "Codex"]
 EVAL_NAME_TO_METRIC = {name: metric_name for name, metric_name in zip(EVAL_NAMES, EVAL_METRICS)}
 
 beaker = Beaker.from_env(default_workspace=args.workspace)
@@ -47,11 +48,14 @@ for exp in beaker.workspace.iter_experiments(workspace=args.workspace, match=arg
         continue
     # put results in dict
     metric_name = EVAL_NAME_TO_METRIC[EVAL_JOB_NAMES[eval_name]].split(":")
+    multiply_factor = 1
+    if EVAL_JOB_NAMES[eval_name] in MULTIPLY_METRICS:
+        multiply_factor = 100
     if len(metric_name) == 1:
-        results[EVAL_JOB_NAMES[eval_name]] = metrics[metric_name[0]]
+        results[EVAL_JOB_NAMES[eval_name]] = metrics[metric_name[0]] * multiply_factor
     else:
         # currently only other case is tydiqa, so just hardcode
-        results[EVAL_JOB_NAMES[eval_name]] = metrics["average"]["f1"]
+        results[EVAL_JOB_NAMES[eval_name]] = metrics["average"]["f1"] * multiply_factor
 
 # finally, print results in order given with tab spacing
 for eval_name in EVAL_NAMES:

@@ -21,6 +21,13 @@ for file in args.input_files:
         for line in f:
             counters[-1][json.loads(line)["dataset"]] += 1
 
+random_counter = None
+if args.random_sel_file:
+    random_counter = Counter()
+    with open(args.random_sel_file, "r") as f:
+        for line in f:
+            random_counter[json.loads(line)["dataset"]] += 1
+
 # go through counters, plot stacked bar chart
 fig, ax = plt.subplots(figsize=(10, 5))
 # stacked bar chart setup
