@@ -24,9 +24,8 @@ $GANTRY_CMD --name ${MODEL_NAME}_mmlu_0shot -- python -m minimal_multitask.eval.
 
 # gsm8k
 # cot, 8 shot.
-$GANTRY_CMD --name ${MODEL_NAME}_gsm_cot -- python -m minimal_multitask.eval.gsm.run_eval \
+$GANTRY_CMD --name ${MODEL_NAME}_gsm_cot_full -- python -m minimal_multitask.eval.gsm.run_eval \
     --data_dir /data/eval/gsm/ \
-    --max_num_examples 200 \
     --save_dir /results \
     --model_name_or_path /model \
     --n_shot 8 \
@@ -36,21 +35,19 @@ $GANTRY_CMD --name ${MODEL_NAME}_gsm_cot -- python -m minimal_multitask.eval.gsm
 
 # bbh
 # cot, 3-shot
-$GANTRY_CMD --name ${MODEL_NAME}_bbh_cot -- python -m minimal_multitask.eval.bbh.run_eval \
+$GANTRY_CMD --name ${MODEL_NAME}_bbh_cot_full -- python -m minimal_multitask.eval.bbh.run_eval \
     --data_dir /data/eval/bbh \
     --save_dir /results \
     --model_name_or_path /model \
-    --max_num_examples_per_task 40 \
     --use_vllm \
     --use_chat_format \
     --chat_formatting_function minimal_multitask.eval.templates.create_prompt_with_tulu_chat_format
 
 # tydiqa
 # 1-shot, with context
-$GANTRY_CMD --name ${MODEL_NAME}_tydiqa_goldp -- python -m minimal_multitask.eval.tydiqa.run_eval \
+$GANTRY_CMD --name ${MODEL_NAME}_tydiqa_goldp_full -- python -m minimal_multitask.eval.tydiqa.run_eval \
     --data_dir /data/eval/tydiqa/ \
     --n_shot 1 \
-    --max_num_examples_per_lang 100 \
     --max_context_length 512 \
     --save_dir /results \
     --model_name_or_path /model \

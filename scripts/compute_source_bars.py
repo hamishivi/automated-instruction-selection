@@ -11,6 +11,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--input_files", nargs="+", type=str)
 parser.add_argument("--output_file", type=str)
 parser.add_argument("--influence_score_file", type=str, default=None)
+parser.add_argument("--random_sel_file", type=str, default=None)  # if given, add 'random' column
 args = parser.parse_args()
 
 counters = []
@@ -20,16 +21,26 @@ for file in args.input_files:
         for line in f:
             counters[-1][json.loads(line)["dataset"]] += 1
 
+random_counter = None
+if args.random_sel_file:
+    random_counter = Counter()
+    with open(args.random_sel_file, "r") as f:
+        for line in f:
+            random_counter[json.loads(line)["dataset"]] += 1
+
 # go through counters, plot stacked bar chart
 fig, ax = plt.subplots(figsize=(10, 5))
 # stacked bar chart setup
 
-evals = ["alpacaeval", "gsm8k", "tydiqa", "bbh", "mmlu", "codex", "squad"]
+evals = ["alpacaeval", "alpacafarm", "gsm8k", "tydiqa", "bbh", "mmlu", "codex", "squad"]
 evals_ordered = []
 for f in args.input_files:
     for eve in evals:
         if eve in f:
             evals_ordered.append(eve)
+if random_counter:
+    evals_ordered.append("random")
+    counters += [random_counter]
 basenames = evals_ordered
 all_keys = [c.keys() for c in counters]
 all_counter_keys = set()
@@ -37,6 +48,7 @@ for keys in all_keys:
     all_counter_keys.update(keys)
 all_counter_keys = sorted(list(all_counter_keys))
 combined_d = {k: [c[k] for c in counters] for k in all_counter_keys}
+
 width = 0.5
 bottom = np.zeros(len(counters))
 # colourmap can repeat, stop this
