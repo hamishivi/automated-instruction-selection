@@ -8,9 +8,9 @@ from transformers import AutoTokenizer
 from minimal_multitask.utils import encode_with_messages_format
 
 parser = argparse.ArgumentParser(description='Randomly subsample a file')
-parser.add_argument('input_file', type=str, help='Input file')
-parser.add_argument('output_file', type=str, help='Output file')
-parser.add_argument('n', type=int, help='Number of lines to sample')
+parser.add_argument('--input_file', type=str, help='Input file')
+parser.add_argument('--output_file', type=str, help='Output file')
+parser.add_argument('--n', type=int, help='Number of lines to sample')
 parser.add_argument('--seed', type=int, default=42, help='Random seed')
 args = parser.parse_args()
 

@@ -10,18 +10,19 @@ from tqdm import tqdm
 import math
 from statistics import mean
 from transformers import AutoTokenizer
+import os
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--input_files", type=str, nargs="+")  # we can pass in multiple pickles
 parser.add_argument("--output_file", type=str)
 parser.add_argument("--selection_method", type=str, default="min")  # min, mean, max
 parser.add_argument("--output_size", type=int, default=10000)  # number of instances total to select.
-parser.add_argument("--train_dataset", type=str, default="alpaca")
+parser.add_argument("--train_dataset", type=str)
 parser.add_argument("--aggregation_method", type=str, default="minmax")  # mean, minmax, rank
+parser.add_argument("--output_dataset", action="store_true")
 args = parser.parse_args()
 
 assert args.selection_method in ["min", "max", "mean_min", "mean_max"], "Invalid selection method."
-assert args.train_dataset in ["alpaca", "tulu2"], "Invalid train dataset."
 assert args.aggregation_method in ["mean", "minmax"], "Invalid aggregation method."
 
 # load train dataset for printing
@@ -32,13 +33,17 @@ if args.train_dataset == "alpaca":
 elif args.train_dataset == "tulu2":
     train_dataset = load_dataset("allenai/tulu-v2-sft-mixture", split="train")
 else:
-    raise ValueError("Invalid train dataset.")
+    # assume it's a path to a dataset
+    if os.path.exists(args.train_dataset):
+        train_dataset = load_dataset("json", data_files=args.train_dataset)["train"]
+    else:
+        raise ValueError(f"Invalid train dataset {args.train_dataset}.")
 
 tokenizer = AutoTokenizer.from_pretrained("oobabooga/llama-tokenizer")
 
 
 def compute_influences_for_file(input_file):
-    instance_to_influences = pickle.load(open(input_file, "rb"))
+    instance_to_influences = json.load(open(input_file, "rb"))
     # two selection methods: min or mean or max
     # this is how we aggregate influences.
     # for mean, we just average scores across all test points.
@@ -54,6 +59,8 @@ def compute_influences_for_file(input_file):
             if train_idx not in all_train_scores:
                 all_train_scores[train_idx] = []
             all_train_scores[train_idx].append(score)
+        
+    del instance_to_influences
 
     # track the overall influences/idxes we are taking.
     overall_influences = {}
@@ -104,14 +111,14 @@ elif args.aggregation_method == "minmax":
             dataset_scores.items(), key=lambda x: x[1], reverse="max" in args.selection_method
         )
     while len(inter_dataset_scores) < args.output_size:
-        for ds_name, sorted_scores in per_dataset_influences.items():
+        for ds_name in per_dataset_influences.keys():
             if len(inter_dataset_scores) >= args.output_size:
                 break
             # sort and pop min/max
             # sorted_scores = sorted(dataset_scores.items(), key=lambda x: x[1], reverse='max' in args.selection_method)
-            idx, score = sorted_scores.pop(0)
+            idx, score = per_dataset_influences[ds_name].pop(0)
             print(f"Dataset: {ds_name}, idx: {idx}, score: {score}")
-            per_dataset_influences[ds_name] = {k: v for k, v in sorted_scores}
+            # per_dataset_influences[ds_name] = list({k: v for k, v in sorted_scores}.items())
             inter_dataset_scores[idx] = min(score, inter_dataset_scores.get(idx, math.inf))
             pbar.update(len(inter_dataset_scores) - last_size)
             last_size = len(inter_dataset_scores)
@@ -121,9 +128,22 @@ else:
     raise ValueError("Invalid aggregation method.")
 
 # construct list of train indices
-saved_instances = list(set([int(index) for index, _ in inter_dataset_scores]))
+saved_instances = [int(index) for index, _ in inter_dataset_scores]
+saved_scores = [values for _, values in inter_dataset_scores]
 assert len(saved_instances) == args.output_size, "Saved instances size does not match output size."
 
 # save the indices
-with open(args.output_file, "w") as f:
-    json.dump(saved_instances, f, indent=4)
+if args.output_dataset:
+    output_dataset = []
+    for i, train_idx in enumerate(saved_instances):
+        if type(train_idx) is not int:
+            train_idx = train_idx.item()
+        instance = train_dataset[train_idx]
+        instance["influence_score"] = saved_scores[i] if type(saved_scores[i]) is float else saved_scores[i].item()
+        output_dataset.append(instance)
+    with open(args.output_file, "w") as f:
+        for instance in output_dataset:
+            f.write(json.dumps(instance) + "\n")
+else:
+    with open(args.output_file, "w") as f:
+        json.dump(saved_instances, f, indent=4)

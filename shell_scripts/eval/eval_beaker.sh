@@ -7,7 +7,7 @@ BEAKER_PATH=$2
 
 # command for gantry here
 # includes oai key and turning off alpaca eval 2 for alpaca eval stuff.
-# dataset 01J6QPDA42DV51EN4BHC9GA2TE is the data for the eval
+# dataset 01J6QSXVDS4MN0W45HB2MHWXQN is the data for the eval
 GANTRY_CMD="gantry run --cluster ai2/allennlp-cirrascale --cluster ai2/general-cirrascale --cluster ai2/mosaic-cirrascale-a100 --cluster ai2/pluto-cirrascale --cluster ai2/s2-cirrascale-l40 --cluster ai2/jupiter-cirrascale-2 --no-nfs --budget ai2/oe-adapt --allow-dirty --priority preemptible --workspace ai2/minimal-multitask-finetuning --gpus 1 --env-secret OPENAI_API_KEY=OPENAI_API_KEY --env IS_ALPACA_EVAL_2=False --dataset ${BEAKER_PATH}:/model --dataset 01J6QSXVDS4MN0W45HB2MHWXQN:/data"
 
 # mmlu
@@ -16,7 +16,7 @@ GANTRY_CMD="gantry run --cluster ai2/allennlp-cirrascale --cluster ai2/general-c
 $GANTRY_CMD --name ${MODEL_NAME}_mmlu_0shot -- python -m minimal_multitask.eval.mmlu.run_mmlu_eval \
     --ntrain 0 \
     --data_dir /data/eval/mmlu/ \
-    --save_dir /results \
+    --save_dir /results/mmlu \
     --model_name_or_path /model \
     --eval_batch_size 1 \
     --use_chat_format \
@@ -27,7 +27,7 @@ $GANTRY_CMD --name ${MODEL_NAME}_mmlu_0shot -- python -m minimal_multitask.eval.
 $GANTRY_CMD --name ${MODEL_NAME}_gsm_cot -- python -m minimal_multitask.eval.gsm.run_eval \
     --data_dir /data/eval/gsm/ \
     --max_num_examples 200 \
-    --save_dir /results \
+    --save_dir /results/gsm8k \
     --model_name_or_path /model \
     --n_shot 8 \
     --use_chat_format \
@@ -38,7 +38,7 @@ $GANTRY_CMD --name ${MODEL_NAME}_gsm_cot -- python -m minimal_multitask.eval.gsm
 # cot, 3-shot
 $GANTRY_CMD --name ${MODEL_NAME}_bbh_cot -- python -m minimal_multitask.eval.bbh.run_eval \
     --data_dir /data/eval/bbh \
-    --save_dir /results \
+    --save_dir /results/bbh \
     --model_name_or_path /model \
     --max_num_examples_per_task 40 \
     --use_vllm \
@@ -52,7 +52,7 @@ $GANTRY_CMD --name ${MODEL_NAME}_tydiqa_goldp -- python -m minimal_multitask.eva
     --n_shot 1 \
     --max_num_examples_per_lang 100 \
     --max_context_length 512 \
-    --save_dir /results \
+    --save_dir /results/tydiqa \
     --model_name_or_path /model \
     --eval_batch_size 20 \
     --use_vllm \
@@ -70,7 +70,7 @@ $GANTRY_CMD --name ${MODEL_NAME}_codex_pass10 -- python -m minimal_multitask.eva
     --eval_pass_at_ks 10 \
     --unbiased_sampling_size_n 10 \
     --temperature 0.8 \
-    --save_dir /results \
+    --save_dir /results/codex \
     --model_name_or_path /model \
     --use_vllm
 
@@ -85,7 +85,7 @@ $GANTRY_CMD --name ${MODEL_NAME}_squad_context -- python -m minimal_multitask.ev
 # alpaca eval
 # use my test split
 $GANTRY_CMD --name ${MODEL_NAME}_alpaca_eval -- python -m minimal_multitask.eval.alpaca_eval.run_alpaca_eval \
-    --save_dir /results \
+    --save_dir /results/alpacaeval \
     --model_name_or_path /model \
     --use_vllm
 

@@ -1,4 +1,4 @@
-name: conda_tmp
+name: attrib
 channels:
   - pytorch
   - nvidia
