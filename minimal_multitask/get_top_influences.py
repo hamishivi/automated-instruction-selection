@@ -24,7 +24,7 @@ parser.add_argument("--output_dataset", action="store_true", default=False)
 parser.add_argument("--domain_weights", type=str)  # json file containing domain weights normalized to 1.
 args = parser.parse_args()
 
-assert args.selection_method in ["min", "max", "mean_min", "mean_max", "normalized_mean_min"], "Invalid selection method."
+assert args.selection_method in ["min", "max", "mean_min", "mean_max", "normalized_mean_min", "normalized_mean_max"], "Invalid selection method."
 # assert len(args.input_files) == len(args.train_datasets), "Number of input files must match number of train datasets, " + len(args.input_files) + ", " + len(args.train_datasets)
 if len(args.input_files) > 1:
     assert args.output_dataset, "Must save output dataset for multiple input files."
@@ -109,7 +109,7 @@ if "normalized_mean" in args.selection_method:
             average_influences[train_idx].append(score)
     average_influences = list(average_influences.items())
     # normalize scores. notably, we normalize per test instance, not per train instance
-    for idx in range(len(average_influences[0])):
+    for idx in range(len(average_influences[0][1])):
         scores_for_test_point = [scores[idx] for _, scores in average_influences]
         min_scores = min(scores_for_test_point)
         max_scores = max(scores_for_test_point)

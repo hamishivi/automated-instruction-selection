@@ -1355,6 +1355,60 @@ class MBPPPlus(TestDataset):
         return test_dataset
 
 
+class ArenaHardSelection(TestDataset):
+    data_file = os.path.join(get_appropriate_data_dir(), "eval/arena_hard.jsonl")
+
+    def get_all_test_prompts(self, num_samples=500, seed=42, max_length=2048):
+        data = [json.loads(line) for line in open(self.data_file, "r")]
+        # shuffle and select first num_samples
+        random.seed(42)
+        random.shuffle(data)
+        data = data[:num_samples]
+        prompts, labels = [], []
+        for example in data:
+            prompt = example["prompt"].strip()
+            messages = [{"role": "user", "content": prompt}]
+            prompt = create_prompt_with_tulu_chat_format(messages, self.tokenizer, add_bos=False)
+            prompts.append(prompt)
+            labels.append(example["label"].strip())
+        test_dataset = Dataset.from_dict({"prompts": prompts, "labels": labels})
+
+        def construct_test_sample_tok(x):
+            return construct_test_sample(self.tokenizer, x, max_length=max_length)
+
+        test_dataset = test_dataset.map(construct_test_sample_tok, load_from_cache_file=False)
+        test_dataset.set_format(type="torch", columns=["input_ids", "attention_mask", "labels"])
+        test_dataset = test_dataset.shuffle(seed=seed).select(range(min(num_samples, len(test_dataset))))
+        return test_dataset
+
+
+class WildChatSelection(TestDataset):
+    data_file = os.path.join(get_appropriate_data_dir(), "eval/wildchat_100_prompts.jsonl")
+
+    def get_all_test_prompts(self, num_samples=100, seed=42, max_length=2048):
+        data = [json.loads(line) for line in open(self.data_file, "r")]
+        # shuffle and select first num_samples
+        random.seed(42)
+        random.shuffle(data)
+        data = data[:num_samples]
+        prompts, labels = [], []
+        for example in data:
+            prompt = example["prompt"].strip()
+            messages = [{"role": "user", "content": prompt}]
+            prompt = create_prompt_with_tulu_chat_format(messages, self.tokenizer, add_bos=False)
+            prompts.append(prompt)
+            labels.append(example["response"].strip())
+        test_dataset = Dataset.from_dict({"prompts": prompts, "labels": labels})
+
+        def construct_test_sample_tok(x):
+            return construct_test_sample(self.tokenizer, x, max_length=max_length)
+
+        test_dataset = test_dataset.map(construct_test_sample_tok, load_from_cache_file=False)
+        test_dataset.set_format(type="torch", columns=["input_ids", "attention_mask", "labels"])
+        test_dataset = test_dataset.shuffle(seed=seed).select(range(min(num_samples, len(test_dataset))))
+        return test_dataset
+
+
 # todo: humaneval, truthfulqa mc.
 # these are maybe tricky since they dont have hard gold.
 DATASETS = {
@@ -1378,6 +1432,8 @@ DATASETS = {
     "squad_test": SquadEvalTest,
     "squad_shots": SquadEvalShots,  # selection dev version, with shots.
     "mbppplus": MBPPPlus,
+    "arena_hard": ArenaHardSelection,
+    "wildchat": WildChatSelection,
 }
 
 # How do we handle ensuring a difference between selection time and test time?
@@ -1400,7 +1456,8 @@ if __name__ == "__main__":
     tokenizer = AutoTokenizer.from_pretrained("oobabooga/llama-tokenizer")
     # test that we can load all the datasets.
     ds = {
-        "squad": SquadEvalShots,
+        "arena_hard": ArenaHardSelection,
+        "wildchat": WildChatSelection,
     }
     for dataset_name, dataset_class in ds.items():
         print(f"Testing {dataset_name}")
