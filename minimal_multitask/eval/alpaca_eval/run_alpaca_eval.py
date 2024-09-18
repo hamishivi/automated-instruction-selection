@@ -48,8 +48,7 @@ def main(args):
 
     prompts = []
     chat_formatting_function = create_prompt_with_tulu_chat_format
-    # tokenizer = AutoTokenizer.from_pretrained("huggyllama/llama-7b")
-    tokenizer = AutoTokenizer.from_pretrained("meta-llama/Llama-2-7b-hf")
+    tokenizer = AutoTokenizer.from_pretrained("huggyllama/llama-7b")
 
     for example in alpaca_eval_data:
         prompt = example["instruction"]
