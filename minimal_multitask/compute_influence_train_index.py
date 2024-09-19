@@ -21,6 +21,7 @@ import pickle
 from minimal_multitask.data import DATASETS
 from trak.projectors import ProjectionType
 from transformers import DataCollatorForSeq2Seq
+import numpy as np
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--model_name", type=str, default="EleutherAI/pythia-70m")
@@ -61,6 +62,7 @@ parser.add_argument("--train_dataset", type=str, default="alpaca")
 parser.add_argument("--add_pad_before_load", type=str, default=None)
 # if set, only use the first two messages in the chat.
 parser.add_argument("--only_first_two", action="store_true")
+parser.add_argument("--save_raw_grads", action="store_true")  # dont use with big datasets, too pricey.
 args = parser.parse_args()
 
 torch.manual_seed(args.seed)
@@ -261,6 +263,7 @@ grad_batch = args.grad_batch
 accum_grads = []
 # save gradients for visualisation later.
 samples = []
+raw_grads = []
 counter = 0
 if not os.path.exists(args.index_path):
     influence_index = 0
@@ -278,6 +281,8 @@ if not os.path.exists(args.index_path):
             weight_decay=0.0,
             weight_decay_ignores=weight_decay_ignores,
         ).to(torch.float16)
+        if args.save_raw_grads:
+            raw_grads.append(grad_z.detach().cpu().numpy())
         accum_grads.append(grad_z.flatten())
         # store the data_id to influence index mapping
         # this is to handle skipping.
@@ -316,6 +321,9 @@ if not os.path.exists(args.index_path):
         grad_index.add(vecs_to_add)
         accum_grads = []
     if args.save_index:
+        if args.save_raw_grads:
+            raw_grads = np.concatenate(raw_grads, axis=0)
+            np.save(args.index_path.replace(".faiss", "_raw.npy"), raw_grads)
         faiss.write_index(grad_index, args.index_path)
         # del and reload so we can use mmap (save memory!)
         del grad_index
