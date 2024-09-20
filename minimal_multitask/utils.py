@@ -115,3 +115,34 @@ def get_appropriate_data_dir():
         return "data"
     else:
         raise FileNotFoundError("No valid data directory found.")
+
+import pickle
+import numpy as np
+
+# a simple in-memory index for testing purposes.
+class InMemoryFaiss:
+    def __init__(self):
+        self.is_trained = False
+        self.vectors = []
+
+    def add(self, vectors):
+        self.vectors.extend(vectors)
+
+    def search(self, query, k):
+        # compute inner product between query and all vectors
+        query = query.reshape(-1, 1)
+        scores = np.stack(self.vectors, axis=0) @ query
+        scores = scores[:, 0]
+        # sort by score
+        sorted_scores = np.argsort(scores)
+        # return raw numbers and indices
+        return scores[sorted_scores[:k]][None,], sorted_scores[:k][None,]
+
+    def save(self, path):
+        with open(path, "wb") as f:
+            pickle.dump(self.vectors, f)
+
+    def load(self, path):
+        with open(path, "rb") as f:
+            self.vectors = pickle.load(f)
+        self.is_trained = True

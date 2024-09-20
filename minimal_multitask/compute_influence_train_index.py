@@ -10,7 +10,7 @@ from minimal_multitask.nn_influence_utils import (
     get_trak_projector,
     compute_vectorised_gradients,
 )
-from minimal_multitask.utils import encode_with_messages_format
+from minimal_multitask.utils import encode_with_messages_format, InMemoryFaiss
 from datasets import load_dataset
 from tqdm import tqdm
 import faiss
@@ -63,6 +63,7 @@ parser.add_argument("--add_pad_before_load", type=str, default=None)
 # if set, only use the first two messages in the chat.
 parser.add_argument("--only_first_two", action="store_true")
 parser.add_argument("--save_raw_grads", action="store_true")  # dont use with big datasets, too pricey.
+parser.add_argument("--no-faiss", action="store_true")  # dont use faiss for indexing
 args = parser.parse_args()
 
 torch.manual_seed(args.seed)
@@ -258,6 +259,9 @@ if args.quantize_faiss:
 else:
     grad_index = faiss.index_factory(index_dim_size, "Flat", faiss.METRIC_INNER_PRODUCT)
 
+if args.no_faiss:
+    grad_index = InMemoryFaiss()
+
 # we add to the index in batches to speed things up?
 grad_batch = args.grad_batch
 accum_grads = []
@@ -321,15 +325,22 @@ if not os.path.exists(args.index_path):
         grad_index.add(vecs_to_add)
         accum_grads = []
     if args.save_index:
-        if args.save_raw_grads:
-            raw_grads = np.stack(raw_grads, axis=0)
-            np.save(args.index_path.replace(".faiss", "_raw.npy"), raw_grads)
-        faiss.write_index(grad_index, args.index_path)
-        # del and reload so we can use mmap (save memory!)
-        del grad_index
+        if args.no_faiss:
+            grad_index.save(args.index_path)
+        else:
+            if args.save_raw_grads:
+                raw_grads = np.stack(raw_grads, axis=0)
+                np.save(args.index_path.replace(".faiss", "_raw.npy"), raw_grads)
+            faiss.write_index(grad_index, args.index_path)
+            # del and reload so we can use mmap (save memory!)
+            del grad_index
 
 if os.path.exists(args.index_path):
-    grad_index = faiss.read_index(args.index_path, faiss.IO_FLAG_MMAP)
+    if args.no_faiss:
+        grad_index = InMemoryFaiss()
+        grad_index.load(args.index_path)
+    else:
+        grad_index = faiss.read_index(args.index_path, faiss.IO_FLAG_MMAP)
     # build up skip list again
     influence_index_to_data_id = {}
     influence_index = 0
