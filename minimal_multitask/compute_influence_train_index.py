@@ -322,7 +322,7 @@ if not os.path.exists(args.index_path):
         accum_grads = []
     if args.save_index:
         if args.save_raw_grads:
-            raw_grads = np.concatenate(raw_grads, axis=0)
+            raw_grads = np.stack(raw_grads, axis=0)
             np.save(args.index_path.replace(".faiss", "_raw.npy"), raw_grads)
         faiss.write_index(grad_index, args.index_path)
         # del and reload so we can use mmap (save memory!)
