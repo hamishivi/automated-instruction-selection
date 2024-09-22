@@ -432,6 +432,11 @@ for index, instance in tqdm(enumerate(eval_data_loader), total=len(eval_data_loa
         torch.cuda.empty_cache()
         if index == 0 and args.create_plots:
             compute_length_vs_influence(topk_indices, influences, filter_nops=True)
+        # convert faiss indices to the train set indices
+        # ignore -1 indices
+        topk_indices_new = [[influence_index_to_data_id[i] for i in topk_indices[0] if i != -1]]
+        influences = [[inf for idx, inf in enumerate(influences[0]) if topk_indices[0][idx] != -1]]
+        topk_indices = topk_indices_new
         # create dict?
         index_to_influence = {ind: influence for influence, ind in zip(influences[0], topk_indices[0])}
         instance_to_influences[index] = index_to_influence
@@ -442,6 +447,7 @@ for index, instance in tqdm(enumerate(eval_data_loader), total=len(eval_data_loa
             print(f"Saved to {args.instance_to_influences} at step {index}")
 
 # add in any skipped instances - we set their influence to 0
+# lazy method for doing this: anything unset is 0.
 influence_to_index = []
 for test_index in range(len(eval_data_loader)):
     for train_index in range(len(instance_train_data_loader)):
