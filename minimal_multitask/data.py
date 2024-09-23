@@ -12,7 +12,7 @@ from minimal_multitask.eval.codex_humaneval.data import read_problems
 import json
 from datasets import load_dataset, Dataset
 from minimal_multitask.eval.mmlu.run_mmlu_eval import construct_prompts
-from minimal_multitask.utils import get_appropriate_data_dir, create_prompt_with_tulu_chat_format
+from minimal_multitask.utils import get_appropriate_data_dir, create_prompt_with_tulu_chat_format, encode_with_messages_format
 import glob
 import os
 import tqdm
@@ -1409,6 +1409,19 @@ class WildChatSelection(TestDataset):
         return test_dataset
 
 
+# debug dataset: take 100 samples that I know exist in the index,
+# and make sure we select them correctly.
+class SubsetSelection(TestDataset):
+    data_file = os.path.join(get_appropriate_data_dir(), "eval/100_200k_debug.jsonl")
+
+    def get_all_test_prompts(self, num_samples=100, seed=42, max_length=2048):
+        test_dataset = load_dataset("json", data_files=self.data_file)["train"]
+        test_dataset = test_dataset.map(lambda x: encode_with_messages_format(x, self.tokenizer, max_length), load_from_cache_file=False)
+        test_dataset.set_format(type="torch", columns=["input_ids", "attention_mask", "labels"])
+        test_dataset = test_dataset.shuffle(seed=seed).select(range(min(num_samples, len(test_dataset))))
+        return test_dataset
+
+
 # todo: humaneval, truthfulqa mc.
 # these are maybe tricky since they dont have hard gold.
 DATASETS = {
@@ -1434,6 +1447,7 @@ DATASETS = {
     "mbppplus": MBPPPlus,
     "arena_hard": ArenaHardSelection,
     "wildchat": WildChatSelection,
+    'debug_subset': SubsetSelection,
 }
 
 # How do we handle ensuring a difference between selection time and test time?
@@ -1456,8 +1470,7 @@ if __name__ == "__main__":
     tokenizer = AutoTokenizer.from_pretrained("oobabooga/llama-tokenizer")
     # test that we can load all the datasets.
     ds = {
-        "arena_hard": ArenaHardSelection,
-        "wildchat": WildChatSelection,
+        "debug_subset": SubsetSelection,
     }
     for dataset_name, dataset_class in ds.items():
         print(f"Testing {dataset_name}")
