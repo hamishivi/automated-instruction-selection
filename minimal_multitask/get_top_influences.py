@@ -22,6 +22,7 @@ parser.add_argument("--train_datasets", nargs="+", type=str, default=["alpaca"])
 # save the output dataset in text. must be used for mult-file inputs.
 parser.add_argument("--output_dataset", action="store_true", default=False)
 parser.add_argument("--domain_weights", type=str)  # json file containing domain weights normalized to 1.
+parser.add_argument("--select_only_from_file", type=str) # only select instances from this file.
 args = parser.parse_args()
 
 assert args.selection_method in ["min", "max", "mean_min", "mean_max", "normalized_mean_min", "normalized_mean_max"], "Invalid selection method."
@@ -34,6 +35,10 @@ assert args.output_file, "Must specify output file."
 instance_to_influences_list = []
 for input_file in args.input_files:
     instance_to_influences_list.append(pickle.load(open(input_file, "rb")))
+
+if args.select_only_from_file:
+    with open(args.select_only_from_file) as f:
+        subsample_ids = set([json.loads(line)["id"] for line in f])
 
 # load domain weight information
 if args.domain_weights:
@@ -52,6 +57,16 @@ def get_domain_values(domain):
     elif domain not in domain_max_size:
         return 0
     return domain_max_size[domain]
+
+
+def remove_dupes_ordered(lst):
+    seen = set()
+    new_lst = []
+    for item in lst:
+        if item not in seen:
+            new_lst.append(item)
+            seen.add(item)
+    return new_lst
 
 
 # load train datasets for printing
@@ -185,11 +200,17 @@ elif "min" in args.selection_method:
                             domain = "science"
                     domain_sizes[domain] += 1
 
+                # if we are only selecting from a file, make sure we only select from that file.
+                if args.select_only_from_file:
+                    sample_id = train_datasets[inst_0][inst_1]["id"]
+                    if sample_id not in subsample_ids:
+                        continue
+
                 saved_instances.append(inst)
                 saved_scores.append(score)
                 # set list the saved instances in case of dups.
                 prev_size = len(saved_instances)
-                saved_instances = list(set(saved_instances))
+                saved_instances = remove_dupes_ordered(saved_instances)
                 # if it was a dup, remove the score.
                 # also remove the domain increment.
                 if len(saved_instances) < prev_size:
@@ -223,7 +244,7 @@ elif "max" in args.selection_method:
                 saved_scores.append(score)
                 # set list the saved instances in case of dups.
                 prev_size = len(saved_instances)
-                saved_instances = list(set(saved_instances))
+                saved_instances = remove_dupes_ordered(saved_instances)
                 # if it was a dup, remove the score.
                 if len(saved_instances) < prev_size:
                     saved_scores = saved_scores[:-1]
@@ -233,7 +254,7 @@ elif "max" in args.selection_method:
     # if we are over the output size, remove the last few instances.
     saved_instances = saved_instances[: args.output_size]
 
-saved_instances = list(set(saved_instances))
+saved_instances = remove_dupes_ordered(saved_instances)
 print(f"Saving {len(saved_instances)} instances")
 # if we are outputting the actual dataset, time to save
 # add the influence score to the instance for plotting and save
