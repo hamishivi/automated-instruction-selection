@@ -1,5 +1,7 @@
 import torch
 import os
+import pickle
+import numpy as np
 
 
 # convert, but just return text.
@@ -116,8 +118,6 @@ def get_appropriate_data_dir():
     else:
         raise FileNotFoundError("No valid data directory found.")
 
-import pickle
-import numpy as np
 
 # a simple in-memory index for testing purposes.
 class InMemoryFaiss:

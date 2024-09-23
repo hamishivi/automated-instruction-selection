@@ -22,7 +22,7 @@ parser.add_argument("--train_datasets", nargs="+", type=str, default=["alpaca"])
 # save the output dataset in text. must be used for mult-file inputs.
 parser.add_argument("--output_dataset", action="store_true", default=False)
 parser.add_argument("--domain_weights", type=str)  # json file containing domain weights normalized to 1.
-parser.add_argument("--select_only_from_file", type=str) # only select instances from this file.
+parser.add_argument("--select_only_from_file", type=str)  # only select instances from this file.
 args = parser.parse_args()
 
 assert args.selection_method in ["min", "max", "mean_min", "mean_max", "normalized_mean_min", "normalized_mean_max"], "Invalid selection method."
