@@ -52,7 +52,7 @@ else:
 
 # load and process train dataset
 if args.train_dataset == "alpaca":
-    train_dataset = load_dataset("json", data_files="data/camel_datasets/stanford_alpaca/stanford_alpaca_data.jsonl")[
+    train_dataset = load_dataset("json", data_files="data/stanford_alpaca_data.jsonl")[
         "train"
     ]
     train_dataset = train_dataset.map(
