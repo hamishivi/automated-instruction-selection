@@ -56,18 +56,18 @@ if args.train_dataset == "alpaca":
         "train"
     ]
     train_dataset = train_dataset.map(
-        lambda x: encode_with_messages_format(x, tokenizer, 512, True, False, args.only_first_two), num_proc=16
+        lambda x: encode_with_messages_format(x, tokenizer, 512, True, args.label_only, args.only_first_two, args.prompt_only), num_proc=16
     )
 elif args.train_dataset == "tulu2":
     train_dataset = load_dataset("allenai/tulu-v2-sft-mixture", split="train")
     train_dataset = train_dataset.map(
-        lambda x: encode_with_messages_format(x, tokenizer, 2048, True, False, args.only_first_two), num_proc=16
+        lambda x: encode_with_messages_format(x, tokenizer, 2048, True, args.label_only, args.only_first_two, args.prompt_only), num_proc=16
     )
 else:
     if os.path.exists(args.train_dataset):
         train_dataset = load_dataset("json", data_files=args.train_dataset)["train"]
         train_dataset = train_dataset.map(
-            lambda x: encode_with_messages_format(x, tokenizer, 2048, True, False, args.only_first_two), num_proc=16
+            lambda x: encode_with_messages_format(x, tokenizer, 2048, True, args.label_only, args.only_first_two, args.prompt_only), num_proc=16, load_from_cache_file=False
         )
     else:
         raise ValueError(f"Invalid train dataset: {args.train_dataset}")
@@ -76,7 +76,7 @@ train_dataset.set_format(type="torch", columns=["input_ids", "attention_mask", "
 # test dataset - mostly handled in data.py
 if args.eval_dataset in DATASETS:
     test_dataset = DATASETS[args.eval_dataset](tokenizer).get_all_test_prompts(
-        seed=args.seed
+        seed=args.seed, prompt_only=args.prompt_only, response_only=args.label_only
     )
 else:
     raise ValueError(f"Invalid dataset: {args.dataset}")
@@ -94,7 +94,6 @@ print(f"Test dataset size: {len(test_dataset)}")
 # construct dataloaders
 train_data_loader = torch.utils.data.DataLoader(train_dataset, batch_size=args.batch_size, shuffle=False)
 eval_data_loader = torch.utils.data.DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False)
-
 if args.index_path is not None and os.path.exists(args.index_path):
         all_train_embeds = torch.load(args.index_path)
 else:
@@ -109,11 +108,7 @@ else:
         label_len = torch.sum(train_inputs["labels"] != -100, dim=1)
         input_lens = torch.sum(train_inputs["attention_mask"], dim=1)
         # Get the mean hidden state corresponding to the label
-        if args.prompt_only:
-            train_embeddings = train_outputs["hidden_states"][-1][:, :label_len]
-        elif args.label_only:
-            train_embeddings = torch.mean(train_outputs["hidden_states"][-1][:, -label_len:], dim=1)
-        elif args.mean_pool:
+        if args.mean_pool:
             train_embeddings = torch.mean(train_outputs["hidden_states"][-1], dim=1)
         else:
             # just use the last token hiden state
@@ -134,11 +129,7 @@ for idx, test_inputs in enumerate(tqdm(eval_data_loader)):
     label_len = torch.sum(test_inputs["labels"] != -100, dim=1)
     input_lens = torch.sum(test_inputs["attention_mask"], dim=1)
     # Get the mean hidden state corresponding to the label
-    if args.prompt_only:
-        test_embeddings = test_outputs["hidden_states"][-1][:, :label_len]
-    elif args.label_only:
-        test_embeddings = torch.mean(test_outputs["hidden_states"][-1][:, -label_len:], dim=1)
-    elif args.mean_pool:
+    if args.mean_pool:
         test_embeddings = torch.mean(test_outputs["hidden_states"][-1], dim=1)
     else:
         # just use the last token hiden state
