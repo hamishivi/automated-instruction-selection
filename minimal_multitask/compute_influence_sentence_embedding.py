@@ -21,6 +21,8 @@ parser.add_argument("--index_path", type=str)
 parser.add_argument("--leak_test_data", action="store_true")
 parser.add_argument("--dtype", default="bf16")
 parser.add_argument("--batch_size", type=int, default=1)
+parser.add_argument("--prompt_only", action="store_true")
+parser.add_argument("--label_only", action="store_true")
 args = parser.parse_args()
 
 
@@ -43,23 +45,23 @@ tokenizer = AutoTokenizer.from_pretrained('nvidia/NV-Embed-v2')
 
 # load and process train dataset
 if args.train_dataset == "alpaca":
-    train_dataset = load_dataset("json", data_files="data/camel_datasets/stanford_alpaca/stanford_alpaca_data.jsonl")[
+    train_dataset = load_dataset("json", data_files="data/stanford_alpaca_data.jsonl")[
         "train"
     ]
     train_dataset = train_dataset.map(
-        lambda x: create_prompt_with_tulu_chat_format(x['messages'], tokenizer), num_proc=16
+        lambda x: create_prompt_with_tulu_chat_format(x['messages'], tokenizer, prompt_only=args.prompt_only, response_only=args.label_only), num_proc=16
     )
 elif args.train_dataset == "tulu2":
     train_dataset = load_dataset("allenai/tulu-v2-sft-mixture", split="train")
     train_dataset = train_dataset.map(
-        lambda x: {"text": create_prompt_with_tulu_chat_format(x['messages'], tokenizer)}, num_proc=16
+        lambda x: {"text": create_prompt_with_tulu_chat_format(x['messages'], tokenizer, prompt_only=args.prompt_only, response_only=args.label_only)}, num_proc=16
     )
     train_dataset = train_dataset['text']
 else:
     if os.path.exists(args.train_dataset):
         train_dataset = load_dataset("json", data_files=args.train_dataset)["train"]
         train_dataset = train_dataset.map(
-            lambda x: {"text": create_prompt_with_tulu_chat_format(x['messages'], tokenizer)}, num_proc=16
+            lambda x: {"text": create_prompt_with_tulu_chat_format(x['messages'], tokenizer, prompt_only=args.prompt_only, response_only=args.label_only)}, num_proc=16, load_from_cache_file=False
         )
         train_dataset = train_dataset['text']
     else:
@@ -68,7 +70,7 @@ else:
 # test dataset - mostly handled in data.py
 if args.eval_dataset in DATASETS:
     test_dataset = DATASETS[args.eval_dataset](tokenizer).get_all_test_prompts(
-        seed=args.seed
+        seed=args.seed, prompt_only=args.prompt_only, response_only=args.label_only
     )
     # gonna be annoying and just decode the test prompts to get text.
     test_dataset = test_dataset.map(
