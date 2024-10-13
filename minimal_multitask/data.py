@@ -12,7 +12,7 @@ from minimal_multitask.eval.codex_humaneval.data import read_problems
 import json
 from datasets import load_dataset, Dataset
 from minimal_multitask.eval.mmlu.run_mmlu_eval import construct_prompts
-from minimal_multitask.utils import get_appropriate_data_dir, create_prompt_with_tulu_chat_format
+from minimal_multitask.utils import get_appropriate_data_dir, create_prompt_with_tulu_chat_format, encode_with_messages_format
 import glob
 import os
 import tqdm
@@ -32,10 +32,15 @@ class TestDataset:
 
 
 # turns sample into something we can feed into a model
-def construct_test_sample(tokenizer, sample, max_length=2048):
+def construct_test_sample(tokenizer, sample, max_length=2048, prompt_only=False, response_only=False):
     prompt, label = sample["prompts"], sample["labels"]
     # tokenizer label and prompt independently, then concatenate.
     # this is so we match the test format (tokenize the prompt and generate)
+    if prompt_only:
+        prompt = prompt + tokenizer.eos_token  # add eos token to prompt
+        prompt = prompt.replace("\n<|assistant|>\n", "")  # remove assistant turn
+    if response_only:
+        label = tokenizer.bos_token + label  # add bos token to label
     inputs = tokenizer(prompt, return_tensors="pt", max_length=max_length, truncation=True)
     labels = tokenizer(
         label + tokenizer.eos_token,
@@ -44,6 +49,18 @@ def construct_test_sample(tokenizer, sample, max_length=2048):
         truncation=True,
         add_special_tokens=False,
     )
+    if prompt_only:
+        return {
+            "input_ids": inputs["input_ids"][0],
+            "attention_mask": inputs["attention_mask"][0],
+            "labels": torch.ones_like(inputs["input_ids"][0]) * -100,
+        }
+    elif response_only:
+        return {
+            "input_ids": labels["input_ids"][0],
+            "attention_mask": labels["attention_mask"][0],
+            "labels": labels["input_ids"][0],
+        }
     return {
         "input_ids": torch.cat([inputs["input_ids"][0], labels["input_ids"][0]], dim=0),
         "attention_mask": torch.cat([inputs["attention_mask"][0], labels["attention_mask"][0]], dim=0),
@@ -52,12 +69,12 @@ def construct_test_sample(tokenizer, sample, max_length=2048):
 
 
 class FileDataset(TestDataset):
-    def get_all_test_prompts(self, num_samples=-1, seed=42, filepath="", max_length=512):
+    def get_all_test_prompts(self, num_samples=-1, seed=42, filepath="", max_length=512, prompt_only=False, response_only=False):
         # assume we have some dataset with prompts and labels. We load and combine it
         dataset = load_dataset("json", data_files=filepath)["train"]
 
         def make_test_sample(x):
-            return construct_test_sample(self.tokenizer, x, max_length=max_length)
+            return construct_test_sample(self.tokenizer, x, max_length=max_length, prompt_only=prompt_only, response_only=response_only)
 
         test_dataset = dataset.map(make_test_sample, load_from_cache_file=False)
         test_dataset.set_format(type="torch", columns=["input_ids", "attention_mask", "labels"])
@@ -74,7 +91,7 @@ class MMLU(TestDataset):
     shots = 0
     # default 982 prompts, just all test prompts
 
-    def get_all_test_prompts(self, num_samples=-1, seed=42, max_length=512):
+    def get_all_test_prompts(self, num_samples=-1, seed=42, max_length=512, prompt_only=False, response_only=False):
         # get the prompts for each subject
         prompts_per_subject = construct_prompts(
             self.tokenizer, use_chat_format=True, ntrain=self.shots, use_dev_samples=False
@@ -88,7 +105,7 @@ class MMLU(TestDataset):
         test_dataset = Dataset.from_dict({"prompts": prompts, "labels": labels})
 
         def make_test_sample(x):
-            return construct_test_sample(self.tokenizer, x, max_length=max_length)
+            return construct_test_sample(self.tokenizer, x, max_length=max_length, prompt_only=prompt_only, response_only=response_only)
 
         test_dataset = test_dataset.map(make_test_sample, load_from_cache_file=False)
         test_dataset.set_format(type="torch", columns=["input_ids", "attention_mask", "labels"])
@@ -100,7 +117,7 @@ class MMLU(TestDataset):
 
 class MMLUShots(TestDataset):
     # default 285 prompts, 5 per category (these are the shots) used during eval.
-    def get_all_test_prompts(self, num_samples=285, seed=42, max_length=512):
+    def get_all_test_prompts(self, num_samples=285, seed=42, max_length=512, prompt_only=False, response_only=False):
         random_gen = random.Random(seed)
         # get the prompts for each subject
         prompts_per_subject = construct_prompts(self.tokenizer, use_chat_format=True, ntrain=0, use_dev_samples=True)
@@ -116,7 +133,7 @@ class MMLUShots(TestDataset):
         test_dataset = Dataset.from_dict({"prompts": prompts, "labels": labels})
 
         def make_test_sample(x):
-            return construct_test_sample(self.tokenizer, x, max_length=max_length)
+            return construct_test_sample(self.tokenizer, x, max_length=max_length, prompt_only=prompt_only, response_only=response_only)
 
         test_dataset = test_dataset.map(make_test_sample, load_from_cache_file=False)
         test_dataset.set_format(type="torch", columns=["input_ids", "attention_mask", "labels"])
@@ -126,7 +143,7 @@ class MMLUShots(TestDataset):
 
 class MMLUShotsShots(TestDataset):
     # default 285 prompts, 5 per category (these are the shots) used during eval.
-    def get_all_test_prompts(self, num_samples=285, seed=42, max_length=512):
+    def get_all_test_prompts(self, num_samples=285, seed=42, max_length=512, prompt_only=False, response_only=False):
         random_gen = random.Random(seed)
         # get the prompts for each subject
         prompts_per_subject = construct_prompts(self.tokenizer, use_chat_format=True, ntrain=5, use_dev_samples=True)
@@ -142,7 +159,7 @@ class MMLUShotsShots(TestDataset):
         test_dataset = Dataset.from_dict({"prompts": prompts, "labels": labels})
 
         def make_test_sample(x):
-            return construct_test_sample(self.tokenizer, x, max_length=max_length)
+            return construct_test_sample(self.tokenizer, x, max_length=max_length, prompt_only=prompt_only, response_only=response_only)
 
         test_dataset = test_dataset.map(make_test_sample, load_from_cache_file=False)
         test_dataset.set_format(type="torch", columns=["input_ids", "attention_mask", "labels"])
@@ -158,7 +175,7 @@ class GSM8kEval(TestDataset):
     n_shot = 8
     cot = True
 
-    def get_all_test_prompts(self, num_samples=None, seed=42, max_length=2048):
+    def get_all_test_prompts(self, num_samples=None, seed=42, max_length=2048, prompt_only=False, response_only=False):
         test_data = []
         tokenizer = self.tokenizer
         with open(os.path.join(self.data_dir, "test.jsonl")) as fin:
@@ -207,7 +224,7 @@ class GSM8kEval(TestDataset):
             prompts.append(apply_chat_format(example, tokenizer))
             labels.append(example["answer"])
         test_dataset = Dataset.from_dict({"prompts": prompts, "labels": labels})
-        test_dataset = test_dataset.map(lambda x: construct_test_sample(self.tokenizer, x, max_length=max_length))
+        test_dataset = test_dataset.map(lambda x: construct_test_sample(self.tokenizer, x, max_length=max_length, prompt_only=prompt_only, response_only=response_only))
         test_dataset.set_format(type="torch", columns=["input_ids", "attention_mask", "labels"])
         test_dataset = test_dataset.shuffle(seed=seed).select(range(min(num_samples, len(test_dataset))))
         return test_dataset
@@ -220,7 +237,7 @@ class GSM8kShots(TestDataset):
     n_shot = 8
     cot = True
 
-    def get_all_test_prompts(self, num_samples=8, seed=42, max_length=2048):
+    def get_all_test_prompts(self, num_samples=8, seed=42, max_length=2048, prompt_only=False, response_only=False):
         self.tokenizer
 
         global GSM_EXAMPLARS
@@ -241,7 +258,7 @@ class GSM8kShots(TestDataset):
             prompts.append(apply_chat_format(example, self.tokenizer))
             labels.append(example["short_answer"] if not self.cot else example["cot_answer"])
         test_dataset = Dataset.from_dict({"prompts": prompts, "labels": labels})
-        test_dataset = test_dataset.map(lambda x: construct_test_sample(self.tokenizer, x, max_length=max_length))
+        test_dataset = test_dataset.map(lambda x: construct_test_sample(self.tokenizer, x, max_length=max_length, prompt_only=prompt_only, response_only=response_only))
         test_dataset.set_format(type="torch", columns=["input_ids", "attention_mask", "labels"])
         test_dataset = test_dataset.shuffle(seed=seed).select(range(min(num_samples, len(test_dataset))))
         return test_dataset
@@ -251,7 +268,7 @@ class GSM8kShotsShots(TestDataset):
     n_shot = 7
     cot = True
 
-    def get_all_test_prompts(self, num_samples=8, seed=42, max_length=2048):
+    def get_all_test_prompts(self, num_samples=8, seed=42, max_length=2048, prompt_only=False, response_only=False):
         self.tokenizer
 
         global GSM_EXAMPLARS
@@ -289,7 +306,7 @@ class GSM8kShotsShots(TestDataset):
             prompts.append(apply_chat_format(example, self.tokenizer, construct_prompt_prefix(example['question'])))
             labels.append(example["short_answer"] if not self.cot else example["cot_answer"])
         test_dataset = Dataset.from_dict({"prompts": prompts, "labels": labels})
-        test_dataset = test_dataset.map(lambda x: construct_test_sample(self.tokenizer, x, max_length=max_length))
+        test_dataset = test_dataset.map(lambda x: construct_test_sample(self.tokenizer, x, max_length=max_length, prompt_only=prompt_only, response_only=response_only))
         test_dataset.set_format(type="torch", columns=["input_ids", "attention_mask", "labels"])
         test_dataset = test_dataset.shuffle(seed=seed).select(range(min(num_samples, len(test_dataset))))
         return test_dataset
@@ -333,7 +350,7 @@ class BBHEval(TestDataset):
     max_num_examples_per_task = 40  # following eval setting
 
     # 270 prompts: 10 per task.
-    def get_all_test_prompts(self, num_samples=270, seed=42, max_length=2048):
+    def get_all_test_prompts(self, num_samples=270, seed=42, max_length=2048, prompt_only=False, response_only=False):
         random.seed(42)
         all_tasks = {}
         task_files = glob.glob(os.path.join(self.data_dir, "bbh", "*.json"))
@@ -378,7 +395,7 @@ class BBHEval(TestDataset):
                 prompts.append(prompt)
                 labels.append(example["target"])
         test_dataset = Dataset.from_dict({"prompts": prompts, "labels": labels})
-        test_dataset = test_dataset.map(lambda x: construct_test_sample(self.tokenizer, x, max_length=max_length))
+        test_dataset = test_dataset.map(lambda x: construct_test_sample(self.tokenizer, x, max_length=max_length, prompt_only=prompt_only, response_only=response_only))
         test_dataset.set_format(type="torch", columns=["input_ids", "attention_mask", "labels"])
         test_dataset = test_dataset.shuffle(seed=seed).select(range(min(num_samples, len(test_dataset))))
         return test_dataset
@@ -420,7 +437,7 @@ class BBHShots(TestDataset):
     max_num_examples_per_task = 10
 
     # 270 prompts: 3 per task.
-    def get_all_test_prompts(self, num_samples=81, seed=42, max_length=2048):
+    def get_all_test_prompts(self, num_samples=81, seed=42, max_length=2048, prompt_only=False, response_only=False):
         random.seed(42)
         all_prompts = {}
         cot_prompt_files = glob.glob(os.path.join(self.data_dir, "cot-prompts", "*.txt"))
@@ -455,7 +472,7 @@ class BBHShots(TestDataset):
                 prompts.append(initial_prompts + "\n\nQ:" + question)
                 labels.append(answer)
         test_dataset = Dataset.from_dict({"prompts": prompts, "labels": labels})
-        test_dataset = test_dataset.map(lambda x: construct_test_sample(self.tokenizer, x, max_length=max_length))
+        test_dataset = test_dataset.map(lambda x: construct_test_sample(self.tokenizer, x, max_length=max_length, prompt_only=prompt_only, response_only=response_only))
         test_dataset.set_format(type="torch", columns=["input_ids", "attention_mask", "labels"])
         test_dataset = test_dataset.shuffle(seed=seed).select(range(min(num_samples, len(test_dataset))))
         return test_dataset
@@ -496,7 +513,7 @@ class BBHShotsShots(TestDataset):
     max_num_examples_per_task = 40  # following eval setting
 
     # 270 prompts: 10 per task.
-    def get_all_test_prompts(self, num_samples=270, seed=42, max_length=2048):
+    def get_all_test_prompts(self, num_samples=270, seed=42, max_length=2048, prompt_only=False, response_only=False):
         random.seed(42)
         all_tasks = {}
         task_files = glob.glob(os.path.join(self.data_dir, "bbh", "*.json"))
@@ -543,7 +560,7 @@ class BBHShotsShots(TestDataset):
                 prompts.append(prompt)
                 labels.append(answer)
         test_dataset = Dataset.from_dict({"prompts": prompts, "labels": labels})
-        test_dataset = test_dataset.map(lambda x: construct_test_sample(self.tokenizer, x, max_length=max_length))
+        test_dataset = test_dataset.map(lambda x: construct_test_sample(self.tokenizer, x, max_length=max_length, prompt_only=prompt_only, response_only=response_only))
         test_dataset.set_format(type="torch", columns=["input_ids", "attention_mask", "labels"])
         test_dataset = test_dataset.shuffle(seed=seed).select(range(min(num_samples, len(test_dataset))))
         return test_dataset
@@ -611,7 +628,7 @@ class TydiqaEval(TestDataset):
     no_context = False
     # 90 prompts: 10 per language.
 
-    def get_all_test_prompts(self, num_samples=90, seed=42, max_length=2048):
+    def get_all_test_prompts(self, num_samples=90, seed=42, max_length=2048, prompt_only=False, response_only=False):
         test_data = []
         tokenizer = self.tokenizer
         with open(os.path.join(self.data_dir, "tydiqa-goldp-v1.1-dev.json")) as fin:
@@ -739,7 +756,7 @@ class TydiqaEval(TestDataset):
             prompts.append(prompt)
             labels.append(example["answers"][0]["text"])
         test_dataset = Dataset.from_dict({"prompts": prompts, "labels": labels})
-        test_dataset = test_dataset.map(lambda x: construct_test_sample(self.tokenizer, x, max_length=max_length))
+        test_dataset = test_dataset.map(lambda x: construct_test_sample(self.tokenizer, x, max_length=max_length, prompt_only=prompt_only, response_only=response_only))
         test_dataset.set_format(type="torch", columns=["input_ids", "attention_mask", "labels"])
         test_dataset = test_dataset.shuffle(seed=seed).select(range(min(num_samples, len(test_dataset))))
         return test_dataset
@@ -805,7 +822,7 @@ class TydiQAShots(TestDataset):
     no_context = False
     # 90 prompts: 10 per language.
 
-    def get_all_test_prompts(self, num_samples=90, seed=42, max_length=2048):
+    def get_all_test_prompts(self, num_samples=90, seed=42, max_length=2048, prompt_only=False, response_only=False):
         test_data = []
         self.tokenizer
         with open(os.path.join(self.data_dir, "tydiqa-goldp-v1.1-dev.json")) as fin:
@@ -878,7 +895,7 @@ class TydiQAShots(TestDataset):
                 prompts.append(prompt)
                 labels.append(example["answers"][0]["text"])
         test_dataset = Dataset.from_dict({"prompts": prompts, "labels": labels})
-        test_dataset = test_dataset.map(lambda x: construct_test_sample(self.tokenizer, x, max_length=max_length))
+        test_dataset = test_dataset.map(lambda x: construct_test_sample(self.tokenizer, x, max_length=max_length, prompt_only=prompt_only, response_only=response_only))
         test_dataset.set_format(type="torch", columns=["input_ids", "attention_mask", "labels"])
         test_dataset = test_dataset.shuffle(seed=seed).select(range(min(num_samples, len(test_dataset))))
         return test_dataset
@@ -944,7 +961,7 @@ class TydiQAShotsShots(TestDataset):
     no_context = False
     # 90 prompts: 10 per language.
 
-    def get_all_test_prompts(self, num_samples=90, seed=42, max_length=2048):
+    def get_all_test_prompts(self, num_samples=90, seed=42, max_length=2048, prompt_only=False, response_only=False):
         test_data = []
         self.tokenizer
         with open(os.path.join(self.data_dir, "tydiqa-goldp-v1.1-dev.json")) as fin:
@@ -1063,7 +1080,7 @@ class TydiQAShotsShots(TestDataset):
             prompts.append(prompt)
             labels.append(example["answers"][0]["text"])
         test_dataset = Dataset.from_dict({"prompts": prompts, "labels": labels})
-        test_dataset = test_dataset.map(lambda x: construct_test_sample(self.tokenizer, x, max_length=max_length))
+        test_dataset = test_dataset.map(lambda x: construct_test_sample(self.tokenizer, x, max_length=max_length, prompt_only=prompt_only, response_only=response_only))
         test_dataset.set_format(type="torch", columns=["input_ids", "attention_mask", "labels"])
         test_dataset = test_dataset.shuffle(seed=seed).select(range(min(num_samples, len(test_dataset))))
         return test_dataset
@@ -1076,7 +1093,7 @@ class CodexEval(TestDataset):
     data_file = os.path.join(get_appropriate_data_dir(), "eval/codex_humaneval/HumanEval_dev.jsonl.gz")
     data_file_hep = os.path.join(get_appropriate_data_dir(), "eval/codex_humaneval/humanevalpack.jsonl")
 
-    def get_all_test_prompts(self, num_samples=100, seed=42, max_length=512):
+    def get_all_test_prompts(self, num_samples=100, seed=42, max_length=512, prompt_only=False, response_only=False):
         random.seed(42)
         test_data = list(read_problems(self.data_file).values())
         print("Number of examples:", len(test_data))
@@ -1121,7 +1138,7 @@ class CodexEval(TestDataset):
         test_dataset = Dataset.from_dict({"prompts": prompts, "labels": labels})
 
         def construct_test_sample_tok(x):
-            return construct_test_sample(self.tokenizer, x, max_length=max_length)
+            return construct_test_sample(self.tokenizer, x, max_length=max_length, prompt_only=prompt_only, response_only=response_only)
 
         test_dataset = test_dataset.map(construct_test_sample_tok, load_from_cache_file=False)
         test_dataset.set_format(type="torch", columns=["input_ids", "attention_mask", "labels"])
@@ -1143,7 +1160,7 @@ class CodexEvalTest(CodexEval):
 class AlpacaEval(TestDataset):
     data_file = os.path.join(get_appropriate_data_dir(), "eval/alpacaeval/alpaca_eval_dev.json")
 
-    def get_all_test_prompts(self, num_samples=50, seed=42, max_length=512):
+    def get_all_test_prompts(self, num_samples=50, seed=42, max_length=512, prompt_only=False, response_only=False):
         data = json.load(open(self.data_file, "r"))
         # shuffle and select first num_samples
         random.seed(42)
@@ -1159,7 +1176,7 @@ class AlpacaEval(TestDataset):
         test_dataset = Dataset.from_dict({"prompts": prompts, "labels": labels})
 
         def construct_test_sample_tok(x):
-            return construct_test_sample(self.tokenizer, x, max_length=max_length)
+            return construct_test_sample(self.tokenizer, x, max_length=max_length, prompt_only=prompt_only, response_only=response_only)
 
         test_dataset = test_dataset.map(construct_test_sample_tok, load_from_cache_file=False)
         test_dataset.set_format(type="torch", columns=["input_ids", "attention_mask", "labels"])
@@ -1187,7 +1204,7 @@ class ToxigenEval(TestDataset):
     max_prompts_per_group = 10
     # 140 default: 10 per group.
 
-    def get_all_test_prompts(self, num_samples=140, seed=42, max_length=512):
+    def get_all_test_prompts(self, num_samples=140, seed=42, max_length=512, prompt_only=False, response_only=False):
         random.seed(42)
         examples = []
         prompt_files = glob.glob(os.path.join(self.data_dir, "*.txt"))
@@ -1221,7 +1238,7 @@ class ToxigenEval(TestDataset):
         test_dataset = Dataset.from_dict({"prompts": prompts, "labels": labels})
 
         def construct_test_sample_tok(x):
-            return construct_test_sample(self.tokenizer, x, max_length=max_length)
+            return construct_test_sample(self.tokenizer, x, max_length=max_length, prompt_only=prompt_only, response_only=response_only)
 
         test_dataset = test_dataset.map(construct_test_sample_tok, load_from_cache_file=False)
         test_dataset.set_format(type="torch", columns=["input_ids", "attention_mask", "labels"])
@@ -1243,7 +1260,7 @@ class ToxigenEval(TestDataset):
 class SquadEval(TestDataset):
     add_context = True
 
-    def get_all_test_prompts(self, num_samples=500, seed=42, max_length=512):
+    def get_all_test_prompts(self, num_samples=500, seed=42, max_length=512, prompt_only=False, response_only=False):
         test_dataset = load_dataset("squad", split="train")
         tokenizer = self.tokenizer
 
@@ -1261,14 +1278,14 @@ class SquadEval(TestDataset):
         test_dataset = test_dataset.map(
             convert_squad_sample, remove_columns=["id", "title", "context", "question", "answers"]
         )
-        test_dataset = test_dataset.map(lambda x: construct_test_sample(self.tokenizer, x, max_length=max_length))
+        test_dataset = test_dataset.map(lambda x: construct_test_sample(self.tokenizer, x, max_length=max_length, prompt_only=prompt_only, response_only=response_only))
         test_dataset.set_format(type="torch", columns=["input_ids", "attention_mask", "labels"])
         test_dataset = test_dataset.shuffle(seed=seed).select(range(min(num_samples, len(test_dataset))))
         return test_dataset
 
 
 class SquadEvalShots(TestDataset):
-    def get_all_test_prompts(self, num_samples=500, seed=42, max_length=512):
+    def get_all_test_prompts(self, num_samples=500, seed=42, max_length=512, prompt_only=False, response_only=False):
         test_dataset = load_dataset("squad", split="train")
         tokenizer = self.tokenizer
 
@@ -1284,7 +1301,7 @@ class SquadEvalShots(TestDataset):
         test_dataset = test_dataset.map(
             convert_squad_sample, remove_columns=["id", "title", "context", "question", "answers"]
         )
-        test_dataset = test_dataset.map(lambda x: construct_test_sample(self.tokenizer, x, max_length=max_length))
+        test_dataset = test_dataset.map(lambda x: construct_test_sample(self.tokenizer, x, max_length=max_length, prompt_only=prompt_only, response_only=response_only))
         test_dataset.set_format(type="torch", columns=["input_ids", "attention_mask", "labels"])
         test_dataset = test_dataset.shuffle(seed=seed).select(range(min(num_samples, len(test_dataset))))
         return test_dataset
@@ -1293,7 +1310,7 @@ class SquadEvalShots(TestDataset):
 
 
 class SquadEvalTest(SquadEval):
-    def get_all_test_prompts(self, num_samples=500, seed=42, max_length=512):
+    def get_all_test_prompts(self, num_samples=500, seed=42, max_length=512, prompt_only=False, response_only=False):
         test_dataset = load_dataset("squad", split="validation")
         tokenizer = self.tokenizer
 
@@ -1311,7 +1328,7 @@ class SquadEvalTest(SquadEval):
         test_dataset = test_dataset.map(
             convert_squad_sample, remove_columns=["id", "title", "context", "question", "answers"]
         )
-        test_dataset = test_dataset.map(lambda x: construct_test_sample(self.tokenizer, x, max_length=max_length))
+        test_dataset = test_dataset.map(lambda x: construct_test_sample(self.tokenizer, x, max_length=max_length, prompt_only=prompt_only, response_only=response_only))
         test_dataset.set_format(type="torch", columns=["input_ids", "attention_mask", "labels"])
         test_dataset = test_dataset.shuffle(seed=seed).select(range(min(num_samples, len(test_dataset))))
         return test_dataset
@@ -1323,7 +1340,7 @@ class MBPPPlus(TestDataset):
     dataset.shuffle(seed=42)
     # Always held-out first 100 samples
 
-    def get_all_test_prompts(self, num_samples=100, seed=42, max_length=512):
+    def get_all_test_prompts(self, num_samples=100, seed=42, max_length=512, prompt_only=False, response_only=False):
         test_data = self.dataset.select(range(min(num_samples, len(self.dataset))))
         print("Number of examples:", len(test_data))
         prompts = []
@@ -1346,7 +1363,7 @@ class MBPPPlus(TestDataset):
         test_dataset = Dataset.from_dict({"prompts": prompts, "labels": labels})
 
         def construct_test_sample_tok(x):
-            return construct_test_sample(self.tokenizer, x, max_length=max_length)
+            return construct_test_sample(self.tokenizer, x, max_length=max_length, prompt_only=prompt_only, response_only=response_only)
 
         test_dataset = test_dataset.map(construct_test_sample_tok, load_from_cache_file=False)
         test_dataset.set_format(type="torch", columns=["input_ids", "attention_mask", "labels"])
@@ -1358,7 +1375,7 @@ class MBPPPlus(TestDataset):
 class ArenaHardSelection(TestDataset):
     data_file = os.path.join(get_appropriate_data_dir(), "eval/arena_hard.jsonl")
 
-    def get_all_test_prompts(self, num_samples=500, seed=42, max_length=2048):
+    def get_all_test_prompts(self, num_samples=500, seed=42, max_length=2048, prompt_only=False, response_only=False):
         data = [json.loads(line) for line in open(self.data_file, "r")]
         # shuffle and select first num_samples
         random.seed(42)
@@ -1374,7 +1391,7 @@ class ArenaHardSelection(TestDataset):
         test_dataset = Dataset.from_dict({"prompts": prompts, "labels": labels})
 
         def construct_test_sample_tok(x):
-            return construct_test_sample(self.tokenizer, x, max_length=max_length)
+            return construct_test_sample(self.tokenizer, x, max_length=max_length, prompt_only=prompt_only, response_only=response_only)
 
         test_dataset = test_dataset.map(construct_test_sample_tok, load_from_cache_file=False)
         test_dataset.set_format(type="torch", columns=["input_ids", "attention_mask", "labels"])
@@ -1385,7 +1402,7 @@ class ArenaHardSelection(TestDataset):
 class WildChatSelection(TestDataset):
     data_file = os.path.join(get_appropriate_data_dir(), "eval/wildchat_100_prompts.jsonl")
 
-    def get_all_test_prompts(self, num_samples=100, seed=42, max_length=2048):
+    def get_all_test_prompts(self, num_samples=100, seed=42, max_length=2048, prompt_only=False, response_only=False):
         data = [json.loads(line) for line in open(self.data_file, "r")]
         # shuffle and select first num_samples
         random.seed(42)
@@ -1401,9 +1418,23 @@ class WildChatSelection(TestDataset):
         test_dataset = Dataset.from_dict({"prompts": prompts, "labels": labels})
 
         def construct_test_sample_tok(x):
-            return construct_test_sample(self.tokenizer, x, max_length=max_length)
+            return construct_test_sample(self.tokenizer, x, max_length=max_length, prompt_only=prompt_only, response_only=response_only)
 
         test_dataset = test_dataset.map(construct_test_sample_tok, load_from_cache_file=False)
+        test_dataset.set_format(type="torch", columns=["input_ids", "attention_mask", "labels"])
+        test_dataset = test_dataset.shuffle(seed=seed).select(range(min(num_samples, len(test_dataset))))
+        return test_dataset
+
+
+# debug dataset: take 100 samples that I know exist in the index,
+# and make sure we select them correctly.
+class SubsetSelection(TestDataset):
+    data_file = os.path.join(get_appropriate_data_dir(), "eval/100_200k_debug.jsonl")
+
+    def get_all_test_prompts(self, num_samples=100, seed=42, max_length=2048, prompt_only=False, response_only=False):
+        assert not prompt_only and not response_only, "Prompt only and response only not supported for debug dataset."
+        test_dataset = load_dataset("json", data_files=self.data_file)["train"]
+        test_dataset = test_dataset.map(lambda x: encode_with_messages_format(x, self.tokenizer, max_length), load_from_cache_file=False)
         test_dataset.set_format(type="torch", columns=["input_ids", "attention_mask", "labels"])
         test_dataset = test_dataset.shuffle(seed=seed).select(range(min(num_samples, len(test_dataset))))
         return test_dataset
@@ -1434,6 +1465,7 @@ DATASETS = {
     "mbppplus": MBPPPlus,
     "arena_hard": ArenaHardSelection,
     "wildchat": WildChatSelection,
+    'debug_subset': SubsetSelection,
 }
 
 # How do we handle ensuring a difference between selection time and test time?
@@ -1456,8 +1488,9 @@ if __name__ == "__main__":
     tokenizer = AutoTokenizer.from_pretrained("oobabooga/llama-tokenizer")
     # test that we can load all the datasets.
     ds = {
-        "arena_hard": ArenaHardSelection,
-        "wildchat": WildChatSelection,
+        "mmlu_shots": MMLUShots,
+        "bbh_shots": BBHShots,
+        "tydiqa_shots": TydiQAShots
     }
     for dataset_name, dataset_class in ds.items():
         print(f"Testing {dataset_name}")
