@@ -5,8 +5,18 @@ import numpy as np
 
 
 # convert, but just return text.
-def create_prompt_with_tulu_chat_format(messages, tokenizer, add_bos=False):
+def create_prompt_with_tulu_chat_format(messages, tokenizer, add_bos=True, prompt_only=False, response_only=False, no_special_tokens=False):
     formatted_text = ""
+    if response_only:
+        if messages[0]['role'] == 'system':
+            messages = [messages[2]]
+        else:
+            messages = [messages[1]]
+    elif prompt_only:
+        if messages[0]['role'] == 'system':
+            messages = messages[:2]
+        else:
+            messages = messages[:1]
     for message in messages:
         if message["role"] == "system":
             formatted_text += "<|system|>\n" + message["content"] + "\n"
@@ -21,11 +31,15 @@ def create_prompt_with_tulu_chat_format(messages, tokenizer, add_bos=False):
                 )
             )
     formatted_text += "<|assistant|>\n"
+    if response_only or prompt_only:
+        formatted_text = formatted_text.replace("<|assistant|>\n", "").replace(tokenizer.eos_token, "")
+    if no_special_tokens:
+        formatted_text = formatted_text.replace(tokenizer.bos_token, "").replace(tokenizer.eos_token, "")
     return formatted_text
 
 
 # needed for open-instruct: convert msg format.
-def encode_with_messages_format(example, tokenizer, max_seq_length, include_response=True, response_only=False, only_first_two=False):
+def encode_with_messages_format(example, tokenizer, max_seq_length, include_response=True, response_only=False, only_first_two=False, prompt_only=False):
     """
     Here we assume each example has a 'messages' field Each message is a dict with 'role' and 'content' fields.
     We concatenate all messages with the roles as delimiters and tokenize them together.
@@ -33,25 +47,6 @@ def encode_with_messages_format(example, tokenizer, max_seq_length, include_resp
     messages = example["messages"]
     if len(messages) == 0:
         raise ValueError("messages field is empty.")
-
-    # change: just take the first two prompts.
-    if only_first_two:
-        # if first role is system, we actually want to take the second and third message,
-        # ignoring the first system message.
-        if messages[0]["role"] == "system":
-            messages = messages[1:3]
-        else:
-            messages = messages[:2]
-    if response_only:
-        msg = "<|assistant|>\n" + messages[1]["content"].strip()
-        res = tokenizer(msg, return_tensors="pt", max_length=max_seq_length, truncation=True)
-        return {
-            "string": msg,
-            "input_ids": res.input_ids.flatten(),
-            "attention_mask": res.attention_mask.flatten(),
-        }
-    elif not include_response:
-        messages = [messages[0]]
 
     def _concat_messages(messages):
         message_text = ""
@@ -65,6 +60,40 @@ def encode_with_messages_format(example, tokenizer, max_seq_length, include_resp
             else:
                 raise ValueError("Invalid role: {}".format(message["role"]))
         return message_text
+
+    # change: just take the first two prompts.
+    if only_first_two:
+        # if first role is system, we actually want to take the second and third message,
+        # ignoring the first system message.
+        if messages[0]["role"] == "system":
+            messages = messages[1:3]
+        else:
+            messages = messages[:2]
+    if prompt_only:
+        if messages[0]["role"] == "system":
+            messages = messages[:2]
+        else:
+            messages = messages[:1]
+        msg = _concat_messages(messages).strip() + tokenizer.eos_token  # add eos token manually.
+        res = tokenizer(msg, return_tensors="pt", max_length=max_seq_length, truncation=True)
+        return {
+            "string": msg,
+            "input_ids": res.input_ids.flatten(),
+            "attention_mask": res.attention_mask.flatten(),
+            'labels': res.input_ids.flatten()
+        }
+    elif response_only:
+        idx = 1
+        if messages[0]["role"] == "system":
+            idx = 2
+        msg = "<|assistant|>\n" + messages[idx]["content"].strip() + tokenizer.eos_token
+        res = tokenizer(msg, return_tensors="pt", max_length=max_seq_length, truncation=True)
+        return {
+            "string": msg,
+            "input_ids": res.input_ids.flatten(),
+            "attention_mask": res.attention_mask.flatten(),
+            'labels': res.input_ids.flatten()
+        }
 
     example_text = _concat_messages(messages).strip()
     tokenized_example = tokenizer(example_text, return_tensors="pt", max_length=max_seq_length, truncation=True)
