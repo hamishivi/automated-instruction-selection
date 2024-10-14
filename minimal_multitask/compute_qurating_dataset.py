@@ -9,7 +9,7 @@ import json
 import numpy as np
 import os
 
-from minimal_multitask.utils import encode_with_messages_format, create_prompt_with_tulu_chat_format
+from minimal_multitask.utils import create_prompt_with_tulu_chat_format
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--train_dataset', type=str, help='input file')

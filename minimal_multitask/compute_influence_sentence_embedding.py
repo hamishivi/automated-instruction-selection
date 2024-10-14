@@ -42,13 +42,16 @@ model = AutoModel.from_pretrained(
 ).cuda()
 tokenizer = AutoTokenizer.from_pretrained('nvidia/NV-Embed-v2')
 
+
 def rreplace(s, old, new, occurrence):
     li = s.rsplit(old, occurrence)
     return new.join(li)
 
+
 def remove_extra_assistant_tokens(sample):
     sample['text'] = rreplace(sample['text'], "<|assistant|>", "", 1).strip()
     return sample
+
 
 # load and process train dataset
 if args.train_dataset == "alpaca":
@@ -102,7 +105,7 @@ train_data_loader = torch.utils.data.DataLoader(train_dataset, batch_size=args.b
 eval_data_loader = torch.utils.data.DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False)
 
 if args.index_path is not None and os.path.exists(args.index_path):
-        all_train_embeds = torch.load(args.index_path)
+    all_train_embeds = torch.load(args.index_path)
 else:
     all_train_embeds = []
     for index, train_inputs in enumerate(tqdm(train_data_loader)):
@@ -113,7 +116,6 @@ else:
 
         all_train_embeds.append(passage_embeddings.detach().cpu())
         torch.cuda.empty_cache()
-
 
     all_train_embeds = torch.cat(all_train_embeds, dim=0)
     with open(args.index_path, "wb") as f:

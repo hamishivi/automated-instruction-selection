@@ -48,7 +48,6 @@ def encode_with_messages_format(example, tokenizer, max_seq_length, include_resp
     if len(messages) == 0:
         raise ValueError("messages field is empty.")
 
-
     def _concat_messages(messages):
         message_text = ""
         for message in messages:
@@ -61,7 +60,6 @@ def encode_with_messages_format(example, tokenizer, max_seq_length, include_resp
             else:
                 raise ValueError("Invalid role: {}".format(message["role"]))
         return message_text
-
 
     # change: just take the first two prompts.
     if only_first_two:

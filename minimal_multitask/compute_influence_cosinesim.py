@@ -24,7 +24,7 @@ parser.add_argument("--dtype", default="bf16")
 parser.add_argument("--batch_size", type=int, default=1)
 parser.add_argument("--prompt_only", action="store_true")
 parser.add_argument("--label_only", action="store_true")
-parser.add_argument("--pooling", type=str, default="none") # none, mean, weighted_mean
+parser.add_argument("--pooling", type=str, default="none")  # none, mean, weighted_mean
 parser.add_argument("--only_first_two", action="store_true")  # only use the first two messages
 args = parser.parse_args()
 
@@ -96,7 +96,7 @@ print(f"Test dataset size: {len(test_dataset)}")
 train_data_loader = torch.utils.data.DataLoader(train_dataset, batch_size=args.batch_size, shuffle=False)
 eval_data_loader = torch.utils.data.DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False)
 if args.index_path is not None and os.path.exists(args.index_path):
-        all_train_embeds = torch.load(args.index_path)
+    all_train_embeds = torch.load(args.index_path)
 else:
     all_train_embeds = []
     for index, train_inputs in enumerate(tqdm(train_data_loader)):
@@ -115,14 +115,14 @@ else:
         elif args.pooling == "weighted_mean":
             # for this, we follow SGPT idea: https://arxiv.org/abs/2202.08904
             hidden_states = train_outputs["hidden_states"][-1]
-            weighting_mask = torch.arange(hidden_states.size(1), device=hidden_states.device).unsqueeze(0) + 1  # +1 
+            weighting_mask = torch.arange(hidden_states.size(1), device=hidden_states.device).unsqueeze(0) + 1  # +1
             weighting_mask = weighting_mask / weighting_mask.sum(dim=1, keepdim=True)
             train_embeddings = torch.sum(hidden_states * weighting_mask.unsqueeze(-1), dim=1)
             train_embeddings = train_embeddings.unsqueeze(1)  # for compat
         else:
             # just use the last token hiden state
             train_embeddings = train_outputs["hidden_states"][-1][:, input_lens - 1]
-        all_train_embeds.append(train_embeddings[:,0])
+        all_train_embeds.append(train_embeddings[:, 0])
 
     all_train_embeds = torch.cat(all_train_embeds, dim=0)
     all_train_embeds = all_train_embeds / torch.linalg.vector_norm(all_train_embeds, dim=1, keepdim=True)
@@ -144,7 +144,7 @@ for idx, test_inputs in enumerate(tqdm(eval_data_loader)):
     elif args.pooling == "weighted_mean":
         # for this, we follow SGPT idea: https://arxiv.org/abs/2202.08904
         hidden_states = test_outputs["hidden_states"][-1]
-        weighting_mask = torch.arange(hidden_states.size(1), device=hidden_states.device).unsqueeze(0) + 1  # +1 
+        weighting_mask = torch.arange(hidden_states.size(1), device=hidden_states.device).unsqueeze(0) + 1  # +1
         weighting_mask = weighting_mask / weighting_mask.sum(dim=1, keepdim=True)
         test_embeddings = torch.sum(hidden_states * weighting_mask.unsqueeze(-1), dim=1)
         test_embeddings = test_embeddings.unsqueeze(1)  # for compat
