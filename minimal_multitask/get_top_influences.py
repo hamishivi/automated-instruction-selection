@@ -247,7 +247,7 @@ elif "max" in args.selection_method:
                     sample_id = train_datasets[inst_0][inst_1]["id"]
                     if sample_id not in subsample_ids:
                         continue
-                
+
                 saved_instances.append(inst)
                 saved_scores.append(score)
                 # set list the saved instances in case of dups.
