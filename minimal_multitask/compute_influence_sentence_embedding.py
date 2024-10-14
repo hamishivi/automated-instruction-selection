@@ -42,6 +42,13 @@ model = AutoModel.from_pretrained(
 ).cuda()
 tokenizer = AutoTokenizer.from_pretrained('nvidia/NV-Embed-v2')
 
+def rreplace(s, old, new, occurrence):
+    li = s.rsplit(old, occurrence)
+    return new.join(li)
+
+def remove_extra_assistant_tokens(sample):
+    sample['text'] = rreplace(sample['text'], "<|assistant|>", "", 1).strip()
+    return sample
 
 # load and process train dataset
 if args.train_dataset == "alpaca":
@@ -49,20 +56,23 @@ if args.train_dataset == "alpaca":
         "train"
     ]
     train_dataset = train_dataset.map(
-        lambda x: create_prompt_with_tulu_chat_format(x['messages'], tokenizer, prompt_only=args.prompt_only, response_only=args.label_only), num_proc=16
+        lambda x: create_prompt_with_tulu_chat_format(x['messages'], tokenizer, prompt_only=args.prompt_only, response_only=args.label_only, no_special_tokens=True), num_proc=16
     )
+    train_dataset = train_dataset.map(remove_extra_assistant_tokens, num_proc=16)
 elif args.train_dataset == "tulu2":
     train_dataset = load_dataset("allenai/tulu-v2-sft-mixture", split="train")
     train_dataset = train_dataset.map(
-        lambda x: {"text": create_prompt_with_tulu_chat_format(x['messages'], tokenizer, prompt_only=args.prompt_only, response_only=args.label_only)}, num_proc=16
+        lambda x: {"text": create_prompt_with_tulu_chat_format(x['messages'], tokenizer, prompt_only=args.prompt_only, response_only=args.label_only, no_special_tokens=True)}, num_proc=16
     )
+    train_dataset = train_dataset.map(remove_extra_assistant_tokens, num_proc=16)
     train_dataset = train_dataset['text']
 else:
     if os.path.exists(args.train_dataset):
         train_dataset = load_dataset("json", data_files=args.train_dataset)["train"]
         train_dataset = train_dataset.map(
-            lambda x: {"text": create_prompt_with_tulu_chat_format(x['messages'], tokenizer, prompt_only=args.prompt_only, response_only=args.label_only)}, num_proc=16, load_from_cache_file=False
+            lambda x: {"text": create_prompt_with_tulu_chat_format(x['messages'], tokenizer, prompt_only=args.prompt_only, response_only=args.label_only, no_special_tokens=True)}, num_proc=16, load_from_cache_file=False
         )
+        train_dataset = train_dataset.map(remove_extra_assistant_tokens, num_proc=16)
         train_dataset = train_dataset['text']
     else:
         raise ValueError(f"Invalid train dataset: {args.train_dataset}")
@@ -97,11 +107,13 @@ else:
     all_train_embeds = []
     for index, train_inputs in enumerate(tqdm(train_data_loader)):
         with torch.no_grad():
-            max_length = 32768
+            max_length = 8192
             passage_embeddings = model.encode(train_inputs, instruction=passage_prefix, max_length=max_length)
             passage_embeddings = F.normalize(passage_embeddings, p=2, dim=1)
 
-        all_train_embeds.append(passage_embeddings)
+        all_train_embeds.append(passage_embeddings.detach().cpu())
+        torch.cuda.empty_cache()
+
 
     all_train_embeds = torch.cat(all_train_embeds, dim=0)
     with open(args.index_path, "wb") as f:
@@ -110,10 +122,10 @@ else:
 sim_influences = []
 for idx, test_inputs in enumerate(tqdm(eval_data_loader)):
     with torch.no_grad():
-        max_length = 32768
+        max_length = 8192
         query_embeddings = model.encode(test_inputs, instruction=query_prefix, max_length=max_length)
         query_embeddings = F.normalize(query_embeddings, p=2, dim=1)
-    influences = (query_embeddings @ all_train_embeds.T)
+    influences = (query_embeddings @ all_train_embeds.T.cuda()).detach().cpu()
     sim_influences.append(influences)
 
 sim_influences = torch.cat(sim_influences, dim=0)

@@ -237,9 +237,17 @@ elif "max" in args.selection_method:
         sorted_instance_to_influence[test_d] = sorted_influences
     with tqdm(total=args.output_size) as pbar:
         while len(saved_instances) < args.output_size:
-            for test_d, influences in instance_to_influences.items():
+            for test_d, influences in sorted_instance_to_influence.items():
                 # pop off the largest influence
                 inst, score = sorted_instance_to_influence[test_d].pop(0)
+
+                inst_0 = inst[0] if type(inst[0]) is int else inst[0].item()
+                inst_1 = inst[1] if type(inst[1]) is int else inst[1].item()
+                if args.select_only_from_file:
+                    sample_id = train_datasets[inst_0][inst_1]["id"]
+                    if sample_id not in subsample_ids:
+                        continue
+                
                 saved_instances.append(inst)
                 saved_scores.append(score)
                 # set list the saved instances in case of dups.
