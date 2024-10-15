@@ -4,3 +4,4 @@ fast-jl==0.1.3
 bitsandbytes
 evaluate
 logix-ai @ git+https://github.com/hamishivi/logix
+deepspeed

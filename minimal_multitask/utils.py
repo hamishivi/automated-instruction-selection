@@ -5,8 +5,18 @@ import numpy as np
 
 
 # convert, but just return text.
-def create_prompt_with_tulu_chat_format(messages, tokenizer, add_bos=False):
+def create_prompt_with_tulu_chat_format(messages, tokenizer, add_bos=True, prompt_only=False, response_only=False, no_special_tokens=False):
     formatted_text = ""
+    if response_only:
+        if messages[0]['role'] == 'system':
+            messages = [messages[2]]
+        else:
+            messages = [messages[1]]
+    elif prompt_only:
+        if messages[0]['role'] == 'system':
+            messages = messages[:2]
+        else:
+            messages = messages[:1]
     for message in messages:
         if message["role"] == "system":
             formatted_text += "<|system|>\n" + message["content"] + "\n"
@@ -21,6 +31,10 @@ def create_prompt_with_tulu_chat_format(messages, tokenizer, add_bos=False):
                 )
             )
     formatted_text += "<|assistant|>\n"
+    if response_only or prompt_only:
+        formatted_text = formatted_text.replace("<|assistant|>\n", "").replace(tokenizer.eos_token, "")
+    if no_special_tokens:
+        formatted_text = formatted_text.replace(tokenizer.bos_token, "").replace(tokenizer.eos_token, "")
     return formatted_text
 
 
@@ -34,7 +48,6 @@ def encode_with_messages_format(example, tokenizer, max_seq_length, include_resp
     if len(messages) == 0:
         raise ValueError("messages field is empty.")
 
-
     def _concat_messages(messages):
         message_text = ""
         for message in messages:
@@ -47,7 +60,6 @@ def encode_with_messages_format(example, tokenizer, max_seq_length, include_resp
             else:
                 raise ValueError("Invalid role: {}".format(message["role"]))
         return message_text
-
 
     # change: just take the first two prompts.
     if only_first_two:
