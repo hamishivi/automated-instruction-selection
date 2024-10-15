@@ -38,7 +38,7 @@ elif args.dtype == "fp16":
 elif args.dtype == "fp32":
     kwargs = {"torch_dtype": torch.float32}
 if "llama" in args.model_name:
-    kwargs["use_flash_attention_2"] = True
+    kwargs["attn_implementation"] = "sdpa"
 
 model = AutoModelForCausalLM.from_pretrained(
     args.model_name,
