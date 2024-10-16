@@ -68,7 +68,7 @@ else:
     if os.path.exists(args.train_dataset):
         train_dataset = load_dataset("json", data_files=args.train_dataset)["train"]
         train_dataset = train_dataset.map(
-            lambda x: encode_with_messages_format(x, tokenizer, 2048, True, args.label_only, args.only_first_two, args.prompt_only), num_proc=16, load_from_cache_file=True, keep_in_memory=False
+            lambda x: encode_with_messages_format(x, tokenizer, 2048, True, args.label_only, args.only_first_two, args.prompt_only), num_proc=8, load_from_cache_file=True, keep_in_memory=False
         )
     else:
         raise ValueError(f"Invalid train dataset: {args.train_dataset}")
