@@ -22,6 +22,7 @@ influences = [pickle.load(open(f, "rb")) for f in tqdm(args.input_files)]
 combined_influence = {}
 ongoing_counter = 0
 for influence in tqdm(influences):
+    skip = False
     for test_idx in influence:
         if test_idx not in combined_influence:
             combined_influence[test_idx] = {}
