@@ -101,7 +101,7 @@ model.resize_token_embeddings(len(tokenizer))
 if additional_args.lora_rank > -1:
     modules = ["query_key_value", "dense", "dense_h_to_4h", "dense_4h_to_h"]
     if "llama" in additional_args.model_name or additional_args.is_llama:
-        modules = ["q_proj", "o_proj", "v_proj", "k_proj", "gate_proj", "up_proj", "down_proj"]
+        modules = ["q_proj", "o_proj", "v_proj", "k_proj"]
     peft_config = LoraConfig(
         task_type=TaskType.CAUSAL_LM,
         inference_mode=False,
