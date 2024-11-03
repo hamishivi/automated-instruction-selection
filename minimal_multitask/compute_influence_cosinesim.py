@@ -40,6 +40,9 @@ elif args.dtype == "fp32":
 if "llama" in args.model_name:
     kwargs["use_flash_attention_2"] = True
 
+if os.getenv("HF_TOKEN") is not None:
+    kwargs["token"] = os.getenv("HF_TOKEN")
+
 model = AutoModelForCausalLM.from_pretrained(
     args.model_name,
     **kwargs,
