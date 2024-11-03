@@ -186,4 +186,5 @@ dependencies:
       - uvloop==0.19.0
       - watchfiles==0.21.0
       - xformers==0.0.23.post1+cu118
+      - vllm
 prefix: /home/hamishi/.conda/envs/conda_tmp
