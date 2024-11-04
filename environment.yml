@@ -5,6 +5,6 @@ channels:
 dependencies:
   - cuda-nvcc=12.1.105=0
   - pip:
-      - packaging==23.2
-      - vllm
+      - packaging>=23.2
+      - vllm>=0.6.0
 prefix: /home/hamishi/.conda/envs/mmft-hope
