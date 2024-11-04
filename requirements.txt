@@ -1,4 +1,3 @@
-vllm
 alpaca-eval
 accelerate>=0.26.0
 flash-attn==2.6.3

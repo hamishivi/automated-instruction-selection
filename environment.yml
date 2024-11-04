@@ -6,4 +6,5 @@ dependencies:
   - cuda-nvcc=12.1.105=0
   - pip:
       - packaging==23.2
+      - vllm
 prefix: /home/hamishi/.conda/envs/mmft-hope
