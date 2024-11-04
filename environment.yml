@@ -7,4 +7,5 @@ dependencies:
   - pip:
       - packaging>=23.2
       - vllm>=0.6.0
+      - ray>=2.9
 prefix: /home/hamishi/.conda/envs/mmft-hope
