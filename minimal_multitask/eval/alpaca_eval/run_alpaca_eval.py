@@ -10,7 +10,11 @@ import tqdm
 
 import torch
 from datasets import Dataset, load_dataset
-import vllm
+try:
+    import vllm
+except ImportError:
+    print("VLLM not installed. Will not be able to use VLLM.")
+    vllm = None
 from alpaca_eval.main import evaluate as alpaca_farm_evaluate
 from transformers import AutoTokenizer, AutoModelForCausalLM
 

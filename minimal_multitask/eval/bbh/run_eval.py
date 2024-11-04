@@ -6,7 +6,11 @@ import tqdm
 import glob
 import torch
 import random
-import vllm
+try:
+    import vllm
+except ImportError:
+    print("VLLM not installed. Will not be able to use VLLM.")
+    vllm = None
 import evaluate
 from minimal_multitask.eval.utils import (
     load_hf_lm,

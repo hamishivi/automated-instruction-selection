@@ -5,7 +5,11 @@ import json
 import torch
 from torch.utils.data import DataLoader
 from datasets import load_dataset, Dataset
-import vllm
+try:
+    import vllm
+except ImportError:
+    print("VLLM not installed. Will not be able to use VLLM.")
+    vllm = None
 from transformers import AutoTokenizer, AutoModelForCausalLM
 from minimal_multitask.eval.alpaca_eval.run_alpaca_eval import create_prompt_with_tulu_chat_format
 from minimal_multitask.eval.squad.squad_eval_1 import evaluate

@@ -6,7 +6,11 @@ import random
 from collections import defaultdict
 
 import torch
-import vllm
+try:
+    import vllm
+except ImportError:
+    print("VLLM not installed. Will not be able to use VLLM.")
+    vllm = None
 from tqdm import tqdm, trange
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 

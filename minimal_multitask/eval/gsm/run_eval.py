@@ -4,7 +4,11 @@ import re
 import json
 import random
 import torch
-import vllm
+try:
+    import vllm
+except ImportError:
+    print("VLLM not installed. Will not be able to use VLLM.")
+    vllm = None
 import evaluate
 from minimal_multitask.eval.utils import (
     generate_completions,

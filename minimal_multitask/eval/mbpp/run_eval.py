@@ -3,7 +3,11 @@ import os
 import json
 import random
 import torch
-import vllm
+try:
+    import vllm
+except ImportError:
+    print("VLLM not installed. Will not be able to use VLLM.")
+    vllm = None
 from datasets import load_dataset
 from minimal_multitask.eval.utils import (
     generate_completions,
