@@ -1,4 +1,5 @@
 alpaca-eval
+peft
 accelerate>=0.26.0
 flash-attn==2.6.3
 hf_transfer
