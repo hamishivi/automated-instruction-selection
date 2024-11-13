@@ -4,14 +4,14 @@ Given a json with tulu2 data, generate a bar chart showing the distribution of s
 from matplotlib import pyplot as plt
 import json
 import numpy as np
-from collections import Counter
+from collections import Counter, defaultdict
 import argparse
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--input_files", nargs="+", type=str)
 parser.add_argument("--output_file", type=str)
 parser.add_argument("--influence_score_file", type=str, default=None)
-parser.add_argument("--random_sel_file", type=str, default=None)  # if given, add 'random' column
+parser.add_argument("--normalize_count", action="store_true")
 args = parser.parse_args()
 
 counters = []
@@ -32,28 +32,32 @@ if args.random_sel_file:
 fig, ax = plt.subplots(figsize=(10, 5))
 # stacked bar chart setup
 
-evals = ["alpacaeval", "alpacafarm", "gsm8k", "tydiqa", "bbh", "mmlu", "codex", "squad"]
+evals = ["alpacaeval", "gsm8k", "tydiqa", "bbh", "mmlu", "codex", "squad", "top10k", "mean10", "seed42", "seed0", "seed1"]
 evals_ordered = []
-for f in args.input_files:
-    for eve in evals:
-        if eve in f:
-            evals_ordered.append(eve)
-if random_counter:
-    evals_ordered.append("random")
-    counters += [random_counter]
+for eve in evals:
+    evals_ordered.append(eve)
 basenames = evals_ordered
 all_keys = [c.keys() for c in counters]
 all_counter_keys = set()
 for keys in all_keys:
     all_counter_keys.update(keys)
 all_counter_keys = sorted(list(all_counter_keys))
-combined_d = {k: [c[k] for c in counters] for k in all_counter_keys}
+counter_normalized = []
+for c in counters:
+    counter_normalized.append({k: c[k]/sum(c.values()) for k in c.keys()})
 
+if args.normalize_count:
+    combined_d = {k: [c.get(k, 0) for c in counter_normalized] for k in all_counter_keys}
+else:
+    combined_d = {k: [c[k] for c in counters] for k in all_counter_keys}
 width = 0.5
 bottom = np.zeros(len(counters))
 # colourmap can repeat, stop this
-colormap = plt.cm.nipy_spectral
-colors = colormap(np.linspace(0, 1, len(all_counter_keys)))
+def generate_n_colors(cmap, n_colors):
+    return [cmap(i / n_colors) for i in range(n_colors)]
+colormap = plt.cm.get_cmap('tab20')
+colors = generate_n_colors(colormap, len(all_counter_keys))
+# colors = colormap(np.linspace(0, 1, len(all_counter_keys)))
 ax.set_prop_cycle("color", colors)
 # construct
 for ds, ds_count in combined_d.items():

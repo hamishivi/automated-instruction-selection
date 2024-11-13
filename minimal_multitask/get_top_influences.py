@@ -99,8 +99,9 @@ for i, instance_to_influences_i in enumerate(instance_to_influences_list):
     for test_index, influences in enumerate(instance_to_influences_i):
         # sometimes i saved a dict of test idx -> influences, instead of a list.
         # in this case, just grab the interior dict.
-        if type(influences) is int:
-            assert influences == test_index, "Test index unexpected."
+        if type(influences) is int or type(influences) is str:
+            if int(influences) != test_index:
+                print(f"Test index {influences} unexpected.")
             influences = instance_to_influences_i[influences]
         elif type(influences) is str:
             assert influences == str(test_index), "Test index unexpected."
@@ -292,7 +293,10 @@ if args.output_dataset:
         if type(dataset_idx) is not int:
             dataset_idx = dataset_idx.item()
         if type(train_idx) is not int:
-            train_idx = train_idx.item()
+            if type(train_idx) is str:
+                train_idx = int(train_idx)
+            else:
+                train_idx = train_idx.item()
         instance = train_datasets[dataset_idx][train_idx]
         instance["influence_score"] = saved_scores[i] if type(saved_scores[i]) is float else saved_scores[i].item()
         output_dataset.append(instance)

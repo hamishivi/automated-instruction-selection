@@ -6,11 +6,14 @@ import os
 import matplotlib.pyplot as plt
 import random
 
-parser = argparse.ArgumentParser(description="Compute rank correlations")
-parser.add_argument("--pickle_files", type=str, nargs="+", help="List of pickle files")
-parser.add_argument("--save_dir", default="results/llama_7b")
-parser.add_argument("--file_prefix")
-parser.add_argument("--seed", type=int, default=42)
+parser = argparse.ArgumentParser(description='Compute rank correlations')
+parser.add_argument('--pickle_files', type=str, nargs='+', help='List of pickle files')
+parser.add_argument('--save_dir', default='results/llama_7b')
+parser.add_argument('--file_prefix')
+parser.add_argument('--seed', type=int, default=42)
+parser.add_argument('--num_samples', type=int, default=100)
+parser.add_argument('--fix_indices', action='store_true')
+parser.add_argument('--minus_one', help='some datasets have an extra -1 key', action='store_true')
 args = parser.parse_args()
 
 random_gen = random.Random(args.seed)
@@ -28,7 +31,11 @@ for dataset, file_name in zip(datasets, args.pickle_files):
     for index in dataset:
         sorted_indices = sorted([i for i in dataset[index]], key=lambda i: dataset[index][i])
         dataset_sorted_idxes[file_name].append(sorted_indices)
-        dataset_in_order_influences[file_name].append([dataset[index][i] for i in range(len(dataset[index]))])
+        if args.minus_one:
+            # temporary -1 for alpacaeval multiround selection, since there is an extra -1
+            dataset_in_order_influences[file_name].append([dataset[index][i] for i in range(len(dataset[index])-1)])
+        else:
+            dataset_in_order_influences[file_name].append([dataset[index][i] for i in range(len(dataset[index]))])
     dataset_sorted_idxes[file_name] = np.array(dataset_sorted_idxes[file_name])
 
 
@@ -39,9 +46,12 @@ for i, file_name1 in enumerate(args.pickle_files):
     for j, file_name2 in enumerate(args.pickle_files):
         correlations = []
         # pick ~100 random pairs of idxes and compute the correlation between them
-        pairs1 = np.random.choice(len(dataset_in_order_influences[file_name1]), (100), replace=False)
-        pairs2 = np.random.choice(len(dataset_in_order_influences[file_name2]), (100), replace=False)
-        pairs = [(i, j) for i, j in zip(pairs1, pairs2)]
+        if not args.fix_indices:
+            pairs1 = np.random.choice(len(dataset_in_order_influences[file_name1]), (args.num_samples), replace=False)
+            pairs2 = np.random.choice(len(dataset_in_order_influences[file_name2]), (args.num_samples), replace=False)
+            pairs = [(i, j) for i, j in zip(pairs1, pairs2)]
+        else:
+            pairs = [(i, i) for i in range(args.num_samples)]
         for i, j in pairs:
             correlation, _ = spearmanr(
                 dataset_in_order_influences[file_name1][i], dataset_in_order_influences[file_name2][j]
@@ -56,9 +66,12 @@ for i, file_name1 in enumerate(args.pickle_files):
     for j, file_name2 in enumerate(args.pickle_files):
         correlations = []
         # pick ~100 random pairs of idxes and compute the correlation between them
-        pairs1 = np.random.choice(len(dataset_sorted_idxes[file_name1]), (100), replace=False)
-        pairs2 = np.random.choice(len(dataset_sorted_idxes[file_name2]), (100), replace=False)
-        pairs = [(i, j) for i, j in zip(pairs1, pairs2)]
+        if not args.fix_indices:
+            pairs1 = np.random.choice(len(dataset_in_order_influences[file_name1]), (args.num_samples), replace=False)
+            pairs2 = np.random.choice(len(dataset_in_order_influences[file_name2]), (args.num_samples), replace=False)
+            pairs = [(i, j) for i, j in zip(pairs1, pairs2)]
+        else:
+            pairs = [(i, i) for i in range(args.num_samples)]
         for i, j in pairs:
             correlation, _ = pearsonr(dataset_sorted_idxes[file_name1][i], dataset_sorted_idxes[file_name2][j])
             correlations.append(correlation)
@@ -68,8 +81,12 @@ fig, axes = plt.subplots(len(args.pickle_files), len(args.pickle_files), figsize
 # pick a random two indices for each dataset
 rands1, rands2 = {}, {}
 for filename in args.pickle_files:
-    rands1[filename] = int(len(dataset_in_order_influences[filename]) * random_gen.random())
-    rands2[filename] = int(len(dataset_in_order_influences[filename]) * random_gen.random())
+    if not args.fix_indices:
+        rands1[filename] = int(len(dataset_in_order_influences[filename]) * random_gen.random())
+        rands2[filename] = int(len(dataset_in_order_influences[filename]) * random_gen.random())
+    else:
+        rands1[filename] = 0
+        rands2[filename] = 0
 for i, file_name1 in enumerate(args.pickle_files):
     for j, file_name2 in enumerate(args.pickle_files):
         rand1 = rands1[file_name1]
