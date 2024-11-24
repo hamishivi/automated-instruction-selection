@@ -213,10 +213,10 @@ if __name__ == "__main__":
         "--use_chat_format", action="store_true", help="If given, we will use the chat format for the prompts."
     )
     parser.add_argument(
-        "--chat_formatting_function",
-        type=str,
-        default="eval.templates.create_prompt_with_tulu_chat_format",
-        help="The function to use to create the chat format. This function will be dynamically imported. Please see examples in `eval/templates.py`.",
+        "--chat_formatting_function", 
+        type=str, 
+        default="minimal_multitask.eval.templates.create_prompt_with_tulu_chat_format", 
+        help="The function to use to create the chat format. This function will be dynamically imported. Please see examples in `eval/templates.py`."
     )
     args = parser.parse_args()
 

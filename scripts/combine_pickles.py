@@ -21,6 +21,7 @@ influences = [pickle.load(open(f, "rb")) for f in tqdm(args.input_files)]
 # combine the pickles
 combined_influence = {}
 ongoing_counter = 0
+skip = False
 for influence in tqdm(influences):
     skip = False
     for test_idx in influence:

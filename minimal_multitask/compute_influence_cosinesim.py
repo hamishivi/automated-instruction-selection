@@ -21,7 +21,7 @@ parser.add_argument("--index_path", type=str)
 # be careful with this one! leaks test data into train set so we can sanity check the retrieval
 parser.add_argument("--leak_test_data", action="store_true")
 parser.add_argument("--dtype", default="bf16")
-parser.add_argument("--batch_size", type=int, default=1)
+parser.add_argument("--batch_size", type=int, default=16)
 parser.add_argument("--prompt_only", action="store_true")
 parser.add_argument("--label_only", action="store_true")
 parser.add_argument("--pooling", type=str, default="none")  # none, mean, weighted_mean
@@ -38,7 +38,7 @@ elif args.dtype == "fp16":
 elif args.dtype == "fp32":
     kwargs = {"torch_dtype": torch.float32}
 if "llama" in args.model_name:
-    kwargs["use_flash_attention_2"] = True
+    kwargs["attn_implementation"] = "sdpa"
 
 if os.getenv("HF_TOKEN") is not None:
     kwargs["token"] = os.getenv("HF_TOKEN")
@@ -71,7 +71,7 @@ else:
     if os.path.exists(args.train_dataset):
         train_dataset = load_dataset("json", data_files=args.train_dataset)["train"]
         train_dataset = train_dataset.map(
-            lambda x: encode_with_messages_format(x, tokenizer, 2048, True, args.label_only, args.only_first_two, args.prompt_only), num_proc=16, load_from_cache_file=False
+            lambda x: encode_with_messages_format(x, tokenizer, 2048, True, args.label_only, args.only_first_two, args.prompt_only), num_proc=8, load_from_cache_file=True, keep_in_memory=False
         )
     else:
         raise ValueError(f"Invalid train dataset: {args.train_dataset}")
@@ -129,6 +129,8 @@ else:
 
     all_train_embeds = torch.cat(all_train_embeds, dim=0)
     all_train_embeds = all_train_embeds / torch.linalg.vector_norm(all_train_embeds, dim=1, keepdim=True)
+    if not os.path.exists(os.path.dirname(args.index_path)):
+        os.makedirs(os.path.dirname(args.index_path))
     with open(args.index_path, "wb") as f:
         torch.save(all_train_embeds, f)
 

@@ -130,7 +130,13 @@ def get_next_word_predictions(
             batch_input_ids = batch_input_ids.cuda()
             attention_mask = attention_mask.cuda()
 
-        batch_logits = model(input_ids=batch_input_ids, attention_mask=attention_mask).logits[:, -1, :]
+        if batch_size == 1:
+            batch_logits = model(input_ids=batch_input_ids, attention_mask=attention_mask).logits[:, -1, :]
+        else:
+            choice_indices = torch.sum(batch_input_ids != tokenizer.pad_token_id, dim=1) - 1
+            batch_logits = model(input_ids=batch_input_ids, attention_mask=attention_mask).logits
+            choice_indices = choice_indices.view(batch_logits.shape[0], 1, 1).expand(batch_logits.shape[0], 1, batch_logits.shape[2])
+            batch_logits = torch.gather(batch_logits, 1, choice_indices).squeeze(1)
         if candidate_token_ids is not None:
             batch_logits = batch_logits[:, candidate_token_ids]
         batch_probs = torch.softmax(batch_logits, dim=-1)
