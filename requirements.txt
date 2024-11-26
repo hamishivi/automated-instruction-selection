@@ -4,4 +4,4 @@ accelerate>=0.26.0
 flash-attn
 hf_transfer
 evaluate
-deepspeed
+deepspeed==0.15.4
