@@ -43,7 +43,11 @@ tokenizer = AutoTokenizer.from_pretrained("oobabooga/llama-tokenizer")
 
 
 def compute_influences_for_file(input_file):
-    instance_to_influences = json.load(open(input_file, "rb"))
+    if input_file.endswith(".json"):
+        instance_to_influences = json.load(open(input_file, "rb"))
+    elif input_file.endswith(".pkl"):
+        instance_to_influences = pickle.load(open(input_file, "rb"))
+    
     # two selection methods: min or mean or max
     # this is how we aggregate influences.
     # for mean, we just average scores across all test points.
