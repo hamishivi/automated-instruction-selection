@@ -3,13 +3,16 @@ EXP_NAME=$2
 
 gantry run \
         --workspace hamishivi \
-        --cluster ai2/allennlp-cirrascale \
-        --cluster ai2/pluto-cirrascale \
+        --cluster ai2/allennlp-elara-cirrascale \
+        --cluster ai2/jupiter-cirrascale-2 \
+        --cluster ai2/saturn-cirrascale \
         --budget ai2/oe-adapt \
         --allow-dirty \
         --priority normal \
+        --preemptible \
         --workspace ai2/minimal-multitask-finetuning \
         --gpus 1 \
+        --weka=oe-adapt-default:/weka/oe-adapt-default \
         --env-secret HF_TOKEN=HF_TOKEN \
         --name $EXP_NAME \
         --task-name $EXP_NAME \
