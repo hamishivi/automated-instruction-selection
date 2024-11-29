@@ -13,7 +13,7 @@ gantry run \
         --gpus 1 \
         --env-secret HF_TOKEN=HF_TOKEN \
         --name $EXP_NAME \
-        --weka=oe-adapt-defult:/weka \
+        --weka=oe-adapt-default:/weka \
         --task-name $EXP_NAME \
         -- python -m minimal_multitask.instruction_tune \
                 --model_name meta-llama/Llama-2-7b-hf \

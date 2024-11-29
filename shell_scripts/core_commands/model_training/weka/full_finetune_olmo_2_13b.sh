@@ -13,7 +13,7 @@ gantry run \
         --gpus 4 \
         --env-secret HF_TOKEN=HF_TOKEN \
         --name $EXP_NAME \
-        --weka=oe-adapt-defult:/weka \
+        --weka=oe-adapt-default:/weka \
         --task-name $EXP_NAME \
         -- pip install --upgrade git+https://github.com/huggingface/transformers && accelerate launch \
                 --mixed_precision bf16 \
