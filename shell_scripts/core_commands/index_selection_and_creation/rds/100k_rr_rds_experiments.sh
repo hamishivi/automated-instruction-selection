@@ -17,7 +17,7 @@ for model in meta-llama/Llama-2-7b-hf allenai/OLMo-2-1124-7B allenai/OLMo-2-1124
     # construct eval index
     for dataset in alpacafarm gsm8k_shots bbh_shots tydiqa_shots codex squad mmlu_shots; do
         python -m minimal_multitask.compute_influence_cosinesim \
-            --model_name allenai/OLMo-2-1124-7B \
+            --model_name $model \
             --seed 42 \
             --train_dataset tulu_v2_unfiltered_data_dedup_balanced_100k.jsonl \
             --eval_dataset $dataset \
