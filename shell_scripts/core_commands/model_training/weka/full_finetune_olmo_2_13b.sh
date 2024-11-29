@@ -15,7 +15,7 @@ gantry run \
         --name $EXP_NAME \
         --weka=oe-adapt-default:/weka \
         --task-name $EXP_NAME \
-        -- pip install --upgrade git+https://github.com/huggingface/transformers && accelerate launch \
+        -- "pip install --upgrade git+https://github.com/huggingface/transformers && accelerate launch \
                 --mixed_precision bf16 \
                 --use_deepspeed \
                 --deepspeed_config_file ds_config.json -m minimal_multitask.instruction_tune \
@@ -34,4 +34,4 @@ gantry run \
                 --logging_steps 1 \
                 --is_llama=True \
                 --use_hf_auth_token True \
-                --train_dataset $TRAIN_FILE
+                --train_dataset $TRAIN_FILE"

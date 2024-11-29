@@ -15,7 +15,7 @@ gantry run \
         --name $EXP_NAME \
         --weka=oe-adapt-default:/weka \
         --task-name $EXP_NAME \
-        -- pip install --upgrade git+https://github.com/huggingface/transformers && python -m minimal_multitask.instruction_tune \
+        -- "pip install --upgrade git+https://github.com/huggingface/transformers && python -m minimal_multitask.instruction_tune \
                 --model_name allenai/OLMo-2-1124-7B \
                 --output_dir /results \
                 --per_device_train_batch_size 1 \
@@ -31,4 +31,4 @@ gantry run \
                 --logging_steps 1 \
                 --is_llama=True \
                 --use_hf_auth_token True \
-                --train_dataset $TRAIN_FILE
+                --train_dataset $TRAIN_FILE"
