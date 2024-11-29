@@ -31,4 +31,4 @@ gantry run \
                 --logging_steps 1 \
                 --is_llama=True \
                 --use_hf_auth_token True \
-                --train $TRAIN_FILE
+                --train_dataset $TRAIN_FILE
