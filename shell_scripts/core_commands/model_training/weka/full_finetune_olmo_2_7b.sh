@@ -34,5 +34,5 @@ gantry run \
                 --is_llama=True \
                 --use_hf_auth_token True \
                 --is_olmo=True \
-                --add_bos_token \
+                --add_bos_token=True \
                 --train_dataset $TRAIN_FILE
