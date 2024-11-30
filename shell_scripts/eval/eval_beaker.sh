@@ -76,6 +76,7 @@ $GANTRY_CMD --name ${MODEL_NAME}_codex_pass10 -- python -m minimal_multitask.eva
 $GANTRY_CMD --name ${MODEL_NAME}_squad_context_fixed -- python -m minimal_multitask.eval.squad.run_squad_eval \
     --model_name_or_path /model \
     --output_file "/results/predictions.json" \
+    --chat_formatting_function minimal_multitask.eval.templates.create_prompt_with_tulu_chat_format \
     --metrics_file "/results/metrics.json" \
     --generation_file "/results/generation.json" \
     --use_vllm
@@ -84,6 +85,7 @@ $GANTRY_CMD --name ${MODEL_NAME}_squad_context_fixed -- python -m minimal_multit
 # use my test split
 $GANTRY_CMD --name ${MODEL_NAME}_alpaca_eval -- python -m minimal_multitask.eval.alpaca_eval.run_alpaca_eval \
     --save_dir /results \
+    --chat_formatting_function minimal_multitask.eval.templates.create_prompt_with_tulu_chat_format \
     --model_name_or_path /model \
     --use_vllm
 
