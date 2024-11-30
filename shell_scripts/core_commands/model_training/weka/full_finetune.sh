@@ -30,5 +30,6 @@ gantry run \
                 --save_strategy no \
                 --logging_steps 1 \
                 --is_llama=True \
+                --bf16 \
                 --use_hf_auth_token True \
                 --train_dataset $TRAIN_FILE

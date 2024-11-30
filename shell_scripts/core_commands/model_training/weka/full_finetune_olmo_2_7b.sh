@@ -24,6 +24,7 @@ gantry run \
                 --num_train_epochs 2 \
                 --learning_rate 2e-5 \
                 --seed 42 \
+                --bf16 \
                 --warmup_ratio 0.03 \
                 --lr_scheduler_type linear \
                 --weight_decay 0. \
