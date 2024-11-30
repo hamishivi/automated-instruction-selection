@@ -5,7 +5,6 @@ gantry run \
         --workspace hamishivi \
         --cluster ai2/allennlp-elara-cirrascale \
         --cluster ai2/saturn-cirrascale \
-        --cluster ai2/neptune-cirrascale \
         --budget ai2/oe-adapt \
         --allow-dirty \
         --priority normal \
