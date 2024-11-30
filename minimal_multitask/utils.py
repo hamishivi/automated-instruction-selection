@@ -39,7 +39,7 @@ def create_prompt_with_tulu_chat_format(messages, tokenizer, add_bos=True, promp
 
 
 # needed for open-instruct: convert msg format.
-def encode_with_messages_format(example, tokenizer, max_seq_length, include_response=True, response_only=False, only_first_two=False, prompt_only=False):
+def encode_with_messages_format(example, tokenizer, max_seq_length, include_response=True, response_only=False, only_first_two=False, prompt_only=False, add_bos_token=False):
     """
     Here we assume each example has a 'messages' field Each message is a dict with 'role' and 'content' fields.
     We concatenate all messages with the roles as delimiters and tokenize them together.
@@ -59,6 +59,9 @@ def encode_with_messages_format(example, tokenizer, max_seq_length, include_resp
                 message_text += "<|assistant|>\n" + message["content"].strip() + tokenizer.eos_token + "\n"
             else:
                 raise ValueError("Invalid role: {}".format(message["role"]))
+        # add bos token if needed
+        if add_bos_token:
+            message_text = tokenizer.bos_token + message_text
         return message_text
 
     # change: just take the first two prompts.
