@@ -21,7 +21,7 @@ gantry run \
                 --model_name meta-llama/Llama-3.1-8B \
                 --output_dir /results \
                 --per_device_train_batch_size 1 \
-                --gradient_accumulation_steps 128 \
+                --gradient_accumulation_steps 64 \
                 --num_train_epochs 2 \
                 --learning_rate 2e-5 \
                 --seed 42 \

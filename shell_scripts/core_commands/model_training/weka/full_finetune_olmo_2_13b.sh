@@ -22,7 +22,7 @@ gantry run \
                 --model_name allenai/OLMo-2-1124-13B \
                 --output_dir /results \
                 --per_device_train_batch_size 1 \
-                --gradient_accumulation_steps 128 \
+                --gradient_accumulation_steps 32 \
                 --num_train_epochs 2 \
                 --learning_rate 2e-5 \
                 --seed 42 \
