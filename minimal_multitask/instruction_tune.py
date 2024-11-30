@@ -132,7 +132,7 @@ if additional_args.lora_rank > -1:
 if additional_args.train_dataset == "alpaca":
     train_dataset = load_dataset("json", data_files="data/camel_datasets/stanford_alpaca/stanford_alpaca_data.jsonl")
     train_dataset = train_dataset["train"]
-    train_dataset = train_dataset.map(lambda x: encode_with_messages_format(x, tokenizer, 1024, True, False, additional_args.only_first_two, additional_args.add_bos_token))
+    train_dataset = train_dataset.map(lambda x: encode_with_messages_format(x, tokenizer, 1024, True, False, only_first_two=additional_args.only_first_two, add_bos_token=additional_args.add_bos_token))
 elif additional_args.train_dataset == "lima":
     train_dataset = load_dataset("GAIR/lima", use_auth_token=True, split="train")
 
@@ -144,16 +144,16 @@ elif additional_args.train_dataset == "lima":
         return {"messages": messages}
 
     train_dataset = train_dataset.map(convert_lima)
-    train_dataset = train_dataset.map(lambda x: encode_with_messages_format(x, tokenizer, 1024, True, False, additional_args.only_first_two, additional_args.add_bos_token))
+    train_dataset = train_dataset.map(lambda x: encode_with_messages_format(x, tokenizer, 1024, only_first_two=additional_args.only_first_two, add_bos_token=additional_args.add_bos_token))
 elif additional_args.train_dataset == "tulu2":
     train_dataset = load_dataset("allenai/tulu-v2-sft-mixture", split="train")
-    train_dataset = train_dataset.map(lambda x: encode_with_messages_format(x, tokenizer, 2048, True, False, additional_args.only_first_two, additional_args.add_bos_token))
+    train_dataset = train_dataset.map(lambda x: encode_with_messages_format(x, tokenizer, 2048, only_first_two=additional_args.only_first_two, add_bos_token=additional_args.add_bos_token))
 else:
     if os.path.exists(additional_args.train_dataset):
         # data files can be really big, but then we want to subselect
         train_dataset = load_dataset("json", data_files=additional_args.train_dataset, streaming=True)
         train_dataset = train_dataset["train"]
-        train_dataset = train_dataset.map(lambda x: encode_with_messages_format(x, tokenizer, 2048, True, False, additional_args.only_first_two, additional_args.add_bos_token))
+        train_dataset = train_dataset.map(lambda x: encode_with_messages_format(x, tokenizer, 2048, only_first_two=additional_args.only_first_two, add_bos_token=additional_args.add_bos_token))
     else:
         raise ValueError(f"Unknown dataset {additional_args.train_dataset}")
 

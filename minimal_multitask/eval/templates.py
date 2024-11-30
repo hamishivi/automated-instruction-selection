@@ -190,5 +190,5 @@ def create_prompt_with_zephyr_chat_format(messages, tokenizer, bos="<s>", eos="<
 
 # helper for just using the huggingface tokenizer
 def create_prompt_with_huggingface_tokenizer_template(messages, tokenizer, add_bos=False):
-    formatted_text = tokenizer.apply_chat_template(messages, tokenize=False)
+    formatted_text = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
     return formatted_text
