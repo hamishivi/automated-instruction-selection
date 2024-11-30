@@ -54,7 +54,7 @@ def main(args):
     chat_formatting_function = dynamic_import_function(args.chat_formatting_function)
 
     prompts = []
-    tokenizer = AutoTokenizer.from_pretrained("huggyllama/llama-7b")
+    tokenizer = AutoTokenizer.from_pretrained(args.model_name_or_path)
 
     for example in alpaca_eval_data:
         prompt = example["instruction"]
