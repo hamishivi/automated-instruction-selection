@@ -10,7 +10,7 @@ gantry run \
         --allow-dirty \
         --priority normal \
         --workspace ai2/minimal-multitask-finetuning \
-        --gpus 4 \
+        --gpus 8 \
         --env-secret HF_TOKEN=HF_TOKEN \
         --name $EXP_NAME \
         --pip requirements_olmo.txt \
@@ -23,7 +23,7 @@ gantry run \
                 --model_name allenai/OLMo-2-1124-13B \
                 --output_dir /results \
                 --per_device_train_batch_size 1 \
-                --gradient_accumulation_steps 32 \
+                --gradient_accumulation_steps 16 \
                 --num_train_epochs 2 \
                 --learning_rate 2e-5 \
                 --seed 42 \
