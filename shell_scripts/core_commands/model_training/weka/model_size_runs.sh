@@ -9,11 +9,10 @@ FOLDERS=(
 )
 
 for folder in ${FOLDERS[@]}; do
-    filepath=/weka/oe-adapt-default/hamishi/influence-tuning/${folder}/multitask_rrmax_10k.json
+    filepath=/weka/hamishi/influence-tuning/${folder}/multitask_rrmax_10k.json
     ./shell_scripts/core_commands/model_training/weka/full_finetune.sh $filepath training_7b_${folder}
     ./shell_scripts/core_commands/model_training/weka/full_finetune_13b.sh $filepath training_13b_${folder}
     ./shell_scripts/core_commands/model_training/weka/full_finetune_llama_3_8b.sh $filepath training_llama_3_8b_${folder}
     ./shell_scripts/core_commands/model_training/weka/full_finetune_olmo_2_7b.sh $filepath training_olmo_2_7b_${folder}
     ./shell_scripts/core_commands/model_training/weka/full_finetune_olmo_2_13b.sh $filepath training_olmo_2_13b_${folder}
 done
-./shell_scripts/core_commands/model_training/weka/full_finetune.sh
