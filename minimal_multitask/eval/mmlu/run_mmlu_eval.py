@@ -263,8 +263,12 @@ def main(args):
         config = AutoConfig.from_pretrained(args.model_name_or_path, cache_dir=None, trust_remote_code=True)
         print("Config: {}".format(config))
         model = AutoModelForCausalLM.from_pretrained(
-            args.model_name_or_path, config=config, trust_remote_code=True, load_in_8bit=args.load_in_8bit
-        ).cuda()
+            args.model_name_or_path,
+            config=config,
+            trust_remote_code=True,
+            load_in_8bit=args.load_in_8bit,
+            device_map="auto",
+        )
         # from peft import PeftModel
         # model = PeftModel.from_pretrained(model, args.model_name_or_path)
         tokenizer = AutoTokenizer.from_pretrained(args.model_name_or_path, use_fast=True)
