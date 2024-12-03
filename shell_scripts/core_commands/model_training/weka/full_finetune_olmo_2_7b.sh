@@ -11,6 +11,7 @@ gantry run \
         --priority normal \
         --workspace ai2/minimal-multitask-finetuning \
         --gpus 1 \
+        --preemptible \
         --env-secret HF_TOKEN=HF_TOKEN \
         --name $EXP_NAME \
         --pip requirements_olmo.txt \

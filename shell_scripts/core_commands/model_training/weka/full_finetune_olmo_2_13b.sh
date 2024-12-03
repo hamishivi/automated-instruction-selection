@@ -9,6 +9,7 @@ gantry run \
         --budget ai2/oe-adapt \
         --allow-dirty \
         --priority normal \
+        --preemptible \
         --workspace ai2/minimal-multitask-finetuning \
         --gpus 8 \
         --env-secret HF_TOKEN=HF_TOKEN \
