@@ -1,6 +1,8 @@
 set -ex
 
-for model in meta-llama/Llama-2-7b-hf allenai/OLMo-2-1124-7B allenai/OLMo-2-1124-13B meta-llama/Llama-2-13b-hf meta-llama/Llama-2-70b-hf meta-llama/Llama-3.1-8B meta-llama/Llama-3.1-70B; do
+# meta-llama/Llama-2-7b-hf allenai/OLMo-2-1124-7B allenai/OLMo-2-1124-13B meta-llama/Llama-2-13b-hf meta-llama/Llama-2-70b-hf meta-llama/Llama-3.1-8B meta-llama/Llama-3.1-70B
+
+for model in Qwen/Qwen2.5-1.5B; do
     clean_model_name=$(echo $model | sed 's/\//-/g')
     folder=rds_100k_exp_from_base_weighted_mean_pool_${clean_model_name}
     mkdir -p $folder

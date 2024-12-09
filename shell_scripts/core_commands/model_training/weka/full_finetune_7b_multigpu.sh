@@ -5,11 +5,12 @@ gantry run \
         --workspace hamishivi \
         --cluster ai2/allennlp-elara-cirrascale \
         --cluster ai2/saturn-cirrascale \
+        --cluster ai2/jupiter-cirrascale-2 \
         --budget ai2/oe-adapt \
         --allow-dirty \
         --priority normal \
         --workspace ai2/minimal-multitask-finetuning \
-        --gpus 4 \
+        --gpus 8 \
         --env-secret HF_TOKEN=HF_TOKEN \
         --name $EXP_NAME \
         --weka=oe-adapt-default:/weka \
@@ -18,10 +19,10 @@ gantry run \
                 --mixed_precision bf16 \
                 --use_deepspeed \
                 --deepspeed_config_file ds_config.json -m minimal_multitask.instruction_tune \
-                --model_name meta-llama/Llama-3.1-8B \
+                --model_name meta-llama/Llama-2-7b-hf \
                 --output_dir /results \
                 --per_device_train_batch_size 1 \
-                --gradient_accumulation_steps 32 \
+                --gradient_accumulation_steps 16 \
                 --num_train_epochs 2 \
                 --learning_rate 2e-5 \
                 --seed 42 \
