@@ -5,3 +5,4 @@ flash-attn
 hf_transfer
 evaluate
 deepspeed==0.15.4
+transformers==4.47.0
