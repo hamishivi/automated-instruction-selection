@@ -18,26 +18,28 @@ parser.add_argument("--output_file", type=str)
 parser.add_argument("--selection_method", type=str, default="min")  # min, mean, max
 parser.add_argument("--output_size", type=int, default=10000)  # number of instances total to select.
 parser.add_argument("--train_dataset", type=str)
-parser.add_argument("--aggregation_method", type=str, default="minmax")  # mean, minmax, rank
+parser.add_argument("--aggregation_method", type=str, default="round_robin")  # mean, minmax, rank
+parser.add_argument("--maximize_inf", action="store_true")
 parser.add_argument("--output_dataset", action="store_true")
 args = parser.parse_args()
 
-assert args.selection_method in ["min", "max", "mean_min", "mean_max"], "Invalid selection method."
-assert args.aggregation_method in ["mean", "minmax"], "Invalid aggregation method."
+assert args.selection_method in ["min", "max", "mean", "normalized_mean"], "Invalid selection method."
+assert args.aggregation_method in ["round_robin", "mean", "normaized_mean"], "Invalid aggregation method."
 
 # load train dataset for printing
-if args.train_dataset == "alpaca":
-    train_dataset = load_dataset("json", data_files="data/camel_datasets/stanford_alpaca/stanford_alpaca_data.jsonl")[
-        "train"
-    ]
-elif args.train_dataset == "tulu2":
-    train_dataset = load_dataset("allenai/tulu-v2-sft-mixture", split="train")
-else:
-    # assume it's a path to a dataset
-    if os.path.exists(args.train_dataset):
-        train_dataset = load_dataset("json", data_files=args.train_dataset)["train"]
+if args.output_dataset:
+    if args.train_dataset == "alpaca":
+        train_dataset = load_dataset("json", data_files="data/camel_datasets/stanford_alpaca/stanford_alpaca_data.jsonl")[
+            "train"
+        ]
+    elif args.train_dataset == "tulu2":
+        train_dataset = load_dataset("allenai/tulu-v2-sft-mixture", split="train")
     else:
-        raise ValueError(f"Invalid train dataset {args.train_dataset}.")
+        # assume it's a path to a dataset
+        if os.path.exists(args.train_dataset):
+            train_dataset = load_dataset("json", data_files=args.train_dataset)["train"]
+        else:
+            raise ValueError(f"Invalid train dataset {args.train_dataset}.")
 
 tokenizer = AutoTokenizer.from_pretrained("oobabooga/llama-tokenizer")
 
@@ -64,6 +66,27 @@ def compute_influences_for_file(input_file):
 
     # track the overall influences/idxes we are taking.
     overall_influences = {}
+    if args.selection_method == "normalized_mean":
+        print("Using normalized mean influence selection method.")
+        # this is mean, but we normalize influence scores to be in [-1, 1] range.
+        average_influences = {}
+        for i, influences in instance_to_influences.items():
+            for train_idx, score in influences.items():
+                if train_idx not in average_influences:
+                    average_influences[train_idx] = []
+                average_influences[train_idx].append(score)
+        average_influences = list(average_influences.items())
+        # normalize scores. notably, we normalize per test instance, not per train instance
+        for idx in range(len(average_influences[0][1])):
+            scores_for_test_point = [scores[idx] for _, scores in average_influences]
+            min_scores = min(scores_for_test_point)
+            max_scores = max(scores_for_test_point)
+            # normalize scores
+            scores_for_test_point = [(score - min_scores) / (max_scores - min_scores) for score in scores_for_test_point]
+            for i, (train_idx, scores) in enumerate(average_influences):
+                average_influences[i][1][idx] = scores_for_test_point[i]
+        # then average
+        average_influences = {train_idx : mean(scores) for train_idx, scores in average_influences}
     if "mean" in args.selection_method:
         print("Using mean influence selection method.")
         # mean reduce
@@ -98,9 +121,9 @@ if args.aggregation_method == "mean":
                 collated_influences[idx] = []
             collated_influences[idx].append(score)
     inter_dataset_scores = {k: mean(v) for k, v in collated_influences.items()}
-    fn = sorted if "min" in args.selection_method else lambda x: sorted(x, reverse=True)
-    inter_dataset_scores = fn(inter_dataset_scores.items(), key=lambda x: x[1])[: args.output_size]
-elif args.aggregation_method == "minmax":
+    fn = sorted(key=lambda x: x[1]) if not args.maximize_inf else lambda x: sorted(x, key=lambda x: x[1], reverse=True)
+    inter_dataset_scores = fn(inter_dataset_scores.items())[: args.output_size]
+elif args.aggregation_method == "round_robin":
     # base min/max on intra-dataset scores. TODO: more customizability here.
     print("Using minmax inter-dataset aggregation. Using selection method: {}".format(args.selection_method))
     # unlike before, here we round-robin across datasets to avoid score magnitudes affecting this.
