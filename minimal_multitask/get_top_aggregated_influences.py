@@ -45,10 +45,13 @@ tokenizer = AutoTokenizer.from_pretrained("oobabooga/llama-tokenizer")
 
 
 def compute_influences_for_file(input_file):
+    instance_to_influences = None
     if input_file.endswith(".json"):
         instance_to_influences = json.load(open(input_file, "rb"))
     elif input_file.endswith(".pkl"):
         instance_to_influences = pickle.load(open(input_file, "rb"))
+    else:
+        raise ValueError("Invalid file format.")
 
     # two selection methods: min or mean or max
     # this is how we aggregate influences.
@@ -87,10 +90,10 @@ def compute_influences_for_file(input_file):
             max_scores = max(scores_for_test_point)
             # normalize scores
             scores_for_test_point = [(score - min_scores) / (max_scores - min_scores) for score in scores_for_test_point]
-            for i, (train_idx, scores) in enumerate(average_influences):
+            for i, (train_idx, _) in enumerate(average_influences):
                 average_influences[i][1][idx] = scores_for_test_point[i]
         # then average
-        average_influences = {train_idx : mean(scores) for train_idx, scores in average_influences}
+        average_influences = {train_idx: mean(scores) for train_idx, scores in average_influences}
     if "mean" in args.selection_method:
         print("Using mean influence selection method.")
         # mean reduce
