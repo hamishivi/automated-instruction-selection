@@ -60,6 +60,10 @@ class AdditionalTrainingArguments:
     only_first_two: Optional[bool] = field(
         default=False, metadata={"help": "Whether to only use the first two messages in the input."}
     )
+    add_bos_token: Optional[bool] = field(
+        default=False, metadata={"help": "Whether to add a BOS token to the input. Use for tokenizers that don't have it."}
+    )
+    is_olmo: Optional[bool] = field(default=False, metadata={"help": "If it is an olmo model."})
 
 
 parser = HfArgumentParser((TrainingArguments, AdditionalTrainingArguments))
@@ -97,11 +101,19 @@ else:
 tokenizer.add_special_tokens({"pad_token": "[PAD]"})
 model.resize_token_embeddings(len(tokenizer))
 
+# special logic for olmo tokenizer
+if additional_args.is_olmo:
+    tokenizer.bos_token = tokenizer.eos_token
+    tokenizer.chat_template = "{{ bos_token }}{% for message in messages %}\n{% if message['role'] == 'user' %}\n{{ '<|user|>\n' + message['content'] }}\n{% elif message['role'] == 'assistant' %}\n{{ '<|assistant|>\n'  + message['content'] + eos_token }}\n{% endif %}\n{% if loop.last and add_generation_prompt %}\n{{ '<|assistant|>' }}\n{% endif %}\n{% endfor %}"
+else:
+    # llama tokenizers automatically add bos token
+    tokenizer.chat_template = "{% for message in messages %}\n{% if message['role'] == 'user' %}\n{{ '<|user|>\n' + message['content'] }}\n{% elif message['role'] == 'assistant' %}\n{{ '<|assistant|>\n'  + message['content'] + eos_token }}\n{% endif %}\n{% if loop.last and add_generation_prompt %}\n{{ '<|assistant|>' }}\n{% endif %}\n{% endfor %}"
+
 # lora setup
 if additional_args.lora_rank > -1:
     modules = ["query_key_value", "dense", "dense_h_to_4h", "dense_4h_to_h"]
     if "llama" in additional_args.model_name or additional_args.is_llama:
-        modules = ["q_proj", "o_proj", "v_proj", "k_proj", "gate_proj", "up_proj", "down_proj"]
+        modules = ["q_proj", "o_proj", "v_proj", "k_proj"]
     peft_config = LoraConfig(
         task_type=TaskType.CAUSAL_LM,
         inference_mode=False,
@@ -120,7 +132,7 @@ if additional_args.lora_rank > -1:
 if additional_args.train_dataset == "alpaca":
     train_dataset = load_dataset("json", data_files="data/camel_datasets/stanford_alpaca/stanford_alpaca_data.jsonl")
     train_dataset = train_dataset["train"]
-    train_dataset = train_dataset.map(lambda x: encode_with_messages_format(x, tokenizer, 1024, True, False, additional_args.only_first_two))
+    train_dataset = train_dataset.map(lambda x: encode_with_messages_format(x, tokenizer, 1024, True, False, only_first_two=additional_args.only_first_two, add_bos_token=additional_args.add_bos_token))
 elif additional_args.train_dataset == "lima":
     train_dataset = load_dataset("GAIR/lima", use_auth_token=True, split="train")
 
@@ -132,16 +144,16 @@ elif additional_args.train_dataset == "lima":
         return {"messages": messages}
 
     train_dataset = train_dataset.map(convert_lima)
-    train_dataset = train_dataset.map(lambda x: encode_with_messages_format(x, tokenizer, 1024, True, False, additional_args.only_first_two))
+    train_dataset = train_dataset.map(lambda x: encode_with_messages_format(x, tokenizer, 1024, only_first_two=additional_args.only_first_two, add_bos_token=additional_args.add_bos_token))
 elif additional_args.train_dataset == "tulu2":
     train_dataset = load_dataset("allenai/tulu-v2-sft-mixture", split="train")
-    train_dataset = train_dataset.map(lambda x: encode_with_messages_format(x, tokenizer, 2048, True, False, additional_args.only_first_two))
+    train_dataset = train_dataset.map(lambda x: encode_with_messages_format(x, tokenizer, 2048, only_first_two=additional_args.only_first_two, add_bos_token=additional_args.add_bos_token))
 else:
     if os.path.exists(additional_args.train_dataset):
         # data files can be really big, but then we want to subselect
         train_dataset = load_dataset("json", data_files=additional_args.train_dataset, streaming=True)
         train_dataset = train_dataset["train"]
-        train_dataset = train_dataset.map(lambda x: encode_with_messages_format(x, tokenizer, 2048, True, False, additional_args.only_first_two))
+        train_dataset = train_dataset.map(lambda x: encode_with_messages_format(x, tokenizer, 2048, only_first_two=additional_args.only_first_two, add_bos_token=additional_args.add_bos_token))
     else:
         raise ValueError(f"Unknown dataset {additional_args.train_dataset}")
 

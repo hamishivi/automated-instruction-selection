@@ -10,9 +10,14 @@ import tqdm
 
 import torch
 from datasets import Dataset, load_dataset
-import vllm
+try:
+    import vllm
+except ImportError:
+    print("VLLM not installed. Will not be able to use VLLM.")
+    vllm = None
 from alpaca_eval.main import evaluate as alpaca_farm_evaluate
 from transformers import AutoTokenizer, AutoModelForCausalLM
+from minimal_multitask.eval.utils import dynamic_import_function
 
 from torch.utils.data import DataLoader
 
@@ -46,9 +51,10 @@ def main(args):
     # my eval split :)
     alpaca_eval_data = load_dataset("hamishivi/alpaca_eval_test_mmft", split="test")
 
+    chat_formatting_function = dynamic_import_function(args.chat_formatting_function)
+
     prompts = []
-    chat_formatting_function = create_prompt_with_tulu_chat_format
-    tokenizer = AutoTokenizer.from_pretrained("huggyllama/llama-7b")
+    tokenizer = AutoTokenizer.from_pretrained(args.model_name_or_path)
 
     for example in alpaca_eval_data:
         prompt = example["instruction"]
@@ -161,6 +167,12 @@ if __name__ == "__main__":
     parser.add_argument("--results_file", type=str)
     parser.add_argument("--decoding_algo", type=str, default="greedy", choices=["greedy", "sampling"])
     parser.add_argument("--temperature", type=float, default=0.0)
+    parser.add_argument(
+        "--chat_formatting_function",
+        type=str,
+         default="minimal_multitask.eval.templates.create_prompt_with_tulu_chat_format",
+        help="The function to use to create the chat format. This function will be dynamically imported. Please see examples in `eval/templates.py`.",
+    )
     args = parser.parse_args()
 
     main(args)

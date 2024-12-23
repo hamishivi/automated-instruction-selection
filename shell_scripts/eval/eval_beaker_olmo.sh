@@ -8,7 +8,7 @@ BEAKER_PATH=$2
 # command for gantry here
 # includes oai key and turning off alpaca eval 2 for alpaca eval stuff.
 # dataset 01J6QSXVDS4MN0W45HB2MHWXQN is the data for the eval
-GANTRY_CMD="gantry run --cluster ai2/allennlp-cirrascale --cluster ai2/general-cirrascale --cluster ai2/mosaic-cirrascale-a100 --cluster ai2/pluto-cirrascale --cluster ai2/s2-cirrascale-l40 --cluster ai2/jupiter-cirrascale-2 --no-nfs --budget ai2/oe-adapt --allow-dirty --priority preemptible --workspace ai2/minimal-multitask-finetuning --gpus 1 --env-secret OPENAI_API_KEY=OPENAI_API_KEY --env IS_ALPACA_EVAL_2=False --dataset ${BEAKER_PATH}:/model --dataset 01J6QSXVDS4MN0W45HB2MHWXQN:/data"
+GANTRY_CMD="gantry run --cluster ai2/allennlp-cirrascale --cluster ai2/general-cirrascale --cluster ai2/mosaic-cirrascale-a100 --cluster ai2/pluto-cirrascale --cluster ai2/s2-cirrascale-l40 --cluster ai2/jupiter-cirrascale-2 --pip requirements_olmo.txt --no-nfs --budget ai2/oe-adapt --allow-dirty --priority preemptible --workspace ai2/minimal-multitask-finetuning --gpus 1 --env-secret OPENAI_API_KEY=OPENAI_API_KEY --env IS_ALPACA_EVAL_2=False --dataset ${BEAKER_PATH}:/model --dataset 01J6QSXVDS4MN0W45HB2MHWXQN:/data"
 
 # mmlu
 # 0shot eval
@@ -20,7 +20,7 @@ $GANTRY_CMD --name ${MODEL_NAME}_mmlu_0shot -- python -m minimal_multitask.eval.
     --model_name_or_path /model \
     --eval_batch_size 1 \
     --use_chat_format \
-    --chat_formatting_function minimal_multitask.eval.templates.create_prompt_with_tulu_chat_format
+    --chat_formatting_function minimal_multitask.eval.templates.create_prompt_with_huggingface_tokenizer_template
 
 # gsm8k
 # cot, 8 shot.
@@ -30,7 +30,7 @@ $GANTRY_CMD --name ${MODEL_NAME}_gsm_cot_full -- python -m minimal_multitask.eva
     --model_name_or_path /model \
     --n_shot 8 \
     --use_chat_format \
-    --chat_formatting_function minimal_multitask.eval.templates.create_prompt_with_tulu_chat_format \
+    --chat_formatting_function minimal_multitask.eval.templates.create_prompt_with_huggingface_tokenizer_template \
     --use_vllm
 
 # bbh
@@ -41,7 +41,7 @@ $GANTRY_CMD --name ${MODEL_NAME}_bbh_cot_full -- python -m minimal_multitask.eva
     --model_name_or_path /model \
     --use_vllm \
     --use_chat_format \
-    --chat_formatting_function minimal_multitask.eval.templates.create_prompt_with_tulu_chat_format
+    --chat_formatting_function minimal_multitask.eval.templates.create_prompt_with_huggingface_tokenizer_template
 
 # tydiqa
 # 1-shot, with context
@@ -54,7 +54,7 @@ $GANTRY_CMD --name ${MODEL_NAME}_tydiqa_goldp_full -- python -m minimal_multitas
     --eval_batch_size 20 \
     --use_vllm \
     --use_chat_format \
-    --chat_formatting_function minimal_multitask.eval.templates.create_prompt_with_tulu_chat_format
+    --chat_formatting_function minimal_multitask.eval.templates.create_prompt_with_huggingface_tokenizer_template
 
 # codex
 # humaneval pack, using my test split.
@@ -63,7 +63,7 @@ $GANTRY_CMD --name ${MODEL_NAME}_codex_pass10 -- python -m minimal_multitask.eva
     --data_file /data/eval/codex_humaneval/HumanEval.jsonl.gz  \
     --data_file_hep /data/eval/codex_humaneval/humanevalpack.jsonl  \
     --use_chat_format \
-    --chat_formatting_function minimal_multitask.eval.templates.create_prompt_with_tulu_chat_format \
+    --chat_formatting_function minimal_multitask.eval.templates.create_prompt_with_huggingface_tokenizer_template \
     --eval_pass_at_ks 10 \
     --unbiased_sampling_size_n 10 \
     --temperature 0.8 \
@@ -76,17 +76,17 @@ $GANTRY_CMD --name ${MODEL_NAME}_codex_pass10 -- python -m minimal_multitask.eva
 $GANTRY_CMD --name ${MODEL_NAME}_squad_context_fixed -- python -m minimal_multitask.eval.squad.run_squad_eval \
     --model_name_or_path /model \
     --output_file "/results/predictions.json" \
-    --chat_formatting_function minimal_multitask.eval.templates.create_prompt_with_tulu_chat_format \
     --metrics_file "/results/metrics.json" \
     --generation_file "/results/generation.json" \
+    --chat_formatting_function minimal_multitask.eval.templates.create_prompt_with_huggingface_tokenizer_template \
     --use_vllm
 
 # alpaca eval
 # use my test split
 $GANTRY_CMD --name ${MODEL_NAME}_alpaca_eval -- python -m minimal_multitask.eval.alpaca_eval.run_alpaca_eval \
     --save_dir /results \
-    --chat_formatting_function minimal_multitask.eval.templates.create_prompt_with_tulu_chat_format \
     --model_name_or_path /model \
+    --chat_formatting_function minimal_multitask.eval.templates.create_prompt_with_huggingface_tokenizer_template \
     --use_vllm
 
 echo "Done evaluation!"

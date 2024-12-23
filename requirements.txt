@@ -1,6 +1,8 @@
-# flash attn must be installed here after packaging
-flash-attn==2.5.2
-fast-jl==0.1.3
-bitsandbytes
+alpaca-eval
+peft
+accelerate>=0.26.0
+flash-attn
+hf_transfer
 evaluate
-logix-ai @ git+https://github.com/hamishivi/logix
+deepspeed==0.15.4
+transformers==4.47.0

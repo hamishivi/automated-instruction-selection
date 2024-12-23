@@ -34,7 +34,12 @@ assert args.output_file, "Must specify output file."
 # load instance info
 instance_to_influences_list = []
 for input_file in args.input_files:
-    instance_to_influences_list.append(pickle.load(open(input_file, "rb")))
+    if input_file.endswith(".json"):
+        instance_to_influences_list.append(json.load(open(input_file)))
+    elif input_file.endswith(".pkl"):
+        instance_to_influences_list.append(pickle.load(open(input_file, "rb")))
+    else:
+        raise ValueError(f"Invalid input file {input_file}.")
 
 if args.select_only_from_file:
     with open(args.select_only_from_file) as f:
@@ -94,8 +99,12 @@ for i, instance_to_influences_i in enumerate(instance_to_influences_list):
     for test_index, influences in enumerate(instance_to_influences_i):
         # sometimes i saved a dict of test idx -> influences, instead of a list.
         # in this case, just grab the interior dict.
-        if type(influences) is int:
-            assert influences == test_index, "Test index unexpected."
+        if type(influences) is int or type(influences) is str:
+            if int(influences) != test_index:
+                print(f"Test index {influences} unexpected.")
+            influences = instance_to_influences_i[influences]
+        elif type(influences) is str:
+            assert influences == str(test_index), "Test index unexpected."
             influences = instance_to_influences_i[influences]
         if test_index not in instance_to_influences:
             instance_to_influences[test_index] = {}
@@ -241,8 +250,20 @@ elif "max" in args.selection_method:
                 # pop off the largest influence
                 inst, score = sorted_instance_to_influence[test_d].pop(0)
 
-                inst_0 = inst[0] if type(inst[0]) is int else inst[0].item()
-                inst_1 = inst[1] if type(inst[1]) is int else inst[1].item()
+                inst_0 = inst[0]
+                if type(inst_0) is int:
+                    inst_0 = inst[0]
+                elif type(inst_0) is str:
+                    inst_0 = int(inst[0])
+                else:
+                    inst_0 = inst[0].item()
+                inst_1 = inst[1]
+                if type(inst_1) is int:
+                    inst_1 = inst[1]
+                elif type(inst_1) is str:
+                    inst_1 = int(inst[1])
+                else:
+                    inst_1 = inst[1].item()
                 if args.select_only_from_file:
                     sample_id = train_datasets[inst_0][inst_1]["id"]
                     if sample_id not in subsample_ids:
@@ -272,7 +293,10 @@ if args.output_dataset:
         if type(dataset_idx) is not int:
             dataset_idx = dataset_idx.item()
         if type(train_idx) is not int:
-            train_idx = train_idx.item()
+            if type(train_idx) is str:
+                train_idx = int(train_idx)
+            else:
+                train_idx = train_idx.item()
         instance = train_datasets[dataset_idx][train_idx]
         instance["influence_score"] = saved_scores[i] if type(saved_scores[i]) is float else saved_scores[i].item()
         output_dataset.append(instance)

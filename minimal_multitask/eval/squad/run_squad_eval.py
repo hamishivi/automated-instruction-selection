@@ -5,10 +5,14 @@ import json
 import torch
 from torch.utils.data import DataLoader
 from datasets import load_dataset, Dataset
-import vllm
+try:
+    import vllm
+except ImportError:
+    print("VLLM not installed. Will not be able to use VLLM.")
+    vllm = None
 from transformers import AutoTokenizer, AutoModelForCausalLM
-from minimal_multitask.eval.alpaca_eval.run_alpaca_eval import create_prompt_with_tulu_chat_format
 from minimal_multitask.eval.squad.squad_eval_1 import evaluate
+from minimal_multitask.eval.utils import dynamic_import_function
 
 SQUAD_SHOTS = [
     "Architecturally, the school has a Catholic character. Atop the Main Building's gold dome is a golden statue of the Virgin Mary. Immediately in front of the Main Building and facing it, is a copper statue of Christ with arms upraised with the legend \"Venite Ad Me Omnes\". Next to the Main Building is the Basilica of the Sacred Heart. Immediately behind the basilica is the Grotto, a Marian place of prayer and reflection. It is a replica of the grotto at Lourdes, France where the Virgin Mary reputedly appeared to Saint Bernadette Soubirous in 1858. At the end of the main drive (and in a direct line that connects through 3 statues and the Gold Dome), is a simple, modern stone statue of Mary.\n\nTo whom did the Virgin Mary allegedly appear in 1858 in Lourdes France?\n\nSaint Bernadette Soubirous",
@@ -22,12 +26,14 @@ def main(args):
 
     squad_og = load_dataset("squad", split="validation")
 
+    chat_formatting_function = dynamic_import_function(args.chat_formatting_function)
+
     # convert everything to tulu
     def convert_squad_sample(sample):
         prompt = "\n".join(SQUAD_SHOTS) + '\n' + sample["context"] + "\n\n" + sample["question"]
         label = sample["answers"]["text"][0]
         messages = [{"role": "user", "content": prompt}]
-        return {"prompt": create_prompt_with_tulu_chat_format(messages, tokenizer, add_bos=False), "labels": label}
+        return {"prompt": chat_formatting_function(messages, tokenizer, add_bos=False), "labels": label}
 
     squad = squad_og.map(convert_squad_sample, load_from_cache_file=False)
     prompts = squad["prompt"]
@@ -123,6 +129,12 @@ if __name__ == "__main__":
     parser.add_argument("--output_file", type=str, default=None)
     parser.add_argument("--metrics_file", type=str, default=None)
     parser.add_argument("--generation_file", type=str, default=None)
+    parser.add_argument(
+        "--chat_formatting_function",
+        type=str,
+        default="minimal_multitask.eval.templates.create_prompt_with_tulu_chat_format",
+        help="The function to use to create the chat format. This function will be dynamically imported. Please see examples in `eval/templates.py`.",
+    )
     args = parser.parse_args()
 
     if not args.save_dir:

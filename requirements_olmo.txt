@@ -1,0 +1,10 @@
+alpaca-eval
+peft
+accelerate>=0.26.0
+flash-attn
+hf_transfer
+evaluate
+deepspeed==0.15.4
+transformers==4.47.0
+# nightly vllm for now for olmo2
+https://vllm-wheels.s3.us-west-2.amazonaws.com/nightly/vllm-1.0.0.dev-cp38-abi3-manylinux1_x86_64.whl
