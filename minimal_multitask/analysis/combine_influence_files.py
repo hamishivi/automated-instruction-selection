@@ -27,7 +27,7 @@ for file_name in args.pickle_files:
             if score == 0:
                 num_zero_score_per_file += 1
             new_pickle[index][cur_max_idx + idx] = score
-        
+
     cur_max_idx += len(inf_scores) - num_excluded_indices
     print(f"Finish processing {file_name}, cur_max_idx: {cur_max_idx}")
     print(f"Number of zero influence score in {file_name}: {num_zero_score_per_file}")

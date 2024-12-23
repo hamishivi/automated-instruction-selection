@@ -47,7 +47,7 @@ def compute_influences_for_file(input_file):
         instance_to_influences = json.load(open(input_file, "rb"))
     elif input_file.endswith(".pkl"):
         instance_to_influences = pickle.load(open(input_file, "rb"))
-    
+
     # two selection methods: min or mean or max
     # this is how we aggregate influences.
     # for mean, we just average scores across all test points.
@@ -63,7 +63,7 @@ def compute_influences_for_file(input_file):
             if train_idx not in all_train_scores:
                 all_train_scores[train_idx] = []
             all_train_scores[train_idx].append(score)
-        
+
     del instance_to_influences
 
     # track the overall influences/idxes we are taking.

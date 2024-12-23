@@ -4,7 +4,6 @@ from transformers import AutoTokenizer, AutoModel, DataCollatorWithPadding
 from datasets import load_dataset, Dataset
 
 from minimal_multitask.data import DATASETS
-from minimal_multitask.utils import encode_with_messages_format, create_prompt_with_tulu_chat_format
 
 from tqdm import tqdm
 import argparse
@@ -74,7 +73,7 @@ def CCDS_processing_test(samples, tokenizer):
         text = text.replace("<|assistant|>", "")
         # removing punctuation, why are we doing this?
         text = text.translate(str.maketrans('', '', string.punctuation))
-        processed_texts.append(text) 
+        processed_texts.append(text)
     batch_dict = tokenizer(processed_texts, padding=True, max_length=256, truncation=True, return_tensors="np")
 
     return batch_dict
@@ -108,7 +107,7 @@ if args.eval_dataset in DATASETS:
     test_dataset = DATASETS[args.eval_dataset](tokenizer).get_all_test_prompts(
         seed=args.seed, prompt_only=True
     )
-    
+
     # gonna be annoying and just decode the test prompts to get text.
     test_dataset = test_dataset.map(
         lambda x: CCDS_processing_test(x, tokenizer), num_proc=16, batched=True, batch_size=16
@@ -132,6 +131,7 @@ data_collator = DataCollatorWithPadding(tokenizer, pad_to_multiple_of=8)
 train_data_loader = torch.utils.data.DataLoader(train_dataset, batch_size=args.batch_size, shuffle=False, collate_fn=data_collator)
 eval_data_loader = torch.utils.data.DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False, collate_fn=data_collator)
 
+
 def mean_pool(
     hidden_states: torch.Tensor, attention_mask: torch.Tensor
 ) -> torch.Tensor:
@@ -140,6 +140,7 @@ def mean_pool(
     pooled_outputs = unmasked_outputs.sum(dim=1) / attention_mask.sum(dim=1)[:, None]
     assert pooled_outputs.shape == (B, D)
     return pooled_outputs
+
 
 if args.index_path is not None and os.path.exists(args.index_path):
     all_train_embeds = torch.load(args.index_path)
@@ -169,7 +170,7 @@ for idx, test_inputs in enumerate(tqdm(eval_data_loader)):
     with torch.no_grad():
         query_embeddings = model(input_ids=test_inputs['input_ids'].cuda(), attention_mask=test_inputs['attention_mask'].cuda())
         if hasattr(query_embeddings, 'pooler_output'):
-            query_embeddings = outputs.pooler_output
+            query_embeddings = query_embeddings.pooler_output
         elif hasattr(query_embeddings, 'last_hidden_state'):
             query_embeddings = mean_pool(
                 hidden_states=query_embeddings.last_hidden_state,

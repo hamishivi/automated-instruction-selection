@@ -4,7 +4,7 @@ Given a json with tulu2 data, generate a bar chart showing the distribution of s
 from matplotlib import pyplot as plt
 import json
 import numpy as np
-from collections import Counter, defaultdict
+from collections import Counter
 import argparse
 
 parser = argparse.ArgumentParser()
@@ -44,7 +44,7 @@ for keys in all_keys:
 all_counter_keys = sorted(list(all_counter_keys))
 counter_normalized = []
 for c in counters:
-    counter_normalized.append({k: c[k]/sum(c.values()) for k in c.keys()})
+    counter_normalized.append({k: c[k] / sum(c.values()) for k in c.keys()})
 
 if args.normalize_count:
     combined_d = {k: [c.get(k, 0) for c in counter_normalized] for k in all_counter_keys}
@@ -52,9 +52,13 @@ else:
     combined_d = {k: [c[k] for c in counters] for k in all_counter_keys}
 width = 0.5
 bottom = np.zeros(len(counters))
+
+
 # colourmap can repeat, stop this
 def generate_n_colors(cmap, n_colors):
     return [cmap(i / n_colors) for i in range(n_colors)]
+
+
 colormap = plt.cm.get_cmap('tab20')
 colors = generate_n_colors(colormap, len(all_counter_keys))
 # colors = colormap(np.linspace(0, 1, len(all_counter_keys)))

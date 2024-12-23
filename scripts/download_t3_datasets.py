@@ -53,5 +53,5 @@ with open(args.output_file, 'w') as f:
                     continue
                 seen_samples.add(concat_msg)
                 f.write(json.dumps(example) + '\n')
-            except:
+            except Exception:
                 continue

@@ -168,7 +168,7 @@ class InMemoryFaiss:
         # sort by score
         sorted_scores = np.argsort(scores)
         # return raw numbers and indices
-        return scores[sorted_scores[:k]][None,], sorted_scores[:k][None,]
+        return scores[sorted_scores[:k]][None, ], sorted_scores[:k][None, ]
 
     def save(self, path):
         with open(path, "wb") as f:

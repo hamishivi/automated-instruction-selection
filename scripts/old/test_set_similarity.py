@@ -207,7 +207,7 @@ if args.use_loss:
                     continue
                 inp = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": completion}]}
                 inputs = encode_with_messages_format(inp, tokenizer, 2048, args.include_response, False)
-                loss = model_recovered(inputs["input_ids"][None,].cuda(), labels=inputs["labels"][None,].cuda()).loss
+                loss = model_recovered(inputs["input_ids"][None, ].cuda(), labels=inputs["labels"][None, ].cuda()).loss
                 correctness[f][i] = loss.detach().cpu().numpy()
             # del model_recovered
             # del state_dict_recovered, state_dict_raw

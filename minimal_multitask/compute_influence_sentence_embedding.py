@@ -4,7 +4,7 @@ from transformers import AutoTokenizer, AutoModel
 from datasets import load_dataset
 
 from minimal_multitask.data import DATASETS
-from minimal_multitask.utils import encode_with_messages_format, create_prompt_with_tulu_chat_format
+from minimal_multitask.utils import create_prompt_with_tulu_chat_format
 
 from tqdm import tqdm
 import argparse

@@ -4,8 +4,6 @@ import json
 from datasets import load_dataset
 import argparse
 from tqdm import tqdm
-from statistics import mean
-from transformers import AutoTokenizer
 from collections import defaultdict
 import heapq
 
@@ -61,10 +59,12 @@ if args.domain_weights:
 else:
     domain_max_size = None
 
+
 def get_domain_max_size(domain):
     if "science" in domain and "science" in domain_max_size:
         return domain_max_size["science"]
     return domain_max_size.get(domain, 0)
+
 
 # Load train datasets
 train_datasets = []

@@ -33,7 +33,7 @@ for dataset, file_name in zip(datasets, args.pickle_files):
         dataset_sorted_idxes[file_name].append(sorted_indices)
         if args.minus_one:
             # temporary -1 for alpacaeval multiround selection, since there is an extra -1
-            dataset_in_order_influences[file_name].append([dataset[index][i] for i in range(len(dataset[index])-1)])
+            dataset_in_order_influences[file_name].append([dataset[index][i] for i in range(len(dataset[index]) - 1)])
         else:
             dataset_in_order_influences[file_name].append([dataset[index][i] for i in range(len(dataset[index]))])
     dataset_sorted_idxes[file_name] = np.array(dataset_sorted_idxes[file_name])

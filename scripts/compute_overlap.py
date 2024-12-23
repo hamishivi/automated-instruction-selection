@@ -9,12 +9,14 @@ parser.add_argument('--file1', type=str, required=True)
 parser.add_argument('--file2', type=str, required=True)
 args = parser.parse_args()
 
+
 def load_jsonl(file_path):
     data = []
     with open(file_path, 'r') as f:
         for line in f:
             data.append(json.loads(line))
     return data
+
 
 load_data1 = load_jsonl(args.file1)
 load_data2 = load_jsonl(args.file2)

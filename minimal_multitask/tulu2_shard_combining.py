@@ -1,9 +1,7 @@
 import argparse
 import pickle
 import os
-import json
 
-import dill
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--pickle_files', type=str, nargs='+', help='List of pickle files')
@@ -17,7 +15,6 @@ pkl_max = 0
 for fname in args.pickle_files:
     with open(fname, 'rb') as f:
         pkl = pickle.load(f)
-    
     for k, v in pkl.items():
         if k not in combined_pkl:
             combined_pkl[k] = {}
@@ -26,7 +23,6 @@ for fname in args.pickle_files:
                 continue
             else:
                 combined_pkl[k][idx + pkl_max] = score
-    
     pkl_max = max(combined_pkl[0].keys()) + 1
     print(f"Finish processing {fname}, cur_max_idx: {pkl_max}")
 

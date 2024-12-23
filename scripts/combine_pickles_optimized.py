@@ -1,9 +1,9 @@
 import argparse
 import pickle
 import json
-import os
 import gc
 from tqdm import tqdm
+
 
 def process_pickle_file(pickle_file, combined_influence, ongoing_counter):
     with open(pickle_file, "rb") as f:
@@ -36,6 +36,7 @@ def process_pickle_file(pickle_file, combined_influence, ongoing_counter):
     gc.collect()
     return ongoing_counter
 
+
 def main(args):
     input_files = sorted([f for f in args.input_files if f != args.output_file])
 
@@ -49,6 +50,7 @@ def main(args):
     output_json = args.output_file.replace(".pkl", ".json")
     with open(output_json, "w") as f:
         json.dump(combined_influence, f)
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

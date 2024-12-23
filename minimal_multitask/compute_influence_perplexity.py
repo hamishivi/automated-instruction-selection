@@ -2,14 +2,12 @@ import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM
 from datasets import load_dataset
 
-from minimal_multitask.data import DATASETS
 from minimal_multitask.utils import encode_with_messages_format
 
 from tqdm import tqdm
 import argparse
 import os
 import pickle
-import math
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--model_name", type=str, default="meta-llama/Llama-2-7b-hf")
@@ -80,7 +78,7 @@ with torch.no_grad():
     for idx, batch in enumerate(tqdm(dataloader)):
         input_ids = batch["input_ids"].to(model.device)
         attention_mask = batch["attention_mask"].to(model.device)
-        
+
         outputs = model(input_ids=input_ids, attention_mask=attention_mask, labels=input_ids)
         loss = outputs.loss
 

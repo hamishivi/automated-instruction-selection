@@ -32,7 +32,7 @@ if not args.mid_ppl:
     selected_indices = [x[0] for x in sorted_nlls[:args.output_size]]
 else:
     # selecting from the 33% - 66% percentile
-    selected_indices = [x[0] for x in sorted_nlls[int(len(sorted_nlls)*0.33) : int(len(sorted_nlls)*0.33)+args.output_size]]
+    selected_indices = [x[0] for x in sorted_nlls[int(len(sorted_nlls) * 0.33): int(len(sorted_nlls) * 0.33) + args.output_size]]
 
 output_dataset = []
 for idx, data_idx in enumerate(selected_indices):

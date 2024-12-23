@@ -1,7 +1,6 @@
 import argparse
 import pickle
 from scipy.stats import spearmanr, pearsonr
-from tqdm import tqdm
 import numpy as np
 import os
 import matplotlib.pyplot as plt
@@ -44,7 +43,7 @@ for dataset, file_name in zip(datasets, args.pickle_files):
         dataset_sorted_idxes[file_name].append(sorted_indices)
         if args.minus_one:
             # temporary -1 for alpacaeval multiround selection, since there is an extra -1
-            dataset_in_order_influences[file_name].append(np.array([dataset[index][i] for i in range(len(dataset[index])-1)]))
+            dataset_in_order_influences[file_name].append(np.array([dataset[index][i] for i in range(len(dataset[index]) - 1)]))
         else:
             dataset_in_order_influences[file_name].append(np.array([dataset[index][i] for i in range(len(dataset[index]))]))
         # Filter out anomaly
@@ -66,7 +65,7 @@ for i, file_name1 in enumerate(args.pickle_files):
             difference = dataset_in_order_influences[file_name2][i] - dataset_in_order_influences[file_name1][j]
             initial_inf_score += list(dataset_in_order_influences[file_name1][j])
             inf_shift += list(difference)
-        
+
         pearson, _ = pearsonr(initial_inf_score, inf_shift)
         spearman, _ = spearmanr(initial_inf_score, inf_shift)
 
@@ -97,7 +96,7 @@ for i, file_name1 in enumerate(args.pickle_files):
                 initial_inf_score += dataset_in_order_influences[file_name1][j]
         initial_inf_score /= args.num_samples
         inf_shift /= args.num_samples
-        
+
         pearson, _ = pearsonr(initial_inf_score, inf_shift)
         spearman, _ = spearmanr(initial_inf_score, inf_shift)
         plt.scatter(x=initial_inf_score, y=inf_shift, color='green')
@@ -105,7 +104,7 @@ for i, file_name1 in enumerate(args.pickle_files):
         plt.ylabel("Influence Score Shift")
         plt.suptitle(f"Pearson: {pearson:.3f}, Spearman: {spearman:.3f}")
         plt.savefig(os.path.join(args.save_dir, f'{args.file_prefix}_influence_score_shift_avg.png'))
-        plt.scatter(x=initial_inf_score[selections[0]+selections[1]], y=inf_shift[selections[0]+selections[1]], color='blue')
+        plt.scatter(x=initial_inf_score[selections[0] + selections[1]], y=inf_shift[selections[0] + selections[1]], color='blue')
         plt.savefig(os.path.join(args.save_dir, f'{args.file_prefix}_influence_score_shift_avg_highlighted.png'))
         plt.close()
 

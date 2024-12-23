@@ -14,12 +14,12 @@ from transformers import AutoTokenizer
 parser = argparse.ArgumentParser()
 parser.add_argument('--input_files', type=str, nargs='+')  # we can pass in multiple pickles
 parser.add_argument('--output_file', type=str)
-parser.add_argument('--selection_method', type=str, default='min') # min, mean, max
-parser.add_argument('--output_size', type=int, default=10000) # number of instances total to select.
+parser.add_argument('--selection_method', type=str, default='min')  # min, mean, max
+parser.add_argument('--output_size', type=int, default=10000)  # number of instances total to select.
 parser.add_argument('--train_dataset', type=str, default='alpaca')
-parser.add_argument('--aggregation_method', type=str, default='minmax', choices=["mean", "minmax"]) # mean, minmax
+parser.add_argument('--aggregation_method', type=str, default='minmax', choices=["mean", "minmax"])  # mean, minmax
 parser.add_argument('--selection_criteria', type=str, choices=['mean_score', 'min_score', 'rank'])
-parser.add_argument('--inf_threshold', type=float, default=0) # selected points should have a mean influence score below this threshold across all datasets.
+parser.add_argument('--inf_threshold', type=float, default=0)  # selected points should have a mean influence score below this threshold across all datasets.
 args = parser.parse_args()
 
 assert args.selection_method in ['min', 'max', 'mean_min', 'mean_max'], "Invalid selection method."
@@ -36,6 +36,7 @@ else:
 
 tokenizer = AutoTokenizer.from_pretrained('oobabooga/llama-tokenizer')
 
+
 def compute_influences_for_file(input_file, selection_method):
     instance_to_influences = pickle.load(open(input_file, "rb"))
     # two selection methods: min or mean or max
@@ -44,7 +45,7 @@ def compute_influences_for_file(input_file, selection_method):
     # for min, we take the minimum score across all test points. (or max for max.)
     # note for the test points here, top min/max is not the same as when selecting for one dataset.
     # why? because we need to then keep scores around to aggregate. So taking the min across all test points
-    # is the closest to what we would get. We could also try 
+    # is the closest to what we would get. We could also try
 
     # map idx -> list of all influences
     all_train_scores = {}
@@ -53,7 +54,7 @@ def compute_influences_for_file(input_file, selection_method):
             if train_idx not in all_train_scores:
                 all_train_scores[train_idx] = []
             all_train_scores[train_idx].append(score)
-    
+
     # track the overall influences/idxes we are taking.
     overall_influences = {}
     if 'mean' in selection_method:
@@ -71,6 +72,7 @@ def compute_influences_for_file(input_file, selection_method):
     else:
         raise ValueError("Invalid selection method.")
     return overall_influences
+
 
 # run through all the pickles provided and aggregate the influences.
 per_dataset_influences = {}

@@ -14,11 +14,11 @@ for fname in args.selection_files:
         for line in f:
             combined_json.append(json.loads(line))
 print(f"# of samples before deduplication: {len(combined_json)}")
-    
+
 if args.deduplication:
     unique_samples = {sample["id"]: sample for sample in combined_json}.values()
     combined_json = list(unique_samples)
     print(f"# of samples after deduplication: {len(combined_json)}")
-    
+
 with open(args.output_file, 'w') as f:
     json.dump(combined_json, f)
