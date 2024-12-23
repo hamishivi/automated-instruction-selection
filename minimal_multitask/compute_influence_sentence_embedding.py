@@ -2,6 +2,8 @@ import torch
 import torch.nn.functional as F
 from transformers import AutoTokenizer, AutoModel
 from datasets import load_dataset
+from sentence_transformers import SentenceTransformer
+import numpy as np
 
 from minimal_multitask.data import DATASETS
 from minimal_multitask.utils import create_prompt_with_tulu_chat_format
@@ -12,6 +14,8 @@ import os
 import pickle
 
 parser = argparse.ArgumentParser()
+parser.add_argument("--model_name_or_path", type=str, default="nvidia/NV-Embed-v2")
+parser.add_argument("--no_query_prefix", action="store_true")
 parser.add_argument("--save_dir", type=str, default="l")
 parser.add_argument("--seed", type=int, default=42)
 parser.add_argument("--train_dataset", type=str, default="alpaca")
@@ -35,12 +39,15 @@ elif args.dtype == "fp32":
     kwargs = {"torch_dtype": torch.float32}
 # kwargs["use_flash_attention_2"] = True
 
-model = AutoModel.from_pretrained(
-    'nvidia/NV-Embed-v2',
-    trust_remote_code=True,
-    **kwargs,
-).cuda()
-tokenizer = AutoTokenizer.from_pretrained('nvidia/NV-Embed-v2')
+if args.model_name_or_path.startswith("sentence-transformers/"):
+    model = SentenceTransformer(args.model_name_or_path, model_kwargs=kwargs)
+else:
+    model = AutoModel.from_pretrained(
+        args.model_name_or_path,
+        trust_remote_code=True,
+        **kwargs,
+    )
+tokenizer = AutoTokenizer.from_pretrained(args.model_name_or_path)
 
 
 def rreplace(s, old, new, occurrence):
@@ -112,6 +119,8 @@ else:
         with torch.no_grad():
             max_length = 8192
             passage_embeddings = model.encode(train_inputs, instruction=passage_prefix, max_length=max_length)
+            if isinstance(passage_embeddings, np.ndarray):
+                passage_embeddings = torch.from_numpy(passage_embeddings).cuda()
             passage_embeddings = F.normalize(passage_embeddings, p=2, dim=1)
 
         all_train_embeds.append(passage_embeddings.detach().cpu())
@@ -126,6 +135,8 @@ for idx, test_inputs in enumerate(tqdm(eval_data_loader)):
     with torch.no_grad():
         max_length = 8192
         query_embeddings = model.encode(test_inputs, instruction=query_prefix, max_length=max_length)
+        if isinstance(query_embeddings, np.ndarray):
+            query_embeddings = torch.from_numpy(query_embeddings).cuda()
         query_embeddings = F.normalize(query_embeddings, p=2, dim=1)
     influences = (query_embeddings @ all_train_embeds.T.cuda()).detach().cpu()
     sim_influences.append(influences)
