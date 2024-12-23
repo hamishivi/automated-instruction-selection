@@ -69,8 +69,6 @@ def compute_influences_for_file(input_file):
                 all_train_scores[train_idx] = []
             all_train_scores[train_idx].append(score)
 
-    del instance_to_influences
-
     # track the overall influences/idxes we are taking.
     overall_influences = {}
     if args.selection_method == "normalized_mean":
