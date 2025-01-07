@@ -1,12 +1,33 @@
-# Influence Tuning: Instruction tuning guided by influence functions
+# Automated Instruction Selection
 
-## Quick start
+This is the repository associated with the paper [Practical Large-Scale Data Selection for Instruction Tuning](https://todo).
 
-Most of this respository assumes you are working on beaker internally Ai2. Generally, this just means the scripts will submit jobs to beaker automatically. If you want to run stuff locally, installing the dependencies in the `environment.yml` and `requirements.txt` should work, and then just running the commands in the scripts inside the gantry commands (i.e. everything after `-- python ...`).
+![performance of RDS compared to other methods and when selecting datasets of increasing size](performance_graphic.png)
+*Left: Average performance of models trained using increasingly more samples selected using RDS or balanced random selection from a pool of 5.8M data points. RDS performs better across all sizes. Right: Average performance of model trained on data selected using RDS compared to other data selection methods when selecting from a pool of 200k samples. RDS performs best overall.*
 
-Let me quickly go through an example workflow, which should touch most of the core scripts.
+We release code, data and models associated with this paper on HuggingFace at [this collection](https://todo).
 
-You will also need eval data and train data in a folder called `data`. Contact Hamish for this for now.
+## Install Dependencies
+
+Note I assume you are working in a Linux environment with CUDA-compatible GPUs and conda.
+
+Install the requirements in `environment.yml` and `requirements.txt`:
+```bash
+conda env create --file environment.yml --name mmft
+conda activate mmft
+pip install -r requirements.txt
+```
+
+Download the required data files (for eval and training):
+```bash
+./shell_scripts/download_eval_data.sh
+./shell_scripts/download_train_data.sh  # optional if you don't want to do data selection on Tulu datasets.
+```
+
+Now you should be good to go!
+If you are at Ai2, then you don't even need these steps, since we have a bunch of [beaker-gantry](https://github.com/allenai/beaker-gantry) scripts that should automatically setup the environment when you run them.
+
+## Run the Selection and Training Pipeline
 
 ### Training
 
@@ -20,6 +41,7 @@ Or to train on x random samples from a file:
 ```bash
 ./shell_scripts/core_commands/model_training/random_select.sh <filename> <run name> <x>
 ```
+Please look into the scripts and feel fre to edit them (in particular, you might wish to edit the output directory name).
 
 You can also run locally with:
 ```bash
@@ -46,243 +68,132 @@ python -m minimal_multitask.instruction_tune \
 
 Just replace the flags with what makes sense for you. If you remove the `lora_{alpha/rank}` flags then full-finetuning will happen.
 
+If you are at Ai2, you can use gantry with these scripts by setting `GANTRY=1` before running the script, e.g:
+```bash
+GANTRY=1 ./shell_scripts/core_commands/model_training/full_finetune.sh <filename> <run name>
+```
+
 ### Index creation and selection
 
-Given a trained model, we can then do index creation and selection, the examples of which live in `shell_scripts/core_commands/index_selection_and_creation`. There is support for both logix and less(+) style approaches here. Note for logix I'm using [my own fork](https://github.com/hamishivi/logix) due to having to make some fixes. I'll focus on Less-style since that's likely the core method we will use.
+Given a trained model, we can then do index creation and selection, the examples of which live in `shell_scripts/core_commands/index_selection_and_creation`. I have support for a few different approaches here, but the most important one is RDS (see our paper for more details on this).
 
-For less, we need a model trained with loras. Then we can run:
+We start by indexing our training data, using a given base model:
 ```bash
-shell_scripts/core_commands/index_selection_and_creation/less/compute_index_train_index.sh <model_beaker_id>
-```
-
-`model_beaker_id` should point to the model in beaker. It should be easy to edit the script to point to models elsewhere. You can also run locally with:
-```bash
-export LD_LIBRARY_PATH=/net/nfs.cirrascale/allennlp/hamishi/conda-envs/mmft/lib:$LD_LIBRARY_PATH
-
-python -m minimal_multitask.compute_influence_train_index \
-    --model_name <model_name> \
-    --tokenizer <tokenizer_name> \
-    --top_k 326154 \
+python -m minimal_multitask.compute_influence_cosinesim \
+    --model_name meta-llama/Llama-2-7b-hf \
     --seed 42 \
-    --train_dataset <train dataset> \
-    --eval_dataset <eval dataset name to select over> \
-    --index_path <index save path> \
-    --instance_to_influences <influence score pickle to save as> \
-    --save_index \
-    --vanilla_gradients \
-    --normalise_influences \
-    --random_transform 8192 \
-    --grad_batch 12 \
-    --llama_model
+    --train_dataset data/training_data/tulu_v2_unfiltered_data_dedup.jsonl \
+    --eval_dataset alpacafarm \
+    --index_path rds_200k_exp_from_base_weighted_mean_pool/cosine_train_reps.pt \
+    --save_dir rds_200k_exp_from_base_weighted_mean_pool/ \
+    --batch_size 1 \
+    --pooling weighted_mean
 ```
-
-Note that I usually use a sharded setup to compute the index, splitting up the dataset into ~29 files and individually computing indices. This is to parallelise the index computation.
-
-To then run selection, we can either simply run `shell_scripts/core_commands/index_selection_and_creation/less/compute_index_train_index_existing.sh <path_to_shard_names.txt>`. `<path_to_shard_names.txt>` should be a path to a text file that has the format:
-```
-shard_name_1 beaker_id_1
-shard_name_2 beaker_id_2
-shard_name_3 beaker_id_3
-shard_name_4 beaker_id_4
-...
-```
-
-Alternatively, you can run:
+This gives us an index we can re-use for future queries. We then query for the eval set we care about, loading this train index:
 ```bash
-export LD_LIBRARY_PATH=/net/nfs.cirrascale/allennlp/hamishi/conda-envs/mmft/lib:$LD_LIBRARY_PATH
-
-python -m minimal_multitask.compute_influence_train_index \
-    --model_name <model_name> \
-    --tokenizer <tokenizer_name> \
-    --top_k 326154 \
-    --seed 42 \
-    --train_dataset <train dataset> \
-    --eval_dataset <eval dataset name to select over> \
-    --index_path <path to index> \
-    --instance_to_influences <influence score pickle to save as> \
-    --vanilla_gradients \
-    --normalise_influences \
-    --random_transform 8192 \
-    --grad_batch 12 \
-    --llama_model
-```
-
-That is, you just run the same command as before, but with a different eval dataset! So long as you give the right path to the index you already made, this should be easy.
-
-### Aggregation
-
-Running the above gives us sets of `pickle` files that have the format `{ test_idx: {train_idx_1: influence_score_1, train_idx_2: influence_score_2, ...}, ...}`. We then need to select data from these. In addition, we also need to aggregate scores from multiple pickle files if we have run multiple shards (often with very large datasets). To do this, we can run:
-
-```bash
-# get the datasets from all experiments with `beaker_prefix`, e.g. all jobs outputting the given sharded pickle
-python minimal_multitask/get_shard_file.py --prefix <beaker_prefix> --outfile <output_path>
-# download the pickles using the list from before, and then do the selection
-./shell_scripts/core_commands/aggregate/download_and_select_from_pickles.sh <pickle_save_location> <previous_output_path>
-```
-
-This will put a file called `top_10k.json` at `<previous_output_path>`, and then you can train on it! You can also use the pickle files for analysing files.
-
-### Evaluation
-
-To evaluate internally at Ai2, just run `./shell_scripts/eval/eval_beaker.sh <model_name> <beaker dataset id>`. To run evaluations on their own, just take a look at the same script, and run the same commands without the gantry stuff.
-
-### Analysis
-
-Generally, analysis scripts live in `scripts`. These are undocumented unless Hamish decides to write more about them. I also have a tonne of old scripts from a previous version of this project in `scripts/old`.
-
-## Putting it together
-
-Here's the workflow for doing data selection. I'm going to assume a non-sharded setup here.
-
-**1. Warmup your model**
-```bash
-EXP_NAME=<experiment name>
-TRAIN_FILE=<nfs path to train dataset>
-gantry run --workspace hamishivi --cluster ai2/allennlp-cirrascale --budget ai2/oe-adapt --allow-dirty --priority normal --workspace ai2/minimal-multitask-finetuning --gpus 1 --env-secret HF_TOKEN=HF_TOKEN  --name $EXP_NAME --task-name $EXP_NAME -- python -m minimal_multitask.instruction_tune \
+for dataset in alpacafarm gsm8k_shots bbh_shots tydiqa_shots codex squad mmlu_shots; do
+    python -m minimal_multitask.compute_influence_cosinesim \
         --model_name meta-llama/Llama-2-7b-hf \
-        --output_dir /results \
-        --per_device_train_batch_size 1 \
-        --gradient_accumulation_steps 128 \
-        --num_train_epochs 2 \
-        --learning_rate 2e-5 \
         --seed 42 \
-        --warmup_ratio 0.03 \
-        --lr_scheduler_type linear \
-        --weight_decay 0. \
-        --evaluation_strategy no \
-        --save_strategy no \
-        --logging_steps 1 \
-        --is_llama=True \
-        --lora_alpha 512 \
-        --lora_rank 128 \
-        --use_hf_auth_token True \
-        --train $TRAIN_FILE \
-        --lora_ff_train true
+        --train_dataset data/training_data/tulu_v2_unfiltered_data_dedup.jsonl \
+        --eval_dataset $dataset \
+        --index_path rds_200k_exp_from_base_weighted_mean_pool/cosine_train_reps.pt \
+        --save_dir rds_200k_exp_from_base_weighted_mean_pool_${dataset}/ \
+        --batch_size 1 \
+        --pooling weighted_mean
+done
 ```
-Then, record the output beaker dataset.
-
-**2. Construct the gradient datastore (this is the longest step)**
+Finally, we want to use the computed scores to produce selected datasets for us:
 ```bash
-EXP_NAME=<experiment_name>
-BEAKER_PATH=<beaker id of the model you just trained>
-TRAIN_DATAFILE=<full nfs path to the data we want to index>
+for dataset in alpacafarm gsm8k_shots bbh_shots tydiqa_shots codex squad mmlu_shots; do
+    python -m minimal_multitask.get_top_influences \
+        --input_files rds_200k_exp_from_base_weighted_mean_pool/${dataset}_cossim.pkl \
+        --output_file rds_200k_exp_from_base_weighted_mean_pool/${dataset}_top10k.json \
+        --output_size 10000 --selection_method max \
+        --train_datasets training_data/tulu_v2_unfiltered_data_dedup.jsonl \
+        --output_dataset
+done
+```
+We can then directly finetune on the resulting dataset with e.g.:
+```bash
+./shell_scripts/core_commands/model_training/full_finetune.sh rds_200k_exp_from_base_weighted_mean_pool/alpacafarm_top10k.json alpacafarm_exp
+```
 
-GANTRY_CMD="gantry run --cluster ai2/allennlp-cirrascale --budget ai2/oe-adapt --allow-dirty --priority normal --workspace ai2/minimal-multitask-finetuning --gpus 1 --env-secret OPENAI_API_KEY=OPENAI_API_KEY --env LD_LIBRARY_PATH=/opt/conda/envs/venv/lib --env IS_ALPACA_EVAL_2=False --dataset ${BEAKER_PATH}:/model --dataset 01J6QSXVDS4MN0W45HB2MHWXQN:/data"
+#### Sharded Indexing
 
-$GANTRY_CMD --name $EXP_NAME --task-name $EXP_NAME -- \
-    python -m minimal_multitask.compute_influence_train_index \
-        --model_name /model \
-        --underlying_model_name /model/underlying_model \
-        --top_k 7000000 \
+Some of the datasets we indexed are quite large, and so to process these efficiently we relied on sharding them. We provide easy ways to do this in this codebase.
+
+First, shard your dataset (e.g. using the `split` command): `split -l 200000 <filename>`.
+Pick your shard size based on how many gpus you can run in parallel.
+
+Then, for each shard, run the training data and eval data indexing:
+```bash
+for file in shards/*.jsonl; do
+    shard=$(basename $file .jsonl)
+    echo "Processing $shard"
+    python -m minimal_multitask.compute_influence_cosinesim \
+        --model_name meta-llama/Llama-2-7b-hf \
         --seed 42 \
-        --train_dataset $TRAIN_DATAFILE \
+        --train_dataset $file \
         --eval_dataset alpacafarm \
-        --index_path /results/index.faiss \
-        --instance_to_influences /results/influence_scores.pkl \
-        --save_index \
-        --vanilla_gradients \
-        --normalise_influences \
-        --random_transform 8192 \
-        --grad_batch 12 \
-        --llama_model
-```
+        --index_path rds_selection_${shard}/cosine_train_reps.pt \
+        --save_dir rds_selection_${shard}/ \
+        --batch_size 1 \
+        --pooling weighted_mean
+done
 
-Record the beaker output dataset id for the next command.
-
-**3. Compute influence scores for all the dev sets**
-```bash
-EXP_NAME=<experiment_name>
-BEAKER_PATH=<beaker id of the model you just trained>
-DATASET_ID=<beaker id of train datastore index you just made>
-TRAIN_DATAFILE=<full nfs path to the data we just indexed>
-
-for dataset in alpacafarm squad mmlu_shots codex bbh_shots tydiqa_shots gsm8k_shots; do
-    gantry run \
-        --workspace hamishivi \
-        --cluster ai2/allennlp-cirrascale \
-        --budget ai2/oe-adapt \
-        --nfs \
-        --allow-dirty --priority normal \
-        --workspace ai2/minimal-multitask-finetuning \
-        --gpus 1 \
-        --env-secret HF_TOKEN=HF_TOKEN \
-        --name ${EXP_NAME}_${dataset} \
-        --task-name ${EXP_NAME}_${dataset} \
-        --dataset "${dataset_id}:/index" \
-        --dataset "${BEAKER_PATH}:/model" \
-        --dataset 01J6QSXVDS4MN0W45HB2MHWXQN:/data \
-        --env LD_LIBRARY_PATH=/opt/conda/envs/venv/lib \
-        -- python -m minimal_multitask.compute_influence_train_index  \
-            --model_name /model \
-            --underlying_model_name /model/underlying_model \
-            --top_k 1000000 \
-            --instance_to_influences /results/influence_scores_${dataset}.pkl \
+for dataset in alpacafarm gsm8k_shots bbh_shots tydiqa_shots codex squad mmlu_shots; do
+    for file in shards/*.jsonl; do
+        shard=$(basename $file .jsonl)
+        echo "Processing $shard"
+        python -m minimal_multitask.compute_influence_cosinesim \
+            --model_name meta-llama/Llama-2-7b-hf \
             --seed 42 \
-            --random_transform 8192 \
-            --normalise_influences \
-            --vanilla_gradients \
-            --eval_dataset ${dataset} \
-            --index_path /index/index.faiss \
-            --llama_model \
-            --train_dataset $TRAIN_DATAFILE \
-            --grad_batch 12
+            --train_dataset $file \
+            --eval_dataset $dataset \
+            --index_path rds_selection_${shard}/cosine_train_reps.pt \
+            --save_dir rds_selection/${dataset}/${shard}/ \
+            --batch_size 1 \
+            --pooling weighted_mean
+    done
 done
 ```
 
-We now have our influence scores! We can directly analyse the pickles, or we can further select data, train, and evaluate.
-
-**4. Select top data**
-
-First, download the pickle file you just made locally. I recommend creating some nice folder system to organize this stuff.
-I'll assume for now the file can be located at `./influence_scores.pkl`. Then you can run the following:
+We then combine the sharded scores into one file. Note this takes a lot of RAM:
 ```bash
-TRAIN_DATAFILE=<full nfs path to the data we just indexed>
+for dataset in alpacafarm bbh_shots codex gsm8k_shots tydiqa_shots mmlu_shots squad arena_hard wildchat; do
+    python scripts/combine_pickles.py --input_files rds_selection/${dataset}/**/*.pkl --output_file rds_selection/${dataset}_cossim.pkl
+done
+```
 
-python -m minimal_multitask.get_top_influences \
-    --input_files ./influence_scores.pkl \
-    --output_file top_10k.json \
-    --output_size 10000 \
-    --selection_method min \
-    --train_datasets $TRAIN_DATAFILE \
+Finally, given this we can then select datasets. I also have some more optimized selection code that helps when selecting large datasets.
+Note you need the full datafile around to construct the train file.
+```bash
+for dataset in alpacafarm bbh_shots codex gsm8k_shots tydiqa_shots mmlu_shots squad arena_hard wildchat; do
+    python -m minimal_multitask.get_top_optimized \
+        --input_files rds_selection/${dataset}_cossim.json \
+        --output_file rds_selection/${dataset}_top10k.json \
+        --output_size 10000 --selection_method max \
+        --train_datasets <original full datafile>
+done
+
+# or if you want to use the round-robin setup
+python -m minimal_multitask.get_top_aggregated_influences \
+    --input_files rds_selection/*_cossim.json \
+    --output_file rds_selection/multitask_rrmax_320k.json \
+    --output_size 320000 --selection_method max \
+    --train_dataset <original full datafile> \
     --output_dataset
 ```
 
-`top_10k.json` contains the selected data. You can of course edit output size, selection method, etc to customize to your needs.
+### Evaluation
 
-**5. Train on data**
+Given a trained model, you can evaluate using `eval/eval.sh`. Look into that script if you want to run a particular eval.
+We base our evaluations off the implementations in [Open-Instruct](https://github.com/allenai/open-instruct).
+**Note: for non-llama 2 models, please replace `create_prompt_with_tulu_chat_format` with `create_prompt_with_huggingface_tokenizer_template` -- this is to make sure chat templates are correctly set.
 
-This is just the same as above, although potentially you don't want to add loras:
-```bash
-EXP_NAME=<experiment name>
-TRAIN_FILE=<nfs path to 10k selected file>
-gantry run --workspace hamishivi --cluster ai2/allennlp-cirrascale --budget ai2/oe-adapt --allow-dirty --priority normal --workspace ai2/minimal-multitask-finetuning --gpus 1 --env-secret HF_TOKEN=HF_TOKEN  --name $EXP_NAME --task-name $EXP_NAME -- python -m minimal_multitask.instruction_tune \
-        --model_name meta-llama/Llama-2-7b-hf \
-        --output_dir /results \
-        --per_device_train_batch_size 1 \
-        --gradient_accumulation_steps 128 \
-        --num_train_epochs 2 \
-        --learning_rate 2e-5 \
-        --seed 42 \
-        --warmup_ratio 0.03 \
-        --lr_scheduler_type linear \
-        --weight_decay 0. \
-        --evaluation_strategy no \
-        --save_strategy no \
-        --logging_steps 1 \
-        --is_llama=True \
-        --lora_alpha 512 \
-        --lora_rank 128 \
-        --use_hf_auth_token True \
-        --train $TRAIN_FILE
-```
+To evaluate internally at Ai2, just run `./shell_scripts/eval/eval_beaker.sh <model_name> <beaker dataset id>`.
 
-You could also alter this command to start training from an existing checkpoint.
+### Analysis
 
-**6. Evaluate trained model**
-
-This is pretty easy, just run:
-```bash
-./shell_scripts/eval/eval_beaker.sh <model/experiment name> <beaker id of trained model>
-```
-
-This will launch a set of beaker gantry jobs you can then directly examine for the final results!
+Generally, analysis and utility scripts live in `scripts`. These are undocumented for now, but feel free to poke around in there. I also have a tonne of old scripts from a previous version of this project in `scripts/old`.
