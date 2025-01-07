@@ -5,7 +5,7 @@ This is the repository associated with the paper [Practical Large-Scale Data Sel
 ![performance of RDS compared to other methods and when selecting datasets of increasing size](performance_graphic.png)
 *Left: Average performance of models trained using increasingly more samples selected using RDS or balanced random selection from a pool of 5.8M data points. RDS performs better across all sizes. Right: Average performance of model trained on data selected using RDS compared to other data selection methods when selecting from a pool of 200k samples. RDS performs best overall.*
 
-We release code, data and models associated with this paper on HuggingFace at [this collection](https://todo).
+We release data and models associated with this paper on HuggingFace at [this collection](https://huggingface.co/collections/hamishivi/practical-large-scale-data-selection-for-instruction-tuning-677d7e8ca0295426c1915930).
 
 ## Install Dependencies
 
@@ -29,53 +29,15 @@ If you are at Ai2, then you don't even need these steps, since we have a bunch o
 
 ## Run the Selection and Training Pipeline
 
-### Training
-
-To train a model, you can use the scripts in `shell_scripts/core_commands/model_training`. The scripts named do the appropriate things. You have to provide a `.jsonl` file, which contains data formatted following the tulu format (i.e. like [the huggingface tulu 2 dataset](https://huggingface.co/datasets/allenai/tulu-v2-sft-mixture)). You can also randomly subselect from this dataset, or train loras on top of a trained model, or train loras and full finetune. The scripts are mostly self-descriptive.
-
-For example, to train llama 2 7b on a given file, I can run:
-```bash
-./shell_scripts/core_commands/model_training/full_finetune.sh <filename> <run name>
-```
-Or to train on x random samples from a file:
-```bash
-./shell_scripts/core_commands/model_training/random_select.sh <filename> <run name> <x>
-```
-Please look into the scripts and feel fre to edit them (in particular, you might wish to edit the output directory name).
-
-You can also run locally with:
-```bash
-python -m minimal_multitask.instruction_tune \
-        --model_name /model \
-        --output_dir /results \
-        --per_device_train_batch_size 1 \
-        --gradient_accumulation_steps 128 \
-        --num_train_epochs 2 \
-        --learning_rate 2e-5 \
-        --seed 42 \
-        --warmup_ratio 0.03 \
-        --lr_scheduler_type linear \
-        --weight_decay 0. \
-        --evaluation_strategy no \
-        --save_strategy no \
-        --logging_steps 1 \
-        --is_llama=True \
-        --lora_alpha 512 \
-        --lora_rank 128 \
-        --use_hf_auth_token True \
-        --train $TRAIN_FILE
-```
-
-Just replace the flags with what makes sense for you. If you remove the `lora_{alpha/rank}` flags then full-finetuning will happen.
-
-If you are at Ai2, you can use gantry with these scripts by setting `GANTRY=1` before running the script, e.g:
-```bash
-GANTRY=1 ./shell_scripts/core_commands/model_training/full_finetune.sh <filename> <run name>
-```
+The pipeline for this paper has four steps, described below:
+1. Construct an index for training and eval data.
+2. Select data based off the score.
+3. Train a model on the selected data.
+4. Evaluate the trained model.
 
 ### Index creation and selection
 
-Given a trained model, we can then do index creation and selection, the examples of which live in `shell_scripts/core_commands/index_selection_and_creation`. I have support for a few different approaches here, but the most important one is RDS (see our paper for more details on this).
+Scripts for doing indexing and selection live in `shell_scripts/core_commands/index_selection_and_creation`. I have support for a few different approaches here, but the most important one is RDS (see our paper for more details on this).
 
 We start by indexing our training data, using a given base model:
 ```bash
@@ -186,9 +148,54 @@ python -m minimal_multitask.get_top_aggregated_influences \
     --output_dataset
 ```
 
+### Training
+
+To train a model, you can use the scripts in `shell_scripts/core_commands/model_training`. The scripts named do the appropriate things. You have to provide a `.jsonl` file, which contains data formatted following the tulu format (i.e. like [the huggingface tulu 2 dataset](https://huggingface.co/datasets/allenai/tulu-v2-sft-mixture)). You can also randomly subselect from this dataset, or train loras on top of a trained model, or train loras and full finetune. The scripts are mostly self-descriptive.
+
+For example, to train llama 2 7b on a given file, I can run:
+```bash
+./shell_scripts/core_commands/model_training/full_finetune.sh <filename> <run name>
+```
+Or to train on x random samples from a file:
+```bash
+./shell_scripts/core_commands/model_training/random_select.sh <filename> <run name> <x>
+```
+Please look into the scripts and feel fre to edit them (in particular, you might wish to edit the output directory name).
+
+You can also run locally with:
+```bash
+python -m minimal_multitask.instruction_tune \
+        --model_name /model \
+        --output_dir /results \
+        --per_device_train_batch_size 1 \
+        --gradient_accumulation_steps 128 \
+        --num_train_epochs 2 \
+        --learning_rate 2e-5 \
+        --seed 42 \
+        --warmup_ratio 0.03 \
+        --lr_scheduler_type linear \
+        --weight_decay 0. \
+        --evaluation_strategy no \
+        --save_strategy no \
+        --logging_steps 1 \
+        --is_llama=True \
+        --lora_alpha 512 \
+        --lora_rank 128 \
+        --use_hf_auth_token True \
+        --train $TRAIN_FILE
+```
+
+Just replace the flags with what makes sense for you. If you remove the `lora_{alpha/rank}` flags then full-finetuning will happen.
+
+If you are at Ai2, you can use gantry with these scripts by setting `GANTRY=1` before running the script, e.g:
+```bash
+GANTRY=1 ./shell_scripts/core_commands/model_training/full_finetune.sh <filename> <run name>
+```
+
+
 ### Evaluation
 
-Given a trained model, you can evaluate using `eval/eval.sh`. Look into that script if you want to run a particular eval.
+Given a trained model, you can evaluate using `eval/eval.sh <model_path>`. Look into that script if you want to run a particular eval.
 We base our evaluations off the implementations in [Open-Instruct](https://github.com/allenai/open-instruct).
 **Note: for non-llama 2 models, please replace `create_prompt_with_tulu_chat_format` with `create_prompt_with_huggingface_tokenizer_template` -- this is to make sure chat templates are correctly set.
 

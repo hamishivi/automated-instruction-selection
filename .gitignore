@@ -57,7 +57,6 @@ data/
 notebooks/
 viz_plots/
 results/
-*.png
 *.npy
 *.faiss
 tmp/
