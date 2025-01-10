@@ -12,7 +12,10 @@ samples = []
 with open(args.input_requests, "r", encoding='utf-8') as f:
     for line in f:
         request = json.loads(line)
-        messages = request["request"]["context"]["messages"]
+        if "messages" not in request["request"]["context"]:
+            messages = [{"role": "user", "content": request["request"]["context"]}]
+        else:
+            messages = request["request"]["context"]["messages"]
         sample_id = f'{request["task_name"]}_{request["doc_id"]}_{request["native_id"]}'
         samples.append({
             "id": sample_id,
