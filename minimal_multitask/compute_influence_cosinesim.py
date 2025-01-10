@@ -2,7 +2,7 @@ import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM
 from datasets import load_dataset
 
-from minimal_multitask.data import DATASETS
+from minimal_multitask.data import DATASETS, FileDataset
 from minimal_multitask.utils import encode_with_messages_format
 
 from tqdm import tqdm
@@ -81,6 +81,11 @@ train_dataset.set_format(type="torch", columns=["input_ids", "attention_mask", "
 if args.eval_dataset in DATASETS:
     test_dataset = DATASETS[args.eval_dataset](tokenizer).get_all_test_prompts(
         seed=args.seed, prompt_only=args.prompt_only, response_only=args.label_only
+    )
+elif os.path.exists(args.eval_dataset):
+    # if a file is given, we assume it's a dataset
+    test_dataset = FileDataset(args.eval_dataset, tokenizer).get_all_test_prompts(
+        prompt_only=args.prompt_only, response_only=args.label_only
     )
 else:
     raise ValueError(f"Invalid dataset: {args.dataset}")

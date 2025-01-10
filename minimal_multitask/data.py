@@ -1440,6 +1440,21 @@ class SubsetSelection(TestDataset):
         return test_dataset
 
 
+# dataset to just ingest a file and encode it. Assumes follows the training dataset format.
+class FileDataset(TestDataset):
+    def __init__(self, data_file, tokenizer):
+        self.data_file = data_file
+        self.tokenizer = tokenizer
+
+    def get_all_test_prompts(self, num_samples=1000000, max_length=2048, prompt_only=False, response_only=False):
+        assert not prompt_only and not response_only, "Prompt only and response only not supported for file dataset."
+        test_dataset = load_dataset("json", data_files=self.data_file)["train"]
+        test_dataset = test_dataset.map(lambda x: encode_with_messages_format(x, self.tokenizer, max_length), load_from_cache_file=False)
+        test_dataset.set_format(type="torch", columns=["input_ids", "attention_mask", "labels"])
+        test_dataset = test_dataset.select(range(min(num_samples, len(test_dataset))))
+        return test_dataset
+
+
 # todo: humaneval, truthfulqa mc.
 # these are maybe tricky since they dont have hard gold.
 DATASETS = {
