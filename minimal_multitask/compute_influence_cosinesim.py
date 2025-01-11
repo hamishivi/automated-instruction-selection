@@ -16,7 +16,7 @@ parser.add_argument("--tokenizer", type=str, default=None)
 parser.add_argument("--save_dir", type=str, default="l")
 parser.add_argument("--seed", type=int, default=42)
 parser.add_argument("--train_dataset", type=str, default="alpaca")
-parser.add_argument("--eval_dataset", type=str, choices=DATASETS.keys(), default="mmlu")
+parser.add_argument("--eval_dataset", type=str)
 parser.add_argument("--index_path", type=str)
 # be careful with this one! leaks test data into train set so we can sanity check the retrieval
 parser.add_argument("--leak_test_data", action="store_true")
