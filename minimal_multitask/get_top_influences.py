@@ -62,16 +62,6 @@ def get_domain_values(domain):
     return domain_max_size[domain]
 
 
-def remove_dupes_ordered(lst):
-    seen = set()
-    new_lst = []
-    for item in lst:
-        if item not in seen:
-            new_lst.append(item)
-            seen.add(item)
-    return new_lst
-
-
 # load train datasets for printing
 train_datasets = []
 for train_dataset in args.train_datasets:
@@ -214,7 +204,7 @@ elif "min" in args.selection_method:
                 saved_scores.append(score)
                 # set list the saved instances in case of dups.
                 prev_size = len(saved_instances)
-                saved_instances = remove_dupes_ordered(saved_instances)
+                saved_instances = list(set(saved_instances))
                 # if it was a dup, remove the score.
                 # also remove the domain increment.
                 if len(saved_instances) < prev_size:
@@ -241,22 +231,14 @@ elif "max" in args.selection_method:
         sorted_instance_to_influence[test_d] = sorted_influences
     with tqdm(total=args.output_size) as pbar:
         while len(saved_instances) < args.output_size:
-            for test_d, influences in sorted_instance_to_influence.items():
+            for test_d, influences in instance_to_influences.items():
                 # pop off the largest influence
                 inst, score = sorted_instance_to_influence[test_d].pop(0)
-
-                inst_0 = inst[0] if type(inst[0]) is int else inst[0].item()
-                inst_1 = inst[1] if type(inst[1]) is int else inst[1].item()
-                if args.select_only_from_file:
-                    sample_id = train_datasets[inst_0][inst_1]["id"]
-                    if sample_id not in subsample_ids:
-                        continue
-
                 saved_instances.append(inst)
                 saved_scores.append(score)
                 # set list the saved instances in case of dups.
                 prev_size = len(saved_instances)
-                saved_instances = remove_dupes_ordered(saved_instances)
+                saved_instances = list(set(saved_instances))
                 # if it was a dup, remove the score.
                 if len(saved_instances) < prev_size:
                     saved_scores = saved_scores[:-1]
@@ -266,7 +248,7 @@ elif "max" in args.selection_method:
     # if we are over the output size, remove the last few instances.
     saved_instances = saved_instances[: args.output_size]
 
-saved_instances = remove_dupes_ordered(saved_instances)
+saved_instances = list(set(saved_instances))
 print(f"Saving {len(saved_instances)} instances")
 # if we are outputting the actual dataset, time to save
 # add the influence score to the instance for plotting and save

@@ -16,7 +16,7 @@ parser.add_argument("--tokenizer", type=str, default=None)
 parser.add_argument("--save_dir", type=str, default="l")
 parser.add_argument("--seed", type=int, default=42)
 parser.add_argument("--train_dataset", type=str, default="alpaca")
-parser.add_argument("--eval_dataset", type=str, choices=DATASETS.keys(), default="mmlu")
+parser.add_argument("--eval_dataset", type=str, default="mmlu")
 parser.add_argument("--index_path", type=str)
 # be careful with this one! leaks test data into train set so we can sanity check the retrieval
 parser.add_argument("--leak_test_data", action="store_true")
@@ -80,7 +80,14 @@ if args.eval_dataset in DATASETS:
         seed=args.seed, prompt_only=args.prompt_only, response_only=args.label_only
     )
 else:
-    raise ValueError(f"Invalid dataset: {args.dataset}")
+    if os.path.exists(args.eval_dataset):
+        test_dataset = load_dataset("json", data_files=args.eval_dataset)["train"]
+        test_dataset = test_dataset.map(
+            lambda x: encode_with_messages_format(x, tokenizer, 2048, True, args.label_only, args.only_first_two, args.prompt_only), num_proc=8, load_from_cache_file=True, keep_in_memory=False
+        )
+    else:
+        raise ValueError(f"Invalid train dataset: {args.eval_dataset}")
+    test_dataset.set_format(type="torch", columns=["input_ids", "attention_mask", "labels"])
 
 if args.leak_test_data:
     # shrink the training data for quicker testing
@@ -172,6 +179,10 @@ for i in range(sim_influences.shape[0]):
 # save the influences
 if not os.path.exists(args.save_dir):
     os.makedirs(args.save_dir)
+
+# If passed a path, only keep the last segment, and get rid of the file extension
+args.eval_dataset = os.path.basename(args.eval_dataset)
+args.eval_dataset = os.path.splitext(args.eval_dataset)[0]
 
 if args.prompt_only:
     with open(

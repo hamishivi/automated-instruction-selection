@@ -9,6 +9,7 @@ import argparse
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--input_files", nargs="+", type=str)
+parser.add_argument("--second_input_files", nargs="+", default=None)
 parser.add_argument("--random_sel_file", type=str, default=None)
 parser.add_argument("--output_file", type=str)
 parser.add_argument("--influence_score_file", type=str, default=None)
@@ -20,7 +21,19 @@ for file in args.input_files:
     counters.append(Counter())
     with open(file, "r") as f:
         for line in f:
-            counters[-1][json.loads(line)["dataset"]] += 1
+            try:
+                counters[-1][json.loads(line)["dataset"]] += 1
+            except:
+                raise ValueError("Error loading line")
+
+# We assume the second input files have the same number of selection as the first input files
+# We will plot two bars for each dataset, one for the first input files and one for the second input files
+counters_2 = []
+for file in args.second_input_files:
+    counters_2.append(Counter())
+    with open(file, "r") as f:
+        for line in f:
+            counters_2[-1][json.loads(line)["dataset"]] += 1
 
 random_counter = None
 if args.random_sel_file:
@@ -29,45 +42,68 @@ if args.random_sel_file:
         for line in f:
             random_counter[json.loads(line)["dataset"]] += 1
 
-# go through counters, plot stacked bar chart
-fig, ax = plt.subplots(figsize=(10, 5))
-# stacked bar chart setup
+evals = ["alpacaeval", "gsm8k", "tydiqa", "bbh", "mmlu", "codex", "squad"]
+evals_ordered = sorted(evals)
 
-# evals = ["alpacaeval", "gsm8k", "tydiqa", "bbh", "mmlu", "codex", "squad", "top10k", "mean10", "seed42", "wildchat", "arenahard"]
-evals = ["a_grad", "alpaca_rds", "gsm_grad", "gsm_rds", "tydiqa_grad", "tydiqa_rds", "bbh_grad", "bbh_rds", "mmlu_grad", "mmlu_rds", "codex_grad", "codex_rds", "squad_grad", "squad_rds"]
-evals_ordered = []
-for eve in evals:
-    evals_ordered.append(eve)
+# The above code plot one par per one dataset. The following code will plot two bar per one dataset and grouped on the x-axis
+# go through counters, plot grouped bar chart
+fig, ax = plt.subplots(figsize=(10, 5))
+# grouped bar chart setup
+width = 0.35
 basenames = evals_ordered
 all_keys = [c.keys() for c in counters]
 all_counter_keys = set()
 for keys in all_keys:
     all_counter_keys.update(keys)
 all_counter_keys = sorted(list(all_counter_keys))
-counter_normalized = []
-for c in counters:
-    counter_normalized.append({k: c[k]/sum(c.values()) for k in c.keys()})
+combined_d = {k: [c[k] for c in counters] for k in all_counter_keys}
+combined_d_2 = {k: [c[k] for c in counters_2] for k in all_counter_keys}
 
-if args.normalize_count:
-    combined_d = {k: [c.get(k, 0) for c in counter_normalized] for k in all_counter_keys}
-else:
-    combined_d = {k: [c[k] for c in counters] for k in all_counter_keys}
-width = 0.5
-bottom = np.zeros(len(counters))
-# colourmap can repeat, stop this
+# Sort the dataset names to ensure consistency
+dataset_names = sorted(combined_d.keys())
+
+# Extract the values from both dictionaries in the same order
+values_combined_d = np.array([combined_d[name] for name in dataset_names])
+values_combined_d_2 = np.array([combined_d_2[name] for name in dataset_names])
+
+# Plotting the stacked bar chart
+x = np.arange(len(evals))  # x positions for the bars
+width = 0.4  # Width of the bars
+
+fig, ax = plt.subplots(figsize=(12, 6))
+
+# Plot the stacked bars for both dictionaries
+bottom_combined_d = np.zeros(len(evals))
+bottom_combined_d_2 = np.zeros(len(evals))
+
+colormap = plt.cm.get_cmap('tab20')
 def generate_n_colors(cmap, n_colors):
     return [cmap(i / n_colors) for i in range(n_colors)]
-colormap = plt.cm.get_cmap('tab20')
 colors = generate_n_colors(colormap, len(all_counter_keys))
 # colors = colormap(np.linspace(0, 1, len(all_counter_keys)))
-ax.set_prop_cycle("color", colors)
-# construct
-for ds, ds_count in combined_d.items():
-    p = ax.bar(basenames, ds_count, width, label=ds, bottom=bottom)
-    bottom += ds_count
+for i, (name, color) in enumerate(zip(dataset_names, colors)):
+    # Plot for combined_d
+    ax.bar(
+        x - width / 2, values_combined_d[i], width, bottom=bottom_combined_d, 
+        color=color, edgecolor='black', label=name, alpha=0.7
+    )
+    # Plot for combined_d_2
+    ax.bar(
+        x + width / 2, values_combined_d_2[i], width, bottom=bottom_combined_d_2, 
+        color=color, edgecolor='black', alpha=0.7
+    )
 
-ax.set_ylabel("Count")
-ax.legend(loc="center left", bbox_to_anchor=(1, 0.5))
+    # Update the bottom positions for the next stack
+    bottom_combined_d += values_combined_d[i]
+    bottom_combined_d_2 += values_combined_d_2[i]
+
+# Set titles and labels
+ax.set_xticks(x)
+ax.set_xticklabels(evals_ordered)
+ax.set_ylabel('Count')
+ax.set_title('Stacked Bar Comparison between rds (left) and ccds (right)')
+ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+
 plt.tight_layout()
 plt.savefig(args.output_file)
 

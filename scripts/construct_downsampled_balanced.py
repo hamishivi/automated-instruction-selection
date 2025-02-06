@@ -7,8 +7,8 @@ from tqdm import tqdm
 import random
 
 parser = argparse.ArgumentParser()
-parser.add_argument('input_file', type=str, help='Input jsonl file')
-parser.add_argument('output_file', type=str, help='Output jsonl file')
+parser.add_argument('--input_file', type=str, help='Input jsonl file')
+parser.add_argument('--output_file', type=str, help='Output jsonl file')
 parser.add_argument('--seed', type=int, default=42, help='Random seed')
 parser.add_argument('--num_samples', type=int, default=200_000, help='Number of samples to downsample to')
 args = parser.parse_args()
