@@ -15,6 +15,7 @@ import pickle
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--model_name_or_path", type=str, default="nvidia/NV-Embed-v2")
+parser.add_argument("--max_length", type=str, default="8192")
 parser.add_argument("--no_query_prefix", action="store_true")
 parser.add_argument("--save_dir", type=str, default="l")
 parser.add_argument("--seed", type=int, default=42)
@@ -105,7 +106,10 @@ print(f"Test dataset size: {len(test_dataset)}")
 
 # prefixes
 passage_prefix = ""
-query_prefix = "Instruct: Given a sample, find the passages closest to that sample.\nQuery: "
+if "NV-Embed" in args.model_name_or_path:
+    query_prefix = "Instruct: Given a sample, find the passages closest to that sample.\nQuery: "
+else:
+    query_prefix = ""
 
 # construct dataloaders
 train_data_loader = torch.utils.data.DataLoader(train_dataset, batch_size=args.batch_size, shuffle=False)
@@ -117,8 +121,11 @@ else:
     all_train_embeds = []
     for index, train_inputs in enumerate(tqdm(train_data_loader)):
         with torch.no_grad():
-            max_length = 8192
-            passage_embeddings = model.encode(train_inputs, instruction=passage_prefix, max_length=max_length)
+            max_length = args.max_length
+            if "NV-Embed" in args.model_name_or_path:
+                passage_embeddings = model.encode(train_inputs, instruction=passage_prefix, max_length=max_length)
+            else:
+                passage_embeddings = model.encode(train_inputs, max_length=max_length)
             if isinstance(passage_embeddings, np.ndarray):
                 passage_embeddings = torch.from_numpy(passage_embeddings).cuda()
             passage_embeddings = F.normalize(passage_embeddings, p=2, dim=1)
@@ -133,8 +140,11 @@ else:
 sim_influences = []
 for idx, test_inputs in enumerate(tqdm(eval_data_loader)):
     with torch.no_grad():
-        max_length = 8192
-        query_embeddings = model.encode(test_inputs, instruction=query_prefix, max_length=max_length)
+        max_length = args.max_length
+        if "NV-Embed" in args.model_name_or_path:
+            query_embeddings = model.encode(test_inputs, instruction=query_prefix, max_length=max_length)
+        else:
+            query_embeddings = model.encode(test_inputs, max_length=max_length)
         if isinstance(query_embeddings, np.ndarray):
             query_embeddings = torch.from_numpy(query_embeddings).cuda()
         query_embeddings = F.normalize(query_embeddings, p=2, dim=1)
