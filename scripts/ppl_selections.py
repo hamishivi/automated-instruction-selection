@@ -6,11 +6,16 @@ import json
 import pickle
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--ppl_scores", type=List[str], default="selections/ppl_200k_exp/nlls.pkl")
-parser.add_argument("--train_datasets", type=List[str], default="/net/nfs.cirrascale/allennlp/hamishi/minimal-multitask-tuning/data/tulu_splits/tulu_v2_unfiltered_fixed/tulu_v2_unfiltered/200k_exps/unbalanced_distribution_200k.jsonl")
-parser.add_argument("--output_size", type=int, default=10000)  # number of instances total to select.)
-parser.add_argument("--output_file_path", type=str)
-parser.add_argument("--mid_ppl", action="store_true")
+parser.add_argument("--ppl_scores", type=str, nargs="+", default=["selections/ppl_200k_exp/nlls.pkl"],
+                    help="List of paths to perplexity score files.")
+parser.add_argument("--train_datasets", type=str, nargs="+", default=["/net/nfs.cirrascale/allennlp/hamishi/minimal-multitask-tuning/data/tulu_splits/tulu_v2_unfiltered_fixed/tulu_v2_unfiltered/200k_exps/unbalanced_distribution_200k.jsonl"],
+                    help="List of paths to training datasets.")
+parser.add_argument("--output_size", type=int, default=10000,
+                    help="Number of instances total to select.")
+parser.add_argument("--output_file_path", type=str, required=True,
+                    help="Path to save the selected instances.")
+parser.add_argument("--mid_ppl", action="store_true",
+                    help="Flag to enable mid perplexity filtering.")
 args = parser.parse_args()
 
 train_datasets = []
