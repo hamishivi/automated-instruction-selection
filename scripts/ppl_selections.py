@@ -37,7 +37,7 @@ all_nlls = []
 for idx, file in enumerate(args.ppl_scores):
     if not os.path.exists(file):
         raise ValueError(f"Invalid ppl scores file {file}.")
-    with open(args.ppl_scores, "rb") as f:
+    with open(file, "rb") as f:
         nlls = pickle.load(f)
     # key in nlls is data idx, replace with (file idx, data idx)
     new_nlls = {}
