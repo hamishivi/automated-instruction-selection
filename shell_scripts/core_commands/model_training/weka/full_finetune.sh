@@ -3,16 +3,18 @@ EXP_NAME=$2
 
 gantry run \
         --workspace hamishivi \
-        --cluster ai2/allennlp-elara-cirrascale \
         --cluster ai2/saturn-cirrascale \
+        --cluster ai2/neptune-cirrascale \
+        --cluster ai2/ceres-cirrascale \
+        --cluster ai2/jupiter-cirrascale-2 \
         --budget ai2/oe-adapt \
         --allow-dirty \
-        --priority normal \
+        --priority high \
         --workspace ai2/minimal-multitask-finetuning \
         --gpus 1 \
         --env-secret HF_TOKEN=HF_TOKEN \
         --name $EXP_NAME \
-        --weka=oe-adapt-default:/weka \
+        --weka=oe-adapt-default:/weka/oe-adapt-default \
         --task-name $EXP_NAME \
         -- python -m minimal_multitask.instruction_tune \
                 --model_name meta-llama/Llama-2-7b-hf \
