@@ -4,7 +4,6 @@ EXP_NAME=$2
 gantry run \
         --workspace hamishivi \
         --cluster ai2/saturn-cirrascale \
-        --cluster ai2/neptune-cirrascale \
         --cluster ai2/ceres-cirrascale \
         --cluster ai2/jupiter-cirrascale-2 \
         --budget ai2/oe-adapt \
