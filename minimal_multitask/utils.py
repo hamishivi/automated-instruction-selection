@@ -34,7 +34,10 @@ def create_prompt_with_tulu_chat_format(messages, tokenizer, add_bos=True, promp
     if response_only or prompt_only:
         formatted_text = formatted_text.replace("<|assistant|>\n", "").replace(tokenizer.eos_token, "")
     if no_special_tokens:
-        formatted_text = formatted_text.replace(tokenizer.bos_token, "").replace(tokenizer.eos_token, "")
+        if tokenizer.bos_token:
+            formatted_text = formatted_text.replace(tokenizer.bos_token, "")
+        if tokenizer.eos_token:
+            formatted_text = formatted_text.replace(tokenizer.eos_token, "")
     return formatted_text
 
 
