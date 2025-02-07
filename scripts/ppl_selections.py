@@ -43,7 +43,7 @@ for idx, file in enumerate(args.ppl_scores):
     new_nlls = {}
     for key, value in nlls.items():
         new_nlls[(idx, key)] = value
-    all_nlls.append(nlls)
+    all_nlls.append(new_nlls)
 
 # flatten all_nlls
 nlls = {}
