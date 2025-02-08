@@ -94,7 +94,11 @@ class MMLU(TestDataset):
     def get_all_test_prompts(self, num_samples=-1, seed=42, max_length=512, prompt_only=False, response_only=False):
         # get the prompts for each subject
         prompts_per_subject = construct_prompts(
-            self.tokenizer, use_chat_format=True, ntrain=self.shots, use_dev_samples=False
+            self.tokenizer,
+            use_chat_format=True,
+            ntrain=self.shots,
+            use_dev_samples=False,
+            data_dir=os.path.join(get_appropriate_data_dir(), "data/mmlu"),
         )
         prompts, labels = [], []
         for subject in prompts_per_subject:
@@ -120,7 +124,13 @@ class MMLUShots(TestDataset):
     def get_all_test_prompts(self, num_samples=285, seed=42, max_length=512, prompt_only=False, response_only=False):
         random_gen = random.Random(seed)
         # get the prompts for each subject
-        prompts_per_subject = construct_prompts(self.tokenizer, use_chat_format=True, ntrain=0, use_dev_samples=True)
+        prompts_per_subject = construct_prompts(
+            self.tokenizer,
+            use_chat_format=True,
+            ntrain=0,
+            use_dev_samples=True,
+            data_dir=os.path.join(get_appropriate_data_dir(), "data/mmlu"),
+        )
         prompts, labels = [], []
         while len(prompts) < num_samples:
             for subject in prompts_per_subject:
@@ -146,7 +156,13 @@ class MMLUShotsShots(TestDataset):
     def get_all_test_prompts(self, num_samples=285, seed=42, max_length=512, prompt_only=False, response_only=False):
         random_gen = random.Random(seed)
         # get the prompts for each subject
-        prompts_per_subject = construct_prompts(self.tokenizer, use_chat_format=True, ntrain=5, use_dev_samples=True)
+        prompts_per_subject = construct_prompts(
+            self.tokenizer,
+            use_chat_format=True,
+            ntrain=5,
+            use_dev_samples=True,
+            data_dir=os.path.join(get_appropriate_data_dir(), "data/mmlu"),
+        )
         prompts, labels = [], []
         while len(prompts) < num_samples:
             for subject in prompts_per_subject:
