@@ -15,7 +15,7 @@ import pickle
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--model_name_or_path", type=str, default="nvidia/NV-Embed-v2")
-parser.add_argument("--max_length", type=str, default="8192")
+parser.add_argument("--max_length", type=int, default="8192")
 parser.add_argument("--no_query_prefix", action="store_true")
 parser.add_argument("--save_dir", type=str, default="l")
 parser.add_argument("--seed", type=int, default=42)
