@@ -98,7 +98,7 @@ class MMLU(TestDataset):
             use_chat_format=True,
             ntrain=self.shots,
             use_dev_samples=False,
-            data_dir=os.path.join(get_appropriate_data_dir(), "data/mmlu"),
+            data_dir=os.path.join(get_appropriate_data_dir(), "eval/mmlu"),
         )
         prompts, labels = [], []
         for subject in prompts_per_subject:
@@ -129,7 +129,7 @@ class MMLUShots(TestDataset):
             use_chat_format=True,
             ntrain=0,
             use_dev_samples=True,
-            data_dir=os.path.join(get_appropriate_data_dir(), "data/mmlu"),
+            data_dir=os.path.join(get_appropriate_data_dir(), "eval/mmlu"),
         )
         prompts, labels = [], []
         while len(prompts) < num_samples:
@@ -161,7 +161,7 @@ class MMLUShotsShots(TestDataset):
             use_chat_format=True,
             ntrain=5,
             use_dev_samples=True,
-            data_dir=os.path.join(get_appropriate_data_dir(), "data/mmlu"),
+            data_dir=os.path.join(get_appropriate_data_dir(), "eval/mmlu"),
         )
         prompts, labels = [], []
         while len(prompts) < num_samples:
