@@ -148,7 +148,7 @@ for idx, test_inputs in enumerate(tqdm(eval_data_loader)):
         if isinstance(query_embeddings, np.ndarray):
             query_embeddings = torch.from_numpy(query_embeddings).cuda()
         query_embeddings = F.normalize(query_embeddings, p=2, dim=1)
-    influences = (query_embeddings @ all_train_embeds.T.cuda()).detach().cpu()
+    influences = (query_embeddings.cuda() @ all_train_embeds.T.cuda()).detach().cpu()
     sim_influences.append(influences)
 
 sim_influences = torch.cat(sim_influences, dim=0)
