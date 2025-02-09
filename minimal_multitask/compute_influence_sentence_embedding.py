@@ -47,7 +47,7 @@ else:
         args.model_name_or_path,
         trust_remote_code=True,
         **kwargs,
-    )
+    ).cuda()
 tokenizer = AutoTokenizer.from_pretrained(args.model_name_or_path)
 
 
