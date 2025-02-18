@@ -1,5 +1,6 @@
 import argparse
 import json
+import pickle
 from scipy.stats import spearmanr
 
 parser = argparse.ArgumentParser()
@@ -14,11 +15,10 @@ with open(args.eval_file, "r", encoding='utf-8') as f:
         eval_samples.append(sample)
 
 
-cosine_scores = []
-with open(args.cosine_scores, "r", encoding='utf-8') as f:
-    for idx, line in enumerate(f):
-        score = json.loads(line)
-        eval_samples[idx]["cosine_score"] = score
+cosine_scores = pickle.load(open(args.cosine_scores, "rb"))
+for idx, score in enumerate(cosine_scores):
+    score_dict = cosine_scores[score]
+    eval_samples[idx]["cosine_score"] = sorted(score_dict.values(), reverse=True)
 
 # run through examples, get top score, get metric
 cosine_scores = []
