@@ -76,6 +76,7 @@ elif args.train_dataset == "tulu3":
 else:
     if os.path.exists(args.train_dataset):
         train_dataset = load_dataset("json", data_files=args.train_dataset)["train"]
+
         def tokenize(x):
             return encode_with_messages_format(x, tokenizer, 2048, True, args.label_only, args.only_first_two, args.prompt_only)
         train_dataset = train_dataset.map(

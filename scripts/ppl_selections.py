@@ -1,5 +1,4 @@
 import argparse
-from typing import List
 from datasets import load_dataset
 import os
 import json
@@ -30,7 +29,6 @@ for train_dataset in args.train_datasets:
         else:
             raise ValueError(f"Invalid train dataset {train_dataset}.")
     train_datasets.append(train_dataset)
-
 
 
 all_nlls = []

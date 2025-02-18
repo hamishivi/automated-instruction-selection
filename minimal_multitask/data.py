@@ -68,25 +68,7 @@ def construct_test_sample(tokenizer, sample, max_length=2048, prompt_only=False,
     }
 
 
-class FileDataset(TestDataset):
-    def get_all_test_prompts(self, num_samples=-1, seed=42, filepath="", max_length=512, prompt_only=False, response_only=False):
-        # assume we have some dataset with prompts and labels. We load and combine it
-        dataset = load_dataset("json", data_files=filepath)["train"]
-
-        def make_test_sample(x):
-            return construct_test_sample(self.tokenizer, x, max_length=max_length, prompt_only=prompt_only, response_only=response_only)
-
-        test_dataset = dataset.map(make_test_sample, load_from_cache_file=False)
-        test_dataset.set_format(type="torch", columns=["input_ids", "attention_mask", "labels"])
-        if num_samples > 0:
-            # shuffle so we select a random subset
-            test_dataset = test_dataset.shuffle(seed=seed).select(range(num_samples))
-        return test_dataset
-
-
 # MMLU
-
-
 class MMLU(TestDataset):
     shots = 0
     # default 982 prompts, just all test prompts
