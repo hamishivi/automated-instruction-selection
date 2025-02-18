@@ -2,8 +2,7 @@
 
 This is the repository associated with the paper [Practical Large-Scale Data Selection for Instruction Tuning](https://todo).
 
-![performance of RDS compared to other methods and when selecting datasets of increasing size](performance_graphic.png)
-*Left: Average performance of models trained using increasingly more samples selected using RDS or balanced random selection from a pool of 5.8M data points. RDS performs better across all sizes. Right: Average performance of model trained on data selected using RDS compared to other data selection methods when selecting from a pool of 200k samples. RDS performs best overall.*
+![performance of RDS+ compared to other methods and when selecting datasets of increasing size](performance_graphic.png)
 
 We release data and models associated with this paper on HuggingFace at [this collection](https://huggingface.co/collections/hamishivi/practical-large-scale-data-selection-for-instruction-tuning-677d7e8ca0295426c1915930).
 
