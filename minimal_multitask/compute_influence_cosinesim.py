@@ -1,8 +1,9 @@
 import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM
 from datasets import load_dataset
+import numpy as np
 
-from minimal_multitask.data import DATASETS
+from minimal_multitask.data import DATASETS, FileDataset
 from minimal_multitask.utils import encode_with_messages_format
 
 from tqdm import tqdm
@@ -16,7 +17,7 @@ parser.add_argument("--tokenizer", type=str, default=None)
 parser.add_argument("--save_dir", type=str, default="l")
 parser.add_argument("--seed", type=int, default=42)
 parser.add_argument("--train_dataset", type=str, default="alpaca")
-parser.add_argument("--eval_dataset", type=str, choices=DATASETS.keys(), default="mmlu")
+parser.add_argument("--eval_dataset", type=str)
 parser.add_argument("--index_path", type=str)
 # be careful with this one! leaks test data into train set so we can sanity check the retrieval
 parser.add_argument("--leak_test_data", action="store_true")
@@ -50,9 +51,9 @@ model = AutoModelForCausalLM.from_pretrained(
 )
 
 if args.tokenizer is not None:
-    tokenizer = AutoTokenizer.from_pretrained(args.tokenizer)
+    tokenizer = AutoTokenizer.from_pretrained(args.tokenizer, use_fast=True)
 else:
-    tokenizer = AutoTokenizer.from_pretrained(args.model_name)
+    tokenizer = AutoTokenizer.from_pretrained(args.model_name, use_fast=True)
 
 # load and process train dataset
 if args.train_dataset == "alpaca":
@@ -67,11 +68,18 @@ elif args.train_dataset == "tulu2":
     train_dataset = train_dataset.map(
         lambda x: encode_with_messages_format(x, tokenizer, 2048, True, args.label_only, args.only_first_two, args.prompt_only), num_proc=16
     )
+elif args.train_dataset == "tulu3":
+    train_dataset = load_dataset("allenai/tulu-3-sft-mixture", split="train")
+    train_dataset = train_dataset.map(
+        lambda x: encode_with_messages_format(x, tokenizer, 2048, True, args.label_only, args.only_first_two, args.prompt_only), num_proc=16
+    )
 else:
     if os.path.exists(args.train_dataset):
         train_dataset = load_dataset("json", data_files=args.train_dataset)["train"]
+        def tokenize(x):
+            return encode_with_messages_format(x, tokenizer, 2048, True, args.label_only, args.only_first_two, args.prompt_only)
         train_dataset = train_dataset.map(
-            lambda x: encode_with_messages_format(x, tokenizer, 2048, True, args.label_only, args.only_first_two, args.prompt_only), num_proc=8, load_from_cache_file=True, keep_in_memory=False
+            tokenize, num_proc=8, load_from_cache_file=True, keep_in_memory=False
         )
     else:
         raise ValueError(f"Invalid train dataset: {args.train_dataset}")
@@ -81,6 +89,11 @@ train_dataset.set_format(type="torch", columns=["input_ids", "attention_mask", "
 if args.eval_dataset in DATASETS:
     test_dataset = DATASETS[args.eval_dataset](tokenizer).get_all_test_prompts(
         seed=args.seed, prompt_only=args.prompt_only, response_only=args.label_only
+    )
+elif os.path.exists(args.eval_dataset):
+    # if a file is given, we assume it's a dataset
+    test_dataset = FileDataset(args.eval_dataset, tokenizer).get_all_test_prompts(
+        prompt_only=args.prompt_only, response_only=args.label_only
     )
 else:
     raise ValueError(f"Invalid dataset: {args.dataset}")
@@ -163,9 +176,10 @@ for idx, test_inputs in enumerate(tqdm(eval_data_loader)):
     influences = torch.matmul(
         test_embeddings / torch.linalg.vector_norm(test_embeddings, dim=1, keepdim=True), all_train_embeds.T
     )
+    influences = influences.cpu().numpy()
     sim_influences.append(influences)
 
-sim_influences = torch.cat(sim_influences, dim=0)
+sim_influences = np.concatenate(sim_influences, axis=0)
 
 # Convert to dictionary format
 influence_dict = {}
@@ -193,9 +207,10 @@ elif args.label_only:
     ) as f:
         pickle.dump(influence_dict, f)
 else:
+    basename = os.path.basename(args.eval_dataset)
     with open(
-        os.path.join(args.save_dir, f"{args.eval_dataset}_cossim.pkl"),
+        os.path.join(args.save_dir, f"{basename}_cossim.pkl"),
         "wb",
     ) as f:
         pickle.dump(influence_dict, f)
-    print('saved', os.path.join(args.save_dir, f"{args.eval_dataset}_cossim.pkl"))
+    print('saved', os.path.join(args.save_dir, f"{basename}_cossim.pkl"))
