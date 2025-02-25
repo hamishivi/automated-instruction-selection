@@ -36,7 +36,7 @@ The pipeline for this paper has four steps, described below:
 
 ### Index creation and selection
 
-Scripts for doing indexing and selection live in `shell_scripts/core_commands/index_selection_and_creation`. I have support for a few different approaches here, but the most important one is RDS (see our paper for more details on this).
+Scripts for doing indexing and selection live in `shell_scripts/core_commands/index_selection_and_creation`. I have support for a few different approaches here, but the most important one is RDS+ (see our paper for more details on this).
 
 We start by indexing our training data, using a given base model:
 ```bash
@@ -159,7 +159,7 @@ Or to train on x random samples from a file:
 ```bash
 ./shell_scripts/core_commands/model_training/random_select.sh <filename> <run name> <x>
 ```
-Please look into the scripts and feel fre to edit them (in particular, you might wish to edit the output directory name).
+Please look into the scripts and feel free to edit them (in particular, you might wish to edit the output directory name).
 
 You can also run locally with:
 ```bash
@@ -203,3 +203,57 @@ To evaluate internally at Ai2, just run `./shell_scripts/eval/eval_beaker.sh <mo
 ### Analysis
 
 Generally, analysis and utility scripts live in `scripts`. These are undocumented for now, but feel free to poke around in there. I also have a tonne of old scripts from a previous version of this project in `scripts/old`.
+
+### Other selection methods
+
+While RDS+ is our flagship method, we also tested a variety of other data selection methods in the paper and we provide code for you to reproduce/try them as well.
+
+As mentioned above, the data selection pipeline can be viewed as indexing (scoring) -> selection -> training. Different methods prodvide differnet scoring, but the rest of the procedure is the same. Notes that some methods don't rely on validation set, therefore having slightly different pipeline.
+
+**LESS**
+
+We follow the procedure outlined in https://arxiv.org/abs/2402.04333.
+
+**Embedding**
+
+We support embedding models from [sentence-transformers](https://github.com/UKPLab/sentence-transformers) and HuggingFace. In the paper, we tested [NV-Embed-V2](https://huggingface.co/nvidia/NV-Embed-v2) and [GTR-t5-base](https://huggingface.co/sentence-transformers/gtr-t5-base).
+
+To compute score with sentence embedding:
+
+```bash
+for dataset in alpacafarm gsm8k_shots bbh_shots tydiqa_shots codex squad mmlu_shots; do
+    python -m minimal_multitask.compute_influence_sentence_embedding. \
+        --seed 42 \
+        --train_dataset data/training_data/tulu_v2_unfiltered_data_dedup.jsonl \
+        --eval_dataset $dataset \
+        --index_path sentence_embedding_based/gtrt5base_train_reps.pt \
+        --save_dir sentence_embedding_based_${dataset}/ \
+        --batch_size 1 \
+        --model_name_or_path sentence-transformers/gtr-t5-base
+done
+```
+
+**Perplexity**
+
+We follow [CCDS](https://arxiv.org/abs/2410.16208) and support selection based on top-ppl (data points with highest perplexity) and mid-ppl (data points with middle perplexity).
+
+To compute the perplexity on each training sample:
+
+```bash
+python -m minimal_multitask.compute_influence_perplexity \
+    --model_name meta-llama/Llama-2-7b-hf \
+    --seed 42 \
+    --train_dataset data/training_data tulu_v2_unfiltered_data_dedup.jsonl \
+    --save_dir perplexity/ \
+    --batch_size 1 \
+```
+
+Then the selection can be done with (by default using top-ppl selection, specify --mid_ppl for mid_ppl selection):
+
+```bash
+python scripts/ppl_selection.py \
+    --ppl_scores perplexity/nlls.pkl \
+    --train_dataset data/training_data tulu_v2_unfiltered_data_dedup.jsonl \
+    --output_size 10000 \
+    --output_file_path perplexity/top_ppl_10k.json
+```
