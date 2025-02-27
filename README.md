@@ -34,6 +34,8 @@ The pipeline for this paper has four steps, described below:
 3. Train a model on the selected data.
 4. Evaluate the trained model.
 
+Below, we detail the steps when selecting and training data for the **RDS+** method. See "Other selection methods" below for how we ran baselines.
+
 ### Index creation and selection
 
 Scripts for doing indexing and selection live in `shell_scripts/core_commands/index_selection_and_creation`. I have support for a few different approaches here, but the most important one is RDS+ (see our paper for more details on this).
@@ -210,9 +212,6 @@ While RDS+ is our flagship method, we also tested a variety of other data select
 
 As mentioned above, the data selection pipeline can be viewed as indexing (scoring) -> selection -> training. Different methods prodvide differnet scoring, but the rest of the procedure is the same. Notes that some methods don't rely on validation set, therefore having slightly different pipeline.
 
-**LESS**
-
-We follow the procedure outlined in https://arxiv.org/abs/2402.04333.
 
 **Embedding**
 
@@ -257,3 +256,27 @@ python scripts/ppl_selection.py \
     --output_size 10000 \
     --output_file_path perplexity/top_ppl_10k.json
 ```
+
+**LESS**
+
+We follow the procedure outlined in [the paper](https://arxiv.org/abs/2402.04333), using the [codebase shared by the authors](https://github.com/princeton-nlp/LESS).
+
+**IFD**
+
+We use the procedure outlined in [the paper](https://arxiv.org/abs/2308.12032), using [the codebase shared by the authors](https://github.com/tianyi-lab/Cherry_LLM).
+We adjust the codebase slightly to accomodate multi-turn samples and custom chat templates.
+
+**Random**
+
+For `random-unbalanced` we simply randomly subsample with the `shuf` linux utility, e.g.:
+```bash
+sort --random-source=<(get_seeded_random 42) -R file.txt | head -k > output.jsonl
+```
+Replace `k` with the number of samples you wish to take. Credits to [this stackoverflow post](https://stackoverflow.com/questions/5914513/shuffling-lines-of-a-file-with-a-fixed-seed) for this snippet.
+
+For `random-balanced`, we provide a script:
+```bash
+python scripts/construct_downsampled_balanced.py <input_file> <output_file> --seed 42 --num_samples k
+```
+Again, set `k` to the number of samples you wish to take. This script works by sampling uniformally from the list of values in the `dataset` field of the dataset.
+If we run out of data from a given source, we divide its remaining `budget' equally among the dataset sources we have not yet exhausted.
