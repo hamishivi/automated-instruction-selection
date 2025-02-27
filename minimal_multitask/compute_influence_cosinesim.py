@@ -22,10 +22,10 @@ parser.add_argument("--index_path", type=str)
 # be careful with this one! leaks test data into train set so we can sanity check the retrieval
 parser.add_argument("--leak_test_data", action="store_true")
 parser.add_argument("--dtype", default="bf16")
-parser.add_argument("--batch_size", type=int, default=16)
+parser.add_argument("--batch_size", type=int, default=1)
 parser.add_argument("--prompt_only", action="store_true")
 parser.add_argument("--label_only", action="store_true")
-parser.add_argument("--pooling", type=str, default="none")  # none, mean, weighted_mean
+parser.add_argument("--pooling", type=str, default="weighted_mean")  # none, mean, weighted_mean
 parser.add_argument("--only_first_two", action="store_true")  # only use the first two messages
 args = parser.parse_args()
 

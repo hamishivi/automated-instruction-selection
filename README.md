@@ -61,7 +61,7 @@ for dataset in alpacafarm gsm8k_shots bbh_shots tydiqa_shots codex squad mmlu_sh
         --train_dataset data/training_data/tulu_v2_unfiltered_data_dedup.jsonl \
         --eval_dataset $dataset \
         --index_path rds_200k_exp_from_base_weighted_mean_pool/cosine_train_reps.pt \
-        --save_dir rds_200k_exp_from_base_weighted_mean_pool_${dataset}/ \
+        --save_dir rds_200k_exp_from_base_weighted_mean_pool/ \
         --batch_size 1 \
         --pooling weighted_mean
 done
