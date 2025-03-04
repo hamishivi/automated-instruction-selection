@@ -4,7 +4,7 @@
 [![Hugging Face](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-blue)](https://huggingface.co/collections/hamishivi/large-scale-data-selection-for-instruction-tuning-677d7e8ca0295426c1915930)
 
 
-This is the repository associated with the paper [Practical Large-Scale Data Selection for Instruction Tuning](https://todo).
+This is the repository associated with the paper [Practical Large-Scale Data Selection for Instruction Tuning](https://arxiv.org/abs/2503.01807).
 
 ![performance of RDS+ compared to other methods and when selecting datasets of increasing size](performance_graphic.png)
 
