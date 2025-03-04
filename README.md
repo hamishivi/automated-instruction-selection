@@ -284,3 +284,18 @@ python scripts/construct_downsampled_balanced.py <input_file> <output_file> --se
 ```
 Again, set `k` to the number of samples you wish to take. This script works by sampling uniformally from the list of values in the `dataset` field of the dataset.
 If we run out of data from a given source, we divide its remaining `budget' equally among the dataset sources we have not yet exhausted.
+
+## Citation
+
+If you find this paper or code useful, please cite us with:
+```bibtex
+@misc{ivisondata2025,
+  title={{Large-Scale Data Selection for Instruction Tuning}},
+  author={Hamish Ivison and Muru Zhang and Faeze Brahman and Pang Wei Koh and Pradeep Dasigi},
+  year={2025},
+  eprint={2503.01807},
+  archivePrefix={arXiv},
+  primaryClass={cs.CL},
+  url={https://arxiv.org/abs/2503.01807},
+ }
+```
